@@ -16,12 +16,17 @@ Quando rodado fora do repo, ele instala `git`, clona/atualiza `~/Repositories/ar
 Esse comando assume `curl` presente na instalacao padrao do Arch.
 Rode como usuario normal, nao com `sudo bash`.
 
+Se voce usa `fish`, rode:
+
+```fish
+curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh | bash
+```
+
 ## O que acontece
 
-- instala `curl` se faltar
 - grava log em `~/Backups/arch-postinstall.log`
 - grava resumo curto em `~/Backups/arch-postinstall-summary.txt`
-- verifica conectividade antes das etapas que dependem de rede
+- grava `Hostname` no resumo final
 - instala `git`
 - clona ou atualiza `~/Repositories/arch-postinstall-apps`
 - preserva a branch escolhida entre bootstrap e segunda etapa
@@ -32,8 +37,9 @@ Rode como usuario normal, nao com `sudo bash`.
 - marca checkpoint para nao atualizar mirrors de novo em reruns
 - instala os pacotes via `pacman` primeiro
 - instala `yay` se precisar
+- informa quando nao houver pacotes AUR na lista
 - instala o restante via AUR
-- repete automaticamente etapas de rede mais frageis se alguma falhar de primeira
+- repete automaticamente etapas frageis se alguma falhar de primeira
 - limpa arquivos temporarios mesmo se o script abortar
 - evita duas execucoes ao mesmo tempo com lockfile
 - instala `nodejs` e `npm` via `pacman`
@@ -43,10 +49,11 @@ Rode como usuario normal, nao com `sudo bash`.
 - marca checkpoint para nao repetir a configuracao do Codex CLI em reruns
 - instala `github-cli` e `openssh`
 - cria a chave SSH se nao existir
-- autentica no GitHub com `gh` no Zen Browser, se ele estiver instalado
-- apaga as chaves SSH atuais do GitHub
-- envia a chave SSH nova para o GitHub
-- mantem a chave nova antes de remover as antigas
+- autentica no GitHub com `gh`, abrindo o navegador padrao
+- copia automaticamente o codigo do device flow para a area de transferencia
+- renova o scope `admin:public_key` se precisar para gerenciar chaves SSH
+- envia a chave SSH para o GitHub com titulo fixo `abslove`
+- mantem a chave atual antes de remover as antigas, se `REPLACE_GITHUB_SSH_KEYS=1`
 - pula a parte do GitHub se a autenticacao falhar
 - marca checkpoint para nao repetir a configuracao SSH do GitHub em reruns
 - pode abrir ChatGPT, tres abas do GitHub e YouTube no Zen Browser, se voce habilitar
@@ -57,7 +64,8 @@ Rode como usuario normal, nao com `sudo bash`.
 ## O que vai pedir interacao
 
 - senha do `sudo`
-- login no GitHub via `gh auth login`, no final, abrindo no Zen Browser se ele estiver instalado
+- login no GitHub via `gh auth login`, no final, abrindo no navegador padrao
+- autorizacao extra do `gh auth refresh` se faltar o scope `admin:public_key`
 - eventualmente algum prompt raro de pacote do AUR
 
 ## Opcionais
@@ -100,6 +108,7 @@ shellcheck install.sh
 
 Edite `config/packages.txt` para mudar a lista.
 Se existir `config/packages-extra.txt`, ele tambem sera carregado.
+Se ele nao existir, o script registra isso no log e segue normalmente.
 
 Se nao houver helper AUR instalado, o script instala `yay`. Se ja existir `paru` ou `yay`, ele reutiliza o helper encontrado.
 O script instala `reflector` e atualiza a mirrorlist antes do `pacman -Syu`.

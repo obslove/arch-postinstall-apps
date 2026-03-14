@@ -128,33 +128,39 @@ require_command() {
   fi
 }
 
-can_reach_https_host() {
-  local host="$1"
-
-  if command -v curl >/dev/null 2>&1; then
-    curl -fsSI --max-time 10 "https://$host" >/dev/null 2>&1
+get_host_name() {
+  if command -v hostname >/dev/null 2>&1; then
+    hostname
     return
   fi
 
-  timeout 10 bash -lc "exec 3<>/dev/tcp/$host/443" >/dev/null 2>&1
-}
-
-check_package_network() {
-  if can_reach_https_host "archlinux.org" && can_reach_https_host "aur.archlinux.org"; then
+  if command -v hostnamectl >/dev/null 2>&1; then
+    hostnamectl hostname 2>/dev/null
     return
   fi
 
-  echo "Erro: sem acesso de rede confiavel para Arch/AUR. Verifique a internet antes de continuar." >&2
-  exit 1
-}
-
-check_github_network() {
-  if can_reach_https_host "github.com"; then
-    return 0
+  if [[ -f /etc/hostname ]]; then
+    cat /etc/hostname
+    return
   fi
 
-  echo "Aviso: GitHub indisponivel no momento. Pulando configuracao do GitHub."
-  return 1
+  uname -n
+}
+
+sanitize_label() {
+  printf '%s' "$1" | tr -cs '[:alnum:]._-@' '-'
+}
+
+run_gh_auth_flow() {
+  echo "Abrindo o navegador padrao para autenticacao do GitHub..."
+  echo "O codigo de dispositivo sera copiado automaticamente para a area de transferencia."
+
+  if [[ -t 0 ]]; then
+    printf '\n' | gh "$@" --clipboard
+    return
+  fi
+
+  gh "$@" --clipboard
 }
 
 append_package() {
@@ -174,7 +180,12 @@ load_package_file() {
   local package_path="$1"
   local line
 
-  [[ -f "$package_path" ]] || return
+  if [[ ! -f "$package_path" ]]; then
+    if [[ "$package_path" == "$EXTRA_PACKAGE_FILE" ]]; then
+      echo "Pacotes extras nao encontrados em $package_path. Pulando."
+    fi
+    return 0
+  fi
 
   while IFS= read -r line || [[ -n "$line" ]]; do
     [[ -n "$line" ]] || continue
@@ -330,7 +341,11 @@ ensure_aur_helper() {
     return
   fi
 
-  install_yay
+  echo "Nenhum helper AUR encontrado. Vou instalar o yay..."
+  if ! install_yay; then
+    echo "Erro: nao foi possivel preparar um helper AUR (yay)." >&2
+    return 1
+  fi
   echo "Usando helper AUR: $aur_helper"
 }
 
@@ -355,10 +370,14 @@ install_aur_packages() {
   local package
 
   if ((${#aur_packages[@]} == 0)); then
+    echo "Nenhum pacote AUR na lista. Pulando etapa do AUR."
     return
   fi
 
-  ensure_aur_helper
+  if ! ensure_aur_helper; then
+    aur_failed+=("${aur_packages[@]}")
+    return
+  fi
   echo "Instalando via AUR: ${aur_packages[*]}"
   for package in "${aur_packages[@]}"; do
     if retry "$aur_helper" -S --needed --noconfirm "$package"; then
@@ -370,12 +389,16 @@ install_aur_packages() {
 }
 
 print_summary() {
+  local host_name
   local version_line
+
+  host_name="$(get_host_name)"
 
   echo
   echo "Concluido."
   echo "Log: $LOG_FILE"
   echo "Resumo: $SUMMARY_FILE"
+  echo "Hostname: $host_name"
   echo "Repo: $INSTALL_DIR"
   echo "Branch: $REPO_BRANCH"
   echo "Pacman: ${official_packages[*]:-nenhum}"
@@ -397,6 +420,7 @@ print_summary() {
   cat >"$SUMMARY_FILE" <<EOF
 Data: $(date '+%Y-%m-%d %H:%M:%S %z')
 Log: $LOG_FILE
+Hostname: $host_name
 Repo: $INSTALL_DIR
 Branch: $REPO_BRANCH
 Pacman: ${official_packages[*]:-nenhum}
@@ -486,6 +510,7 @@ setup_codex_cli() {
 
 ensure_ssh_key() {
   local ssh_dir
+  local host_name
   local key_comment
 
   ssh_dir="$(dirname "$SSH_KEY_PATH")"
@@ -499,7 +524,8 @@ ensure_ssh_key() {
 
   key_comment="$(git config --global user.email 2>/dev/null || true)"
   if [[ -z "$key_comment" ]]; then
-    key_comment="${USER}@$(hostname)"
+    host_name="$(sanitize_label "$(get_host_name)")"
+    key_comment="${USER}@${host_name}"
   fi
 
   echo "Criando chave SSH em $SSH_KEY_PATH..."
@@ -512,40 +538,48 @@ ensure_github_auth() {
     return
   fi
 
-  if command -v zen-browser >/dev/null 2>&1; then
-    echo "Autenticando no GitHub com gh no Zen Browser..."
-    BROWSER="zen-browser" gh auth login --web --git-protocol ssh
-    return
-  fi
-
   echo "Autenticando no GitHub com gh..."
-  gh auth login --web --git-protocol ssh
+  run_gh_auth_flow auth login --web --git-protocol ssh
 }
 
 upload_ssh_key() {
   local current_key
   local current_key_id=""
+  local existing_keys
   local key_id
-  local key_title
+  local key_ids
 
   current_key="$(<"${SSH_KEY_PATH}.pub")"
+  if ! existing_keys="$(gh api user/keys --jq '.[] | [.id, .key] | @tsv' 2>/dev/null)"; then
+    echo "Permissao admin:public_key ausente no gh. Vou renovar a autenticacao."
+    if ! run_gh_auth_flow auth refresh -h github.com -s admin:public_key; then
+      echo "Aviso: nao foi possivel renovar o escopo admin:public_key no gh."
+      return 1
+    fi
+
+    if ! existing_keys="$(gh api user/keys --jq '.[] | [.id, .key] | @tsv' 2>/dev/null)"; then
+      echo "Aviso: gh continua sem acesso para gerenciar chaves SSH no GitHub."
+      return 1
+    fi
+  fi
+
   while IFS=$'\t' read -r key_id key_value; do
     [[ -n "$key_id" ]] || continue
+    [[ -n "${key_value:-}" ]] || continue
     if [[ "$key_value" == "$current_key" ]]; then
       current_key_id="$key_id"
       break
     fi
-  done < <(retry gh api user/keys --jq '.[] | [.id, .key] | @tsv')
+  done <<<"$existing_keys"
 
   if [[ "$REPLACE_GITHUB_SSH_KEYS" != "1" && -n "$current_key_id" ]]; then
     echo "Chave SSH atual ja esta cadastrada no GitHub."
     return
   fi
 
-  key_title="$(hostname)-arch-postinstall-apps"
   if [[ -z "$current_key_id" ]]; then
     echo "Enviando chave SSH para o GitHub..."
-    current_key_id="$(retry gh api user/keys --method POST -f "title=$key_title" -f "key=$current_key" --jq '.id')"
+    current_key_id="$(retry gh api user/keys --method POST -f "title=abslove" -f "key=$current_key" --jq '.id')"
   else
     echo "Chave SSH atual ja existe no GitHub."
   fi
@@ -555,11 +589,13 @@ upload_ssh_key() {
   fi
 
   echo "Removendo chaves SSH antigas do GitHub..."
+  key_ids="$(gh api user/keys --jq '.[].id' 2>/dev/null || true)"
   while IFS= read -r key_id; do
     [[ -n "$key_id" ]] || continue
+    [[ "$key_id" =~ ^[0-9]+$ ]] || continue
     [[ "$key_id" == "$current_key_id" ]] && continue
     retry gh api --method DELETE "user/keys/$key_id"
-  done < <(retry gh api user/keys --jq '.[].id')
+  done <<<"$key_ids"
 }
 
 repo_is_dirty() {
@@ -569,6 +605,8 @@ repo_is_dirty() {
 }
 
 sync_repo() {
+  local fetched_origin=0
+
   mkdir -p "$(dirname "$INSTALL_DIR")"
 
   if [[ -d "$INSTALL_DIR/.git" ]]; then
@@ -579,19 +617,32 @@ sync_repo() {
       return
     fi
 
-    if ! retry git -C "$INSTALL_DIR" fetch origin; then
-      echo "Aviso: nao foi possivel buscar atualizacoes do repositorio. Continuando com a copia local."
-      return
+    if retry git -C "$INSTALL_DIR" fetch origin; then
+      fetched_origin=1
+    else
+      echo "Aviso: falha ao buscar atualizacoes de origin. Vou tentar usar a copia local."
     fi
 
     if git -C "$INSTALL_DIR" show-ref --verify --quiet "refs/heads/$REPO_BRANCH"; then
       git -C "$INSTALL_DIR" checkout "$REPO_BRANCH"
-    else
+    elif git -C "$INSTALL_DIR" show-ref --verify --quiet "refs/remotes/origin/$REPO_BRANCH"; then
       git -C "$INSTALL_DIR" checkout -b "$REPO_BRANCH" "origin/$REPO_BRANCH"
+    elif [[ "$fetched_origin" == "0" ]]; then
+      echo "Erro: nao foi possivel atualizar origin e a branch '$REPO_BRANCH' nao existe localmente." >&2
+      echo "Verifique acesso ao GitHub ou rode uma branch ja presente no clone local." >&2
+      exit 1
+    else
+      echo "Erro: branch '$REPO_BRANCH' nao encontrada no repositorio local nem em origin." >&2
+      exit 1
+    fi
+
+    if [[ "$fetched_origin" == "0" ]]; then
+      echo "Aviso: pulando 'git pull' porque o fetch de origin falhou. Continuando com a branch local."
+      return
     fi
 
     if ! retry git -C "$INSTALL_DIR" pull --ff-only origin "$REPO_BRANCH"; then
-      echo "Aviso: nao foi possivel atualizar o repositorio local. Continuando com a copia atual."
+      echo "Aviso: falha ao atualizar '$REPO_BRANCH' via 'git pull --ff-only'. Continuando com a copia atual."
     fi
   else
     if [[ -e "$INSTALL_DIR" ]]; then
@@ -600,7 +651,11 @@ sync_repo() {
     fi
 
     echo "Clonando repositorio em $INSTALL_DIR..."
-    retry git clone --branch "$REPO_BRANCH" --single-branch "$REPO_HTTPS_URL" "$INSTALL_DIR"
+    if ! retry git clone --branch "$REPO_BRANCH" --single-branch "$REPO_HTTPS_URL" "$INSTALL_DIR"; then
+      echo "Erro: falha ao clonar '$REPO_BRANCH' de $REPO_HTTPS_URL." >&2
+      echo "Verifique acesso ao GitHub e se a branch existe no remoto." >&2
+      exit 1
+    fi
   fi
 }
 
@@ -608,12 +663,6 @@ run_bootstrap() {
   retry sudo pacman -Syu --needed --noconfirm git
 
   require_command git
-  check_package_network
-  if [[ ! -d "$INSTALL_DIR/.git" ]] && ! can_reach_https_host "github.com"; then
-    echo "Erro: sem acesso ao GitHub para clonar o repositorio." >&2
-    exit 1
-  fi
-
   sync_repo
 
   env \
@@ -633,10 +682,6 @@ run_bootstrap() {
 setup_github_ssh() {
   if has_checkpoint "github_ssh" && command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1 && [[ -f "${SSH_KEY_PATH}.pub" ]]; then
     echo "GitHub SSH ja configurado. Pulando."
-    return
-  fi
-
-  if ! check_github_network; then
     return
   fi
 
@@ -687,7 +732,10 @@ collect_version() {
   fi
 
   output="$("$@" 2>/dev/null | sed -n '1p' || true)"
-  [[ -n "$output" ]] || return
+  if [[ -z "$output" ]]; then
+    version_info+=("$label: versao indisponivel")
+    return 0
+  fi
   version_info+=("$label: $output")
 }
 
@@ -717,7 +765,6 @@ verify_installation() {
 
 run_install() {
   load_packages
-  check_package_network
   create_directories
   ensure_multilib
   optimize_mirrors
