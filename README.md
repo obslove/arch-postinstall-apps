@@ -20,6 +20,12 @@ Com `wget`:
 wget -qO- https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/bootstrap.sh | bash
 ```
 
+Outra branch:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/bootstrap.sh | bash -s -- sua-branch
+```
+
 ## Uso
 
 ```bash
@@ -37,6 +43,8 @@ bash install.sh
 - `zen-browser-bin` (AUR)
 
 Edite `packages.txt` para mudar a lista.
+
+Se `reflector` estiver instalado, o script atualiza a mirrorlist antes do `pacman -Syu`.
 
 ## Estrutura
 

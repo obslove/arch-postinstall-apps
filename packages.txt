@@ -1,8 +1,11 @@
 # Uma linha por pacote. Linhas vazias e linhas com # sao ignoradas.
+# Oficiais:
 code
 discord
 git
-google-chrome
 spotify-launcher
 steam
+
+# AUR:
+google-chrome
 zen-browser-bin

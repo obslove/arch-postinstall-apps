@@ -7,6 +7,8 @@ PACKAGE_FILE="$SCRIPT_DIR/../packages.txt"
 
 official_packages=()
 aur_packages=()
+official_failed=()
+aur_failed=()
 packages=()
 
 require_command() {
@@ -62,6 +64,16 @@ ensure_multilib() {
   sudo pacman -Syy --noconfirm
 }
 
+optimize_mirrors() {
+  if ! command -v reflector >/dev/null 2>&1; then
+    echo "reflector nao encontrado. Mantendo mirrorlist atual."
+    return
+  fi
+
+  echo "Atualizando mirrorlist com reflector..."
+  sudo reflector --latest 20 --protocol https --sort rate --save /etc/pacman.d/mirrorlist
+}
+
 split_packages() {
   local package
 
@@ -102,35 +114,71 @@ ensure_aur_helper() {
   echo "yay"
 }
 
-main() {
-  local aur_helper
+install_official_packages() {
+  local package
 
+  if ((${#official_packages[@]} == 0)); then
+    return
+  fi
+
+  echo "Instalando via pacman: ${official_packages[*]}"
+  for package in "${official_packages[@]}"; do
+    if sudo pacman -S --needed --noconfirm "$package"; then
+      continue
+    fi
+
+    official_failed+=("$package")
+  done
+}
+
+install_aur_packages() {
+  local aur_helper
+  local package
+
+  if ((${#aur_packages[@]} == 0)); then
+    return
+  fi
+
+  aur_helper="$(ensure_aur_helper | tail -n 1)"
+  echo "Instalando via AUR: ${aur_packages[*]}"
+  for package in "${aur_packages[@]}"; do
+    if "$aur_helper" -S --needed --noconfirm "$package"; then
+      continue
+    fi
+
+    aur_failed+=("$package")
+  done
+}
+
+print_summary() {
+  echo
+  echo "Concluido."
+  echo "Pacman: ${official_packages[*]:-nenhum}"
+  echo "AUR: ${aur_packages[*]:-nenhum}"
+  echo "Falhas pacman: ${official_failed[*]:-nenhuma}"
+  echo "Falhas AUR: ${aur_failed[*]:-nenhuma}"
+}
+
+main() {
   ensure_arch
   require_command pacman
   require_command sudo
   load_packages
   ensure_multilib
+  optimize_mirrors
 
   echo "Atualizando o sistema..."
   sudo pacman -Syu --noconfirm
 
   split_packages
 
-  if ((${#official_packages[@]} > 0)); then
-    echo "Instalando via pacman: ${official_packages[*]}"
-    sudo pacman -S --needed --noconfirm "${official_packages[@]}"
-  fi
+  install_official_packages
+  install_aur_packages
+  print_summary
 
-  if ((${#aur_packages[@]} > 0)); then
-    aur_helper="$(ensure_aur_helper | tail -n 1)"
-    echo "Instalando via AUR: ${aur_packages[*]}"
-    "$aur_helper" -S --needed --noconfirm "${aur_packages[@]}"
+  if ((${#official_failed[@]} > 0 || ${#aur_failed[@]} > 0)); then
+    exit 1
   fi
-
-  echo
-  echo "Concluido."
-  echo "Pacman: ${official_packages[*]:-nenhum}"
-  echo "AUR: ${aur_packages[*]:-nenhum}"
 }
 
 main "$@"
