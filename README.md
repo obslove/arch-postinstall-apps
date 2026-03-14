@@ -31,6 +31,7 @@ Quando rodado fora do repo, ele instala `git`, clona/atualiza `~/Repositories/ar
 - autentica no GitHub com `gh` no Zen Browser, se ele estiver instalado
 - apaga as chaves SSH atuais do GitHub
 - envia a chave SSH nova para o GitHub
+- abre ChatGPT, tres abas do GitHub e YouTube no Zen Browser, se ele estiver instalado
 
 ## O que vai pedir interacao
 

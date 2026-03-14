@@ -180,6 +180,25 @@ print_summary() {
   echo "Falhas AUR: ${aur_failed[*]:-nenhuma}"
 }
 
+open_zen_tabs() {
+  if ! command -v zen-browser >/dev/null 2>&1; then
+    return
+  fi
+
+  if [[ -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; then
+    return
+  fi
+
+  echo "Abrindo abas no Zen Browser..."
+  nohup zen-browser \
+    "https://chatgpt.com/" \
+    "https://github.com/" \
+    "https://github.com/obslove" \
+    "https://github.com/obslove/arch-postinstall-apps" \
+    "https://www.youtube.com/" \
+    >/dev/null 2>&1 &
+}
+
 create_directories() {
   echo "Criando pastas base..."
   mkdir -p \
@@ -303,6 +322,7 @@ run_install() {
   install_official_packages
   install_aur_packages
   setup_github_ssh
+  open_zen_tabs
   print_summary
 
   if ((${#official_failed[@]} > 0 || ${#aur_failed[@]} > 0)); then
