@@ -32,24 +32,24 @@ Execute como usuário normal, não com `sudo bash`.
 
 ## O que acontece
 
+- evita duas execuções simultâneas com lockfile
 - grava log em `~/Backups/arch-postinstall.log`
-- grava resumo em `~/Backups/arch-postinstall-summary.txt`
-- grava `Hostname` no resumo final
 - instala `git`
 - clona ou atualiza `~/Repositories/arch-postinstall-apps`
 - preserva a branch escolhida entre o bootstrap e a segunda etapa
 - cria `~/Backups`, `~/Dots`, `~/Pictures/Wallpapers`, `~/Pictures/Screenshots`, `~/Videos`, `~/Projects` e `~/Codex`
-- instala `reflector`
+- carrega `config/packages.txt` e, se existir, `config/packages-extra.txt`
 - habilita `multilib`, se necessário
+- instala `reflector`
 - restaura a mirrorlist anterior se o `reflector` falhar
 - marca checkpoint para não atualizar a mirrorlist novamente em reruns
+- atualiza o sistema com `pacman -Syu`
+- separa a lista entre pacotes oficiais e pacotes AUR
 - instala os pacotes via `pacman` primeiro
-- instala `yay` se precisar
 - informa quando não houver pacotes AUR na lista
+- instala `yay` se precisar
 - instala o restante via AUR
 - repete automaticamente etapas mais frágeis se alguma falhar na primeira tentativa
-- limpa arquivos temporários mesmo se o script abortar
-- evita duas execuções simultâneas com lockfile
 - instala `nodejs` e `npm` via `pacman`
 - roda `npm config set prefix "$HOME/Codex"`
 - instala `@openai/codex` no prefix `~/Codex`
@@ -67,7 +67,10 @@ Execute como usuário normal, não com `sudo bash`.
 - pode abrir ChatGPT, três abas do GitHub e YouTube no Zen Browser, se você habilitar
 - marca checkpoint para não reabrir as abas do Zen em reruns
 - verifica no fim se os binários principais realmente ficaram disponíveis
+- grava resumo em `~/Backups/arch-postinstall-summary.txt`
+- grava `Hostname` no resumo final
 - grava no resumo a branch usada, o caminho do repositório e as versões principais
+- limpa arquivos temporários mesmo se o script abortar
 
 ## O que exige interação
 
