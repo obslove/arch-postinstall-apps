@@ -27,14 +27,14 @@ Quando rodado fora do repo, ele instala `git`, `github-cli` e `openssh`, clona/a
 - instala `yay` se precisar
 - instala o restante via AUR
 - cria a chave SSH se nao existir
-- autentica no GitHub com `gh`
+- autentica no GitHub com `gh` no Zen Browser, se ele estiver instalado
 - apaga as chaves SSH atuais do GitHub
 - envia a chave SSH nova para o GitHub
 
 ## O que vai pedir interacao
 
 - senha do `sudo`
-- login no GitHub via `gh auth login`, no final
+- login no GitHub via `gh auth login`, no final, abrindo no Zen Browser se ele estiver instalado
 - eventualmente algum prompt raro de pacote do AUR
 
 ## Uso local

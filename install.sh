@@ -219,6 +219,12 @@ ensure_github_auth() {
     return
   fi
 
+  if command -v zen-browser >/dev/null 2>&1; then
+    echo "Autenticando no GitHub com gh no Zen Browser..."
+    BROWSER="zen-browser" gh auth login --web --git-protocol ssh
+    return
+  fi
+
   echo "Autenticando no GitHub com gh..."
   gh auth login --web --git-protocol ssh
 }
