@@ -1,0 +1,128 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+packages=(
+  code
+  discord
+  git
+  google-chrome
+  spotify-launcher
+  steam
+  zen-browser-bin
+)
+
+official_packages=()
+aur_packages=()
+
+require_command() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    echo "Erro: comando obrigatorio nao encontrado: $1" >&2
+    exit 1
+  fi
+}
+
+ensure_arch() {
+  if [[ ! -f /etc/arch-release ]]; then
+    echo "Erro: este script foi feito para Arch Linux." >&2
+    exit 1
+  fi
+}
+
+multilib_enabled() {
+  awk '
+    /^[[:space:]]*\[multilib\][[:space:]]*$/ { in_multilib=1; next }
+    /^[[:space:]]*\[/ { in_multilib=0 }
+    in_multilib && /^[[:space:]]*Include = \/etc\/pacman.d\/mirrorlist[[:space:]]*$/ { found=1 }
+    END { exit(found ? 0 : 1) }
+  ' /etc/pacman.conf
+}
+
+ensure_multilib() {
+  if multilib_enabled; then
+    echo "multilib ja esta habilitado."
+    return
+  fi
+
+  echo "Habilitando multilib..."
+  sudo cp /etc/pacman.conf "/etc/pacman.conf.bak.$(date +%Y%m%d%H%M%S)"
+  sudo sed -i \
+    '/^[[:space:]]*#\[multilib\][[:space:]]*$/,/^[[:space:]]*#Include = \/etc\/pacman.d\/mirrorlist[[:space:]]*$/ s/^[[:space:]]*#//' \
+    /etc/pacman.conf
+  sudo pacman -Syy --noconfirm
+}
+
+split_packages() {
+  local package
+
+  official_packages=()
+  aur_packages=()
+
+  for package in "${packages[@]}"; do
+    if pacman -Si "$package" >/dev/null 2>&1; then
+      official_packages+=("$package")
+    else
+      aur_packages+=("$package")
+    fi
+  done
+}
+
+ensure_aur_helper() {
+  if command -v paru >/dev/null 2>&1; then
+    echo "Usando paru."
+    echo "paru"
+    return
+  fi
+
+  if command -v yay >/dev/null 2>&1; then
+    echo "Usando yay."
+    echo "yay"
+    return
+  fi
+
+  local tmp_dir
+  tmp_dir="$(mktemp -d)"
+
+  echo "Instalando yay..."
+  sudo pacman -S --needed --noconfirm base-devel git
+  git clone https://aur.archlinux.org/yay.git "$tmp_dir/yay"
+  (
+    cd "$tmp_dir/yay"
+    makepkg -si --noconfirm
+  )
+  rm -rf "$tmp_dir"
+  echo "yay"
+}
+
+main() {
+  local aur_helper
+
+  ensure_arch
+  require_command pacman
+  require_command sudo
+
+  ensure_multilib
+
+  echo "Sincronizando pacman..."
+  sudo pacman -Sy --noconfirm
+
+  split_packages
+
+  if ((${#official_packages[@]} > 0)); then
+    echo "Instalando via pacman: ${official_packages[*]}"
+    sudo pacman -Syu --needed --noconfirm "${official_packages[@]}"
+  fi
+
+  if ((${#aur_packages[@]} > 0)); then
+    aur_helper="$(ensure_aur_helper | tail -n 1)"
+    echo "Instalando via AUR: ${aur_packages[*]}"
+    "$aur_helper" -S --needed --noconfirm "${aur_packages[@]}"
+  fi
+
+  echo
+  echo "Concluido."
+  echo "Pacman: ${official_packages[*]:-nenhum}"
+  echo "AUR: ${aur_packages[*]:-nenhum}"
+}
+
+main "$@"
