@@ -13,13 +13,6 @@ command -v curl >/dev/null 2>&1 || sudo pacman -Syu --needed --noconfirm curl
 curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh | bash
 ```
 
-Outra branch:
-
-```bash
-command -v curl >/dev/null 2>&1 || sudo pacman -Syu --needed --noconfirm curl
-curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh | bash -s -- sua-branch
-```
-
 Quando rodado fora do repo, ele instala `git` e `openssh`, cria a chave SSH, clona/atualiza `~/Repositories/arch-postinstall-apps` e continua dali.
 
 ## Uso local
