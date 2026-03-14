@@ -13,16 +13,12 @@ command -v curl >/dev/null 2>&1 || sudo pacman -Syu --needed --noconfirm curl
 curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh | bash
 ```
 
-Quando rodado fora do repo, ele instala `git`, `github-cli` e `openssh`, autentica com `gh`, cria a chave SSH, apaga as chaves SSH existentes no GitHub, envia a chave nova, clona/atualiza `~/Repositories/arch-postinstall-apps` e continua dali.
+Quando rodado fora do repo, ele instala `git`, `github-cli` e `openssh`, clona/atualiza `~/Repositories/arch-postinstall-apps` e continua dali.
 
 ## O que acontece
 
 - instala `curl` se faltar
 - instala `git`, `github-cli` e `openssh`
-- cria a chave SSH se nao existir
-- autentica no GitHub com `gh`
-- apaga as chaves SSH atuais do GitHub
-- envia a chave SSH nova para o GitHub
 - clona ou atualiza `~/Repositories/arch-postinstall-apps`
 - cria `~/Backups`, `~/Dots`, `~/Pictures/Wallpapers`, `~/Pictures/Screenshots`, `~/Videos` e `~/Codex`
 - instala `reflector`
@@ -30,11 +26,15 @@ Quando rodado fora do repo, ele instala `git`, `github-cli` e `openssh`, autenti
 - instala os pacotes via `pacman` primeiro
 - instala `yay` se precisar
 - instala o restante via AUR
+- cria a chave SSH se nao existir
+- autentica no GitHub com `gh`
+- apaga as chaves SSH atuais do GitHub
+- envia a chave SSH nova para o GitHub
 
 ## O que vai pedir interacao
 
 - senha do `sudo`
-- login no GitHub via `gh auth login`
+- login no GitHub via `gh auth login`, no final
 - eventualmente algum prompt raro de pacote do AUR
 
 ## Uso local

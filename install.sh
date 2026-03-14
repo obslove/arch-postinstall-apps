@@ -4,6 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 PACKAGE_FILE="$SCRIPT_DIR/config/packages.txt"
+REPO_HTTPS_URL="https://github.com/obslove/arch-postinstall-apps.git"
 REPO_SSH_URL="git@github.com:obslove/arch-postinstall-apps.git"
 REPO_NAME="obslove/arch-postinstall-apps"
 REPO_BRANCH="${1:-${BOOTSTRAP_BRANCH:-main}}"
@@ -242,7 +243,7 @@ sync_repo() {
 
   if [[ -d "$INSTALL_DIR/.git" ]]; then
     echo "Atualizando repositorio em $INSTALL_DIR..."
-    git -C "$INSTALL_DIR" remote set-url origin "$REPO_SSH_URL"
+    git -C "$INSTALL_DIR" remote set-url origin "$REPO_HTTPS_URL"
     git -C "$INSTALL_DIR" fetch origin
     if git -C "$INSTALL_DIR" show-ref --verify --quiet "refs/heads/$REPO_BRANCH"; then
       git -C "$INSTALL_DIR" checkout "$REPO_BRANCH"
@@ -257,25 +258,27 @@ sync_repo() {
     fi
 
     echo "Clonando repositorio em $INSTALL_DIR..."
-    gh repo clone "$REPO_NAME" "$INSTALL_DIR" -- --branch "$REPO_BRANCH" --single-branch
+    git clone --branch "$REPO_BRANCH" --single-branch "$REPO_HTTPS_URL" "$INSTALL_DIR"
   fi
-
-  git -C "$INSTALL_DIR" remote set-url origin "$REPO_SSH_URL"
 }
 
 run_bootstrap() {
   sudo pacman -Syu --needed --noconfirm git github-cli openssh
 
-  require_command gh
   require_command git
+  sync_repo
+
+  exec bash "$INSTALL_DIR/install.sh"
+}
+
+setup_github_ssh() {
+  require_command gh
   require_command ssh-keygen
 
   ensure_ssh_key
   ensure_github_auth
   upload_ssh_key
-  sync_repo
-
-  exec bash "$INSTALL_DIR/install.sh"
+  git -C "$SCRIPT_DIR" remote set-url origin "$REPO_SSH_URL"
 }
 
 run_install() {
@@ -291,6 +294,7 @@ run_install() {
 
   install_official_packages
   install_aur_packages
+  setup_github_ssh
   print_summary
 
   if ((${#official_failed[@]} > 0 || ${#aur_failed[@]} > 0)); then
