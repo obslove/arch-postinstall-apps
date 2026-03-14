@@ -60,7 +60,7 @@ Execute como usuário normal, não com `sudo bash`.
 - autentica no GitHub com `gh`, abrindo o navegador padrão
 - copia automaticamente o código do device flow para a área de transferência
 - renova o scope `admin:public_key` se precisar para gerenciar chaves SSH
-- envia a chave SSH para o GitHub com título fixo `abslove`
+- envia a chave SSH para o GitHub com título fixo `obslove`
 - mantém a chave atual antes de remover as antigas, se `REPLACE_GITHUB_SSH_KEYS=1`
 - pula a parte do GitHub se a autenticação falhar
 - marca checkpoint para não repetir a configuração SSH do GitHub em reruns

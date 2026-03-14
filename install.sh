@@ -579,7 +579,7 @@ upload_ssh_key() {
 
   if [[ -z "$current_key_id" ]]; then
     echo "Enviando chave SSH para o GitHub..."
-    current_key_id="$(retry gh api user/keys --method POST -f "title=abslove" -f "key=$current_key" --jq '.id')"
+    current_key_id="$(retry gh api user/keys --method POST -f "title=obslove" -f "key=$current_key" --jq '.id')"
   else
     echo "Chave SSH atual ja existe no GitHub."
   fi
