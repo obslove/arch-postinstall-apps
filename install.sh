@@ -10,6 +10,11 @@ REPO_SSH_URL="git@github.com:obslove/arch-postinstall-apps.git"
 REPO_BRANCH="${1:-${BOOTSTRAP_BRANCH:-main}}"
 INSTALL_DIR="${BOOTSTRAP_DIR:-$HOME/Repositories/arch-postinstall-apps}"
 SSH_KEY_PATH="${SSH_KEY_PATH:-$HOME/.ssh/id_ed25519}"
+LOG_FILE="${POSTINSTALL_LOG_FILE:-$HOME/Backups/arch-postinstall.log}"
+OPEN_ZEN_TABS="${OPEN_ZEN_TABS:-0}"
+REPLACE_GITHUB_SSH_KEYS="${REPLACE_GITHUB_SSH_KEYS:-1}"
+RETRY_ATTEMPTS="${RETRY_ATTEMPTS:-3}"
+RETRY_DELAY_SECONDS="${RETRY_DELAY_SECONDS:-5}"
 
 official_packages=()
 aur_packages=()
@@ -17,6 +22,42 @@ official_failed=()
 aur_failed=()
 packages=()
 aur_helper=""
+
+init_logging() {
+  if [[ "${POSTINSTALL_LOG_INITIALIZED:-0}" == "1" ]]; then
+    return
+  fi
+
+  mkdir -p "$(dirname "$LOG_FILE")"
+  touch "$LOG_FILE"
+
+  export POSTINSTALL_LOG_FILE="$LOG_FILE"
+  export POSTINSTALL_LOG_INITIALIZED=1
+
+  exec > >(tee -a "$LOG_FILE") 2>&1
+  echo "Log: $LOG_FILE"
+}
+
+retry() {
+  local attempt=1
+  local exit_code=0
+
+  while true; do
+    if "$@"; then
+      return 0
+    else
+      exit_code=$?
+    fi
+
+    if (( attempt >= RETRY_ATTEMPTS )); then
+      return "$exit_code"
+    fi
+
+    echo "Tentativa $attempt/$RETRY_ATTEMPTS falhou. Repetindo em ${RETRY_DELAY_SECONDS}s: $*"
+    sleep "$RETRY_DELAY_SECONDS"
+    attempt=$((attempt + 1))
+  done
+}
 
 require_command() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -74,11 +115,11 @@ ensure_multilib() {
 optimize_mirrors() {
   if ! command -v reflector >/dev/null 2>&1; then
     echo "Instalando reflector..."
-    sudo pacman -S --needed --noconfirm reflector
+    retry sudo pacman -S --needed --noconfirm reflector
   fi
 
   echo "Atualizando mirrorlist com reflector..."
-  sudo reflector --latest 20 --protocol https --sort rate --save /etc/pacman.d/mirrorlist
+  retry sudo reflector --latest 20 --protocol https --sort rate --save /etc/pacman.d/mirrorlist
 }
 
 split_packages() {
@@ -111,19 +152,32 @@ detect_aur_helper() {
   return 1
 }
 
+build_yay() {
+  local yay_dir="$1"
+
+  (
+    cd "$yay_dir"
+    makepkg -si --noconfirm
+  )
+}
+
 install_yay() {
   local tmp_dir
+  local status=0
+
   tmp_dir="$(mktemp -d)"
 
   echo "Instalando yay..."
-  sudo pacman -S --needed --noconfirm base-devel git
-  git clone https://aur.archlinux.org/yay.git "$tmp_dir/yay"
-  (
-    cd "$tmp_dir/yay"
-    makepkg -si --noconfirm
-  )
+  retry sudo pacman -S --needed --noconfirm base-devel git
+  retry git clone https://aur.archlinux.org/yay.git "$tmp_dir/yay"
+  if retry build_yay "$tmp_dir/yay"; then
+    aur_helper="yay"
+  else
+    status=$?
+  fi
+
   rm -rf "$tmp_dir"
-  aur_helper="yay"
+  return "$status"
 }
 
 ensure_aur_helper() {
@@ -145,7 +199,7 @@ install_official_packages() {
 
   echo "Instalando via pacman: ${official_packages[*]}"
   for package in "${official_packages[@]}"; do
-    if sudo pacman -S --needed --noconfirm "$package"; then
+    if retry sudo pacman -S --needed --noconfirm "$package"; then
       continue
     fi
 
@@ -163,7 +217,7 @@ install_aur_packages() {
   ensure_aur_helper
   echo "Instalando via AUR: ${aur_packages[*]}"
   for package in "${aur_packages[@]}"; do
-    if "$aur_helper" -S --needed --noconfirm "$package"; then
+    if retry "$aur_helper" -S --needed --noconfirm "$package"; then
       continue
     fi
 
@@ -174,6 +228,7 @@ install_aur_packages() {
 print_summary() {
   echo
   echo "Concluido."
+  echo "Log: $LOG_FILE"
   echo "Pacman: ${official_packages[*]:-nenhum}"
   echo "AUR: ${aur_packages[*]:-nenhum}"
   echo "Falhas pacman: ${official_failed[*]:-nenhuma}"
@@ -181,6 +236,10 @@ print_summary() {
 }
 
 open_zen_tabs() {
+  if [[ "$OPEN_ZEN_TABS" != "1" ]]; then
+    return
+  fi
+
   if ! command -v zen-browser >/dev/null 2>&1; then
     return
   fi
@@ -224,8 +283,10 @@ setup_codex_cli() {
     printf '\nexport PATH="$HOME/Codex/bin:$PATH"\n' >>"$BASHRC_FILE"
   fi
 
+  export PATH="$HOME/Codex/bin:$PATH"
+
   echo "Instalando Codex CLI em $HOME/Codex..."
-  npm install -g @openai/codex
+  retry npm install -g @openai/codex
 }
 
 ensure_ssh_key() {
@@ -267,14 +328,21 @@ ensure_github_auth() {
 }
 
 upload_ssh_key() {
+  local current_key
   local key_id
   local key_title
 
-  echo "Removendo chaves SSH existentes do GitHub..."
-  while IFS= read -r key_id; do
-    [[ -n "$key_id" ]] || continue
-    gh api --method DELETE "user/keys/$key_id"
-  done < <(gh api user/keys --jq '.[].id')
+  current_key="$(<"${SSH_KEY_PATH}.pub")"
+  if [[ "$REPLACE_GITHUB_SSH_KEYS" == "1" ]]; then
+    echo "Removendo chaves SSH existentes do GitHub..."
+    while IFS= read -r key_id; do
+      [[ -n "$key_id" ]] || continue
+      gh api --method DELETE "user/keys/$key_id"
+    done < <(gh api user/keys --jq '.[].id')
+  elif gh api user/keys --jq '.[].key' | grep -qxF "$current_key"; then
+    echo "Chave SSH atual ja esta cadastrada no GitHub."
+    return
+  fi
 
   key_title="$(hostname)-arch-postinstall-apps"
   echo "Enviando chave SSH para o GitHub..."
@@ -287,13 +355,13 @@ sync_repo() {
   if [[ -d "$INSTALL_DIR/.git" ]]; then
     echo "Atualizando repositorio em $INSTALL_DIR..."
     git -C "$INSTALL_DIR" remote set-url origin "$REPO_HTTPS_URL"
-    git -C "$INSTALL_DIR" fetch origin
+    retry git -C "$INSTALL_DIR" fetch origin
     if git -C "$INSTALL_DIR" show-ref --verify --quiet "refs/heads/$REPO_BRANCH"; then
       git -C "$INSTALL_DIR" checkout "$REPO_BRANCH"
     else
       git -C "$INSTALL_DIR" checkout -b "$REPO_BRANCH" "origin/$REPO_BRANCH"
     fi
-    git -C "$INSTALL_DIR" pull --ff-only origin "$REPO_BRANCH"
+    retry git -C "$INSTALL_DIR" pull --ff-only origin "$REPO_BRANCH"
   else
     if [[ -e "$INSTALL_DIR" ]]; then
       echo "Erro: $INSTALL_DIR ja existe e nao e um repositorio git." >&2
@@ -301,12 +369,12 @@ sync_repo() {
     fi
 
     echo "Clonando repositorio em $INSTALL_DIR..."
-    git clone --branch "$REPO_BRANCH" --single-branch "$REPO_HTTPS_URL" "$INSTALL_DIR"
+    retry git clone --branch "$REPO_BRANCH" --single-branch "$REPO_HTTPS_URL" "$INSTALL_DIR"
   fi
 }
 
 run_bootstrap() {
-  sudo pacman -Syu --needed --noconfirm git
+  retry sudo pacman -Syu --needed --noconfirm git
 
   require_command git
   sync_repo
@@ -315,15 +383,28 @@ run_bootstrap() {
 }
 
 setup_github_ssh() {
-  sudo pacman -S --needed --noconfirm github-cli openssh
+  if ! retry sudo pacman -S --needed --noconfirm github-cli openssh; then
+    echo "Aviso: nao foi possivel instalar github-cli/openssh. Pulando configuracao do GitHub."
+    return
+  fi
 
-  require_command gh
-  require_command ssh-keygen
+  if ! command -v gh >/dev/null 2>&1 || ! command -v ssh-keygen >/dev/null 2>&1; then
+    echo "Aviso: github-cli ou ssh-keygen indisponivel. Pulando configuracao do GitHub."
+    return
+  fi
 
   ensure_ssh_key
-  ensure_github_auth
-  upload_ssh_key
-  git -C "$SCRIPT_DIR" remote set-url origin "$REPO_SSH_URL"
+  if ! ensure_github_auth; then
+    echo "Aviso: autenticacao do GitHub nao concluida. Pulando upload da chave SSH."
+    return
+  fi
+
+  if ! upload_ssh_key; then
+    echo "Aviso: nao foi possivel enviar a chave SSH para o GitHub."
+    return
+  fi
+
+  git -C "$SCRIPT_DIR" remote set-url origin "$REPO_SSH_URL" || true
 }
 
 run_install() {
@@ -333,7 +414,7 @@ run_install() {
   optimize_mirrors
 
   echo "Atualizando o sistema..."
-  sudo pacman -Syu --noconfirm
+  retry sudo pacman -Syu --noconfirm
 
   split_packages
 
@@ -352,6 +433,7 @@ run_install() {
 }
 
 main() {
+  init_logging
   ensure_arch
   require_command pacman
   require_command sudo

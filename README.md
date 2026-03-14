@@ -18,6 +18,7 @@ Quando rodado fora do repo, ele instala `git`, clona/atualiza `~/Repositories/ar
 ## O que acontece
 
 - instala `curl` se faltar
+- grava log em `~/Backups/arch-postinstall.log`
 - instala `git`
 - clona ou atualiza `~/Repositories/arch-postinstall-apps`
 - cria `~/Backups`, `~/Dots`, `~/Pictures/Wallpapers`, `~/Pictures/Screenshots`, `~/Videos` e `~/Codex`
@@ -26,6 +27,7 @@ Quando rodado fora do repo, ele instala `git`, clona/atualiza `~/Repositories/ar
 - instala os pacotes via `pacman` primeiro
 - instala `yay` se precisar
 - instala o restante via AUR
+- repete automaticamente etapas de rede mais frageis se alguma falhar de primeira
 - instala `nodejs` e `npm` via `pacman`
 - roda `npm config set prefix "$HOME/Codex"`
 - instala `@openai/codex` no prefix `~/Codex`
@@ -35,13 +37,26 @@ Quando rodado fora do repo, ele instala `git`, clona/atualiza `~/Repositories/ar
 - autentica no GitHub com `gh` no Zen Browser, se ele estiver instalado
 - apaga as chaves SSH atuais do GitHub
 - envia a chave SSH nova para o GitHub
-- abre ChatGPT, tres abas do GitHub e YouTube no Zen Browser, se ele estiver instalado
+- pula a parte do GitHub se a autenticacao falhar
+- pode abrir ChatGPT, tres abas do GitHub e YouTube no Zen Browser, se voce habilitar
 
 ## O que vai pedir interacao
 
 - senha do `sudo`
 - login no GitHub via `gh auth login`, no final, abrindo no Zen Browser se ele estiver instalado
 - eventualmente algum prompt raro de pacote do AUR
+
+## Opcionais
+
+- `REPLACE_GITHUB_SSH_KEYS=0`: preserva as chaves SSH atuais do GitHub
+- `OPEN_ZEN_TABS=1`: abre ChatGPT, GitHub e YouTube no Zen Browser no fim
+
+Se quiser usar essas opcoes no bootstrap, exporte antes:
+
+```bash
+export REPLACE_GITHUB_SSH_KEYS=1
+export OPEN_ZEN_TABS=1
+```
 
 ## Uso local
 
