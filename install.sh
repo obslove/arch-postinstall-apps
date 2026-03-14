@@ -22,12 +22,28 @@ official_failed=()
 aur_failed=()
 packages=()
 aur_helper=""
+cleanup_paths=()
+verified_commands=()
+missing_commands=()
 
 ensure_not_root() {
   if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
     echo "Erro: rode este script como usuario normal, nao como root." >&2
     exit 1
   fi
+}
+
+register_cleanup_path() {
+  cleanup_paths+=("$1")
+}
+
+cleanup() {
+  local path
+
+  for path in "${cleanup_paths[@]}"; do
+    [[ -n "$path" ]] || continue
+    rm -rf "$path"
+  done
 }
 
 init_logging() {
@@ -71,6 +87,35 @@ require_command() {
     echo "Erro: comando obrigatorio nao encontrado: $1" >&2
     exit 1
   fi
+}
+
+can_reach_https_host() {
+  local host="$1"
+
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSI --max-time 10 "https://$host" >/dev/null 2>&1
+    return
+  fi
+
+  timeout 10 bash -lc "exec 3<>/dev/tcp/$host/443" >/dev/null 2>&1
+}
+
+check_package_network() {
+  if can_reach_https_host "archlinux.org" && can_reach_https_host "aur.archlinux.org"; then
+    return
+  fi
+
+  echo "Erro: sem acesso de rede confiavel para Arch/AUR. Verifique a internet antes de continuar." >&2
+  exit 1
+}
+
+check_github_network() {
+  if can_reach_https_host "github.com"; then
+    return 0
+  fi
+
+  echo "Aviso: GitHub indisponivel no momento. Pulando configuracao do GitHub."
+  return 1
 }
 
 ensure_arch() {
@@ -138,6 +183,8 @@ optimize_mirrors() {
   echo "Atualizando mirrorlist com reflector..."
   backup_mirrorlist="$(mktemp)"
   temp_mirrorlist="$(mktemp)"
+  register_cleanup_path "$backup_mirrorlist"
+  register_cleanup_path "$temp_mirrorlist"
 
   sudo cp "$current_mirrorlist" "$backup_mirrorlist"
   if retry reflector --latest 20 --protocol https --sort rate --save "$temp_mirrorlist"; then
@@ -196,6 +243,7 @@ install_yay() {
   local status=0
 
   tmp_dir="$(mktemp -d)"
+  register_cleanup_path "$tmp_dir"
 
   echo "Instalando yay..."
   retry sudo pacman -S --needed --noconfirm base-devel git
@@ -263,6 +311,8 @@ print_summary() {
   echo "AUR: ${aur_packages[*]:-nenhum}"
   echo "Falhas pacman: ${official_failed[*]:-nenhuma}"
   echo "Falhas AUR: ${aur_failed[*]:-nenhuma}"
+  echo "Verificados: ${verified_commands[*]:-nenhum}"
+  echo "Ausentes: ${missing_commands[*]:-nenhum}"
 }
 
 open_zen_tabs() {
@@ -372,7 +422,7 @@ upload_ssh_key() {
       current_key_id="$key_id"
       break
     fi
-  done < <(gh api user/keys --jq '.[] | [.id, .key] | @tsv')
+  done < <(retry gh api user/keys --jq '.[] | [.id, .key] | @tsv')
 
   if [[ "$REPLACE_GITHUB_SSH_KEYS" != "1" && -n "$current_key_id" ]]; then
     echo "Chave SSH atual ja esta cadastrada no GitHub."
@@ -382,7 +432,7 @@ upload_ssh_key() {
   key_title="$(hostname)-arch-postinstall-apps"
   if [[ -z "$current_key_id" ]]; then
     echo "Enviando chave SSH para o GitHub..."
-    current_key_id="$(gh api user/keys --method POST -f "title=$key_title" -f "key=$current_key" --jq '.id')"
+    current_key_id="$(retry gh api user/keys --method POST -f "title=$key_title" -f "key=$current_key" --jq '.id')"
   else
     echo "Chave SSH atual ja existe no GitHub."
   fi
@@ -395,8 +445,8 @@ upload_ssh_key() {
   while IFS= read -r key_id; do
     [[ -n "$key_id" ]] || continue
     [[ "$key_id" == "$current_key_id" ]] && continue
-    gh api --method DELETE "user/keys/$key_id"
-  done < <(gh api user/keys --jq '.[].id')
+    retry gh api --method DELETE "user/keys/$key_id"
+  done < <(retry gh api user/keys --jq '.[].id')
 }
 
 repo_is_dirty() {
@@ -438,6 +488,12 @@ sync_repo() {
 }
 
 run_bootstrap() {
+  check_package_network
+  if ! can_reach_https_host "github.com"; then
+    echo "Erro: sem acesso ao GitHub para clonar o repositorio." >&2
+    exit 1
+  fi
+
   retry sudo pacman -Syu --needed --noconfirm git
 
   require_command git
@@ -456,6 +512,10 @@ run_bootstrap() {
 }
 
 setup_github_ssh() {
+  if ! check_github_network; then
+    return
+  fi
+
   if ! retry sudo pacman -S --needed --noconfirm github-cli openssh; then
     echo "Aviso: nao foi possivel instalar github-cli/openssh. Pulando configuracao do GitHub."
     return
@@ -480,7 +540,36 @@ setup_github_ssh() {
   git -C "$SCRIPT_DIR" remote set-url origin "$REPO_SSH_URL" || true
 }
 
+verify_command() {
+  local label="$1"
+  local command_name="$2"
+
+  if command -v "$command_name" >/dev/null 2>&1; then
+    verified_commands+=("$label")
+    return
+  fi
+
+  missing_commands+=("$label")
+}
+
+verify_installation() {
+  verified_commands=()
+  missing_commands=()
+
+  verify_command "code" "code"
+  verify_command "discord" "discord"
+  verify_command "gh" "gh"
+  verify_command "google-chrome-stable" "google-chrome-stable"
+  verify_command "node" "node"
+  verify_command "npm" "npm"
+  verify_command "codex" "codex"
+  verify_command "ssh-keygen" "ssh-keygen"
+  verify_command "steam" "steam"
+  verify_command "zen-browser" "zen-browser"
+}
+
 run_install() {
+  check_package_network
   load_packages
   create_directories
   ensure_multilib
@@ -501,12 +590,14 @@ run_install() {
 
   setup_codex_cli
   setup_github_ssh
+  verify_installation
   print_summary
   open_zen_tabs
 }
 
 main() {
   init_logging
+  trap cleanup EXIT
   ensure_not_root
   ensure_arch
   require_command pacman

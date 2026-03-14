@@ -20,6 +20,7 @@ Rode como usuario normal, nao com `sudo bash`.
 
 - instala `curl` se faltar
 - grava log em `~/Backups/arch-postinstall.log`
+- verifica conectividade antes das etapas que dependem de rede
 - instala `git`
 - clona ou atualiza `~/Repositories/arch-postinstall-apps`
 - preserva a branch escolhida entre bootstrap e segunda etapa
@@ -31,6 +32,7 @@ Rode como usuario normal, nao com `sudo bash`.
 - instala `yay` se precisar
 - instala o restante via AUR
 - repete automaticamente etapas de rede mais frageis se alguma falhar de primeira
+- limpa arquivos temporarios mesmo se o script abortar
 - instala `nodejs` e `npm` via `pacman`
 - roda `npm config set prefix "$HOME/Codex"`
 - instala `@openai/codex` no prefix `~/Codex`
@@ -43,6 +45,7 @@ Rode como usuario normal, nao com `sudo bash`.
 - mantem a chave nova antes de remover as antigas
 - pula a parte do GitHub se a autenticacao falhar
 - pode abrir ChatGPT, tres abas do GitHub e YouTube no Zen Browser, se voce habilitar
+- verifica no fim se os binarios principais realmente ficaram disponiveis
 
 ## O que vai pedir interacao
 
