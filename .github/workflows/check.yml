@@ -13,8 +13,8 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y shellcheck
       - name: Bash syntax
         run: |
-          bash -n bootstrap.sh
-          bash -n install.sh
-          bash -n bin/postinstall-apps
+          bash -n scripts/bootstrap.sh
+          bash -n scripts/install.sh
+          bash -n scripts/postinstall-apps
       - name: Shellcheck
-        run: shellcheck bootstrap.sh install.sh bin/postinstall-apps
+        run: shellcheck scripts/bootstrap.sh scripts/install.sh scripts/postinstall-apps
