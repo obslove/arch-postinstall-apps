@@ -213,12 +213,14 @@ ensure_github_auth() {
 }
 
 upload_ssh_key() {
+  local key_id
   local key_title
 
-  if gh api user/keys --jq '.[].key' 2>/dev/null | grep -qxF "$(cat "${SSH_KEY_PATH}.pub")"; then
-    echo "Chave SSH ja cadastrada no GitHub."
-    return
-  fi
+  echo "Removendo chaves SSH existentes do GitHub..."
+  while IFS= read -r key_id; do
+    [[ -n "$key_id" ]] || continue
+    gh api --method DELETE "user/keys/$key_id"
+  done < <(gh api user/keys --jq '.[].id')
 
   key_title="$(hostname)-arch-postinstall-apps"
   echo "Enviando chave SSH para o GitHub..."

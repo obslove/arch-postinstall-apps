@@ -13,7 +13,7 @@ command -v curl >/dev/null 2>&1 || sudo pacman -Syu --needed --noconfirm curl
 curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh | bash
 ```
 
-Quando rodado fora do repo, ele instala `git`, `github-cli` e `openssh`, autentica com `gh`, cria e envia a chave SSH para o GitHub, clona/atualiza `~/Repositories/arch-postinstall-apps` e continua dali.
+Quando rodado fora do repo, ele instala `git`, `github-cli` e `openssh`, autentica com `gh`, cria a chave SSH, apaga as chaves SSH existentes no GitHub, envia a chave nova, clona/atualiza `~/Repositories/arch-postinstall-apps` e continua dali.
 
 ## O que acontece
 
@@ -21,7 +21,8 @@ Quando rodado fora do repo, ele instala `git`, `github-cli` e `openssh`, autenti
 - instala `git`, `github-cli` e `openssh`
 - cria a chave SSH se nao existir
 - autentica no GitHub com `gh`
-- envia a chave SSH para o GitHub
+- apaga as chaves SSH atuais do GitHub
+- envia a chave SSH nova para o GitHub
 - clona ou atualiza `~/Repositories/arch-postinstall-apps`
 - habilita `multilib` se precisar
 - instala os pacotes via `pacman` primeiro
