@@ -49,6 +49,7 @@ Se existir `config/packages-extra.txt`, ele também será carregado.
 Se esse arquivo não existir, o script registra isso no log e segue normalmente.
 
 O instalador respeita a ordem definida em `config/packages.txt`.
+Os repositórios usados pelo script ficam em `~/Repositories`.
 Se não houver helper AUR instalado, o script instala `yay` antes do primeiro pacote AUR.
 Se `paru` ou `yay` já existirem, o script reutiliza o helper encontrado.
 O item `codex` não é um pacote do sistema: ele executa o setup do Codex CLI.
@@ -60,8 +61,9 @@ O script instala `reflector` e atualiza a mirrorlist antes do `pacman -Syu`.
 - grava log em `~/Backups/arch-postinstall.log`
 - instala `git`
 - clona ou atualiza `~/Repositories/arch-postinstall-apps`
+- mantém clones auxiliares, como `yay`, dentro de `~/Repositories`
 - preserva a branch escolhida entre o bootstrap e a segunda etapa
-- cria `~/Backups`, `~/Dots`, `~/Pictures/Wallpapers`, `~/Pictures/Screenshots`, `~/Videos`, `~/Projects` e `~/Codex`
+- cria `~/Backups`, `~/Codex`, `~/Dots`, `~/Pictures/Wallpapers`, `~/Pictures/Screenshots`, `~/Projects`, `~/Repositories` e `~/Videos`
 - carrega `config/packages.txt` e, se existir, `config/packages-extra.txt`
 - habilita `multilib`, se necessário
 - instala `reflector`
