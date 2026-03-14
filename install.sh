@@ -72,8 +72,8 @@ ensure_multilib() {
 
 optimize_mirrors() {
   if ! command -v reflector >/dev/null 2>&1; then
-    echo "reflector nao encontrado. Mantendo mirrorlist atual."
-    return
+    echo "Instalando reflector..."
+    sudo pacman -S --needed --noconfirm reflector
   fi
 
   echo "Atualizando mirrorlist com reflector..."

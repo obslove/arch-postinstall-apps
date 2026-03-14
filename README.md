@@ -25,6 +25,7 @@ Quando rodado fora do repo, ele instala `git`, `github-cli` e `openssh`, autenti
 - envia a chave SSH nova para o GitHub
 - clona ou atualiza `~/Repositories/arch-postinstall-apps`
 - cria `~/Backups`, `~/Dots`, `~/Pictures/Wallpapers`, `~/Pictures/Screenshots`, `~/Videos` e `~/Codex`
+- instala `reflector`
 - habilita `multilib` se precisar
 - instala os pacotes via `pacman` primeiro
 - instala `yay` se precisar
@@ -55,7 +56,7 @@ bash install.sh
 Edite `config/packages.txt` para mudar a lista.
 
 Se nao houver helper AUR instalado, o script instala `yay`. Se ja existir `paru` ou `yay`, ele reutiliza o helper encontrado.
-Se `reflector` estiver instalado, o script atualiza a mirrorlist antes do `pacman -Syu`.
+O script instala `reflector` e atualiza a mirrorlist antes do `pacman -Syu`.
 
 ## Estrutura
 
