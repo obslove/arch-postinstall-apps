@@ -24,6 +24,7 @@ Quando rodado fora do repo, ele instala `git`, `github-cli` e `openssh`, autenti
 - apaga as chaves SSH atuais do GitHub
 - envia a chave SSH nova para o GitHub
 - clona ou atualiza `~/Repositories/arch-postinstall-apps`
+- cria `~/Backups`, `~/Dots`, `~/Pictures/Wallpapers`, `~/Pictures/Screenshots`, `~/Videos` e `~/Codex`
 - habilita `multilib` se precisar
 - instala os pacotes via `pacman` primeiro
 - instala `yay` se precisar

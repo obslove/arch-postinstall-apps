@@ -179,6 +179,17 @@ print_summary() {
   echo "Falhas AUR: ${aur_failed[*]:-nenhuma}"
 }
 
+create_directories() {
+  echo "Criando pastas base..."
+  mkdir -p \
+    "$HOME/Backups" \
+    "$HOME/Codex" \
+    "$HOME/Dots" \
+    "$HOME/Pictures/Screenshots" \
+    "$HOME/Pictures/Wallpapers" \
+    "$HOME/Videos"
+}
+
 ensure_ssh_key() {
   local ssh_dir
   local key_comment
@@ -269,6 +280,7 @@ run_bootstrap() {
 
 run_install() {
   load_packages
+  create_directories
   ensure_multilib
   optimize_mirrors
 
