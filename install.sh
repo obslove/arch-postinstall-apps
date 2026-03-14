@@ -270,6 +270,8 @@ create_directories() {
 }
 
 setup_codex_cli() {
+  local codex_path_line="export PATH=\"\$HOME/Codex/bin:\$PATH\""
+
   require_command npm
 
   echo "Configurando npm prefix em $HOME/Codex..."
@@ -279,8 +281,8 @@ setup_codex_cli() {
     touch "$BASHRC_FILE"
   fi
 
-  if ! grep -qxF "export PATH=\"\$HOME/Codex/bin:\$PATH\"" "$BASHRC_FILE"; then
-    printf '\nexport PATH="%s/bin:$PATH"\n' "\$HOME/Codex" >>"$BASHRC_FILE"
+  if ! grep -qxF "$codex_path_line" "$BASHRC_FILE"; then
+    printf '\n%s\n' "$codex_path_line" >>"$BASHRC_FILE"
   fi
 
   export PATH="$HOME/Codex/bin:$PATH"
