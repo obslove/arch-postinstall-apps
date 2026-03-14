@@ -30,6 +30,30 @@ Quando executado fora do repositório, o script instala `git`, clona ou atualiza
 Esse comando assume que `curl` esteja disponível na instalação padrão do Arch.
 Execute como usuário normal, não com `sudo bash`.
 
+## Pacotes
+
+- `zen-browser-bin` (AUR)
+- `google-chrome` (AUR)
+- `git`
+- `shellcheck`
+- `nodejs`
+- `npm`
+- `codex` (setup especial)
+- `code`
+- `discord`
+- `spotify-launcher`
+- `steam`
+
+Edite `config/packages.txt` para alterar a lista principal.
+Se existir `config/packages-extra.txt`, ele também será carregado.
+Se esse arquivo não existir, o script registra isso no log e segue normalmente.
+
+O instalador respeita a ordem definida em `config/packages.txt`.
+Se não houver helper AUR instalado, o script instala `yay` antes do primeiro pacote AUR.
+Se `paru` ou `yay` já existirem, o script reutiliza o helper encontrado.
+O item `codex` não é um pacote do sistema: ele executa o setup do Codex CLI.
+O script instala `reflector` e atualiza a mirrorlist antes do `pacman -Syu`.
+
 ## O que acontece
 
 - evita duas execuções simultâneas com lockfile
@@ -143,30 +167,6 @@ shellcheck install.sh
 bash -n install.sh
 shellcheck install.sh
 ```
-
-## Pacotes
-
-- `zen-browser-bin` (AUR)
-- `google-chrome` (AUR)
-- `git`
-- `shellcheck`
-- `nodejs`
-- `npm`
-- `codex` (setup especial)
-- `code`
-- `discord`
-- `spotify-launcher`
-- `steam`
-
-Edite `config/packages.txt` para alterar a lista principal.
-Se existir `config/packages-extra.txt`, ele também será carregado.
-Se esse arquivo não existir, o script registra isso no log e segue normalmente.
-
-O instalador respeita a ordem definida em `config/packages.txt`.
-Se não houver helper AUR instalado, o script instala `yay` antes do primeiro pacote AUR.
-Se `paru` ou `yay` já existirem, o script reutiliza o helper encontrado.
-O item `codex` não é um pacote do sistema: ele executa o setup do Codex CLI.
-O script instala `reflector` e atualiza a mirrorlist antes do `pacman -Syu`.
 
 ## Estrutura
 
