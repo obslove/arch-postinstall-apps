@@ -339,14 +339,16 @@ run_install() {
 
   install_official_packages
   install_aur_packages
+
+  if ((${#official_failed[@]} > 0 || ${#aur_failed[@]} > 0)); then
+    print_summary
+    exit 1
+  fi
+
   setup_codex_cli
   setup_github_ssh
   print_summary
   open_zen_tabs
-
-  if ((${#official_failed[@]} > 0 || ${#aur_failed[@]} > 0)); then
-    exit 1
-  fi
 }
 
 main() {
