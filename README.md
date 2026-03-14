@@ -4,34 +4,34 @@ Setup simples de apps para Arch Linux.
 
 ## About
 
-Instala seus apps no Arch com `pacman` primeiro e AUR depois.
+Um script so para bootstrap e pos-instalacao no Arch.
 
 ## Instalacao rapida
 
 Se tiver `curl`:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/scripts/bootstrap.sh | bash
+curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh | bash
 ```
 
 Se tiver `wget`:
 
 ```bash
-wget -qO- https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/scripts/bootstrap.sh | bash
+wget -qO- https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh | bash
 ```
 
 Outra branch:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/scripts/bootstrap.sh | bash -s -- sua-branch
+curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh | bash -s -- sua-branch
 ```
 
-O bootstrap clona o repo em `~/Repositories/arch-postinstall-apps`, cria `~/.ssh/id_ed25519` se ela nao existir e roda o instalador.
+Quando rodado fora do repo, ele instala `git` e `openssh`, cria a chave SSH, clona/atualiza `~/Repositories/arch-postinstall-apps` e continua dali.
 
 ## Uso local
 
 ```bash
-bash scripts/install.sh
+bash install.sh
 ```
 
 ## Pacotes
@@ -53,7 +53,5 @@ Se `reflector` estiver instalado, o script atualiza a mirrorlist antes do `pacma
 
 ```text
 config/packages.txt
-scripts/bootstrap.sh
-scripts/install.sh
-scripts/postinstall-apps
+install.sh
 ```

@@ -2,8 +2,13 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PACKAGE_FILE="$SCRIPT_DIR/../config/packages.txt"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+PACKAGE_FILE="$SCRIPT_DIR/config/packages.txt"
+REPO_HTTPS_URL="https://github.com/obslove/arch-postinstall-apps.git"
+REPO_SSH_URL="git@github.com:obslove/arch-postinstall-apps.git"
+REPO_BRANCH="${1:-${BOOTSTRAP_BRANCH:-main}}"
+INSTALL_DIR="${BOOTSTRAP_DIR:-$HOME/Repositories/arch-postinstall-apps}"
+SSH_KEY_PATH="${SSH_KEY_PATH:-$HOME/.ssh/id_ed25519}"
 
 official_packages=()
 aur_packages=()
@@ -174,10 +179,76 @@ print_summary() {
   echo "Falhas AUR: ${aur_failed[*]:-nenhuma}"
 }
 
-main() {
-  ensure_arch
-  require_command pacman
-  require_command sudo
+ensure_ssh_key() {
+  local ssh_dir
+  local key_comment
+
+  ssh_dir="$(dirname "$SSH_KEY_PATH")"
+  mkdir -p "$ssh_dir"
+  chmod 700 "$ssh_dir"
+
+  if [[ -f "$SSH_KEY_PATH" ]]; then
+    echo "Chave SSH ja existe em $SSH_KEY_PATH"
+    return
+  fi
+
+  key_comment="$(git config --global user.email 2>/dev/null || true)"
+  if [[ -z "$key_comment" ]]; then
+    key_comment="${USER}@$(hostname)"
+  fi
+
+  echo "Criando chave SSH em $SSH_KEY_PATH..."
+  ssh-keygen -t ed25519 -C "$key_comment" -f "$SSH_KEY_PATH" -N ""
+}
+
+sync_repo() {
+  mkdir -p "$(dirname "$INSTALL_DIR")"
+
+  if [[ -d "$INSTALL_DIR/.git" ]]; then
+    echo "Atualizando repositorio em $INSTALL_DIR..."
+    git -C "$INSTALL_DIR" remote set-url origin "$REPO_HTTPS_URL"
+    git -C "$INSTALL_DIR" fetch origin
+    if git -C "$INSTALL_DIR" show-ref --verify --quiet "refs/heads/$REPO_BRANCH"; then
+      git -C "$INSTALL_DIR" checkout "$REPO_BRANCH"
+    else
+      git -C "$INSTALL_DIR" checkout -b "$REPO_BRANCH" "origin/$REPO_BRANCH"
+    fi
+    git -C "$INSTALL_DIR" pull --ff-only origin "$REPO_BRANCH"
+  else
+    if [[ -e "$INSTALL_DIR" ]]; then
+      echo "Erro: $INSTALL_DIR ja existe e nao e um repositorio git." >&2
+      exit 1
+    fi
+
+    echo "Clonando repositorio em $INSTALL_DIR..."
+    git clone --branch "$REPO_BRANCH" --single-branch "$REPO_HTTPS_URL" "$INSTALL_DIR"
+  fi
+
+  git -C "$INSTALL_DIR" remote set-url origin "$REPO_SSH_URL"
+}
+
+print_ssh_instructions() {
+  echo
+  echo "Chave publica SSH:"
+  cat "${SSH_KEY_PATH}.pub"
+  echo
+  echo "Adicione essa chave no GitHub para usar o remoto SSH."
+}
+
+run_bootstrap() {
+  sudo pacman -Syu --needed --noconfirm git openssh
+
+  require_command git
+  require_command ssh-keygen
+
+  ensure_ssh_key
+  sync_repo
+  print_ssh_instructions
+
+  exec bash "$INSTALL_DIR/install.sh"
+}
+
+run_install() {
   load_packages
   ensure_multilib
   optimize_mirrors
@@ -193,6 +264,18 @@ main() {
 
   if ((${#official_failed[@]} > 0 || ${#aur_failed[@]} > 0)); then
     exit 1
+  fi
+}
+
+main() {
+  ensure_arch
+  require_command pacman
+  require_command sudo
+
+  if [[ -f "$PACKAGE_FILE" ]]; then
+    run_install
+  else
+    run_bootstrap
   fi
 }
 
