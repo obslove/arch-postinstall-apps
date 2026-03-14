@@ -279,8 +279,8 @@ setup_codex_cli() {
     touch "$BASHRC_FILE"
   fi
 
-  if ! grep -qxF 'export PATH="$HOME/Codex/bin:$PATH"' "$BASHRC_FILE"; then
-    printf '\nexport PATH="$HOME/Codex/bin:$PATH"\n' >>"$BASHRC_FILE"
+  if ! grep -qxF "export PATH=\"\$HOME/Codex/bin:\$PATH\"" "$BASHRC_FILE"; then
+    printf '\nexport PATH="%s/bin:$PATH"\n' "\$HOME/Codex" >>"$BASHRC_FILE"
   fi
 
   export PATH="$HOME/Codex/bin:$PATH"
