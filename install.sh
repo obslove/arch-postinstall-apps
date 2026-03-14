@@ -9,7 +9,10 @@ BASHRC_FILE="$HOME/.bashrc"
 REPO_HTTPS_URL="https://github.com/obslove/arch-postinstall-apps.git"
 REPO_SSH_URL="git@github.com:obslove/arch-postinstall-apps.git"
 REPO_BRANCH="${1:-${BOOTSTRAP_BRANCH:-main}}"
-INSTALL_DIR="${BOOTSTRAP_DIR:-$HOME/Repositories/arch-postinstall-apps}"
+REPOSITORIES_DIR="${REPOSITORIES_DIR:-$HOME/Repositories}"
+INSTALL_DIR="${BOOTSTRAP_DIR:-$REPOSITORIES_DIR/arch-postinstall-apps}"
+YAY_REPO_DIR="${YAY_REPO_DIR:-$REPOSITORIES_DIR/yay}"
+YAY_SNAPSHOT_URL="${YAY_SNAPSHOT_URL:-https://aur.archlinux.org/cgit/aur.git/snapshot/yay.tar.gz}"
 SSH_KEY_PATH="${SSH_KEY_PATH:-$HOME/.ssh/id_ed25519}"
 LOG_FILE="${POSTINSTALL_LOG_FILE:-$HOME/Backups/arch-postinstall.log}"
 SUMMARY_FILE="${POSTINSTALL_SUMMARY_FILE:-$HOME/Backups/arch-postinstall-summary.txt}"
@@ -20,6 +23,7 @@ RETRY_DELAY_SECONDS="${RETRY_DELAY_SECONDS:-5}"
 STATE_DIR="${POSTINSTALL_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/arch-postinstall-apps}"
 LOCK_DIR="${POSTINSTALL_LOCK_DIR:-$STATE_DIR/lock}"
 LOCK_HELD="${POSTINSTALL_LOCK_HELD:-0}"
+SYSTEM_UPDATED="${POSTINSTALL_SYSTEM_UPDATED:-0}"
 
 official_packages=()
 aur_packages=()
@@ -301,22 +305,41 @@ build_yay() {
 }
 
 install_yay() {
-  local tmp_dir
+  local archive_file
   local status=0
 
-  tmp_dir="$(mktemp -d)"
-  register_cleanup_path "$tmp_dir"
-
   echo "Instalando yay..."
-  retry sudo pacman -S --needed --noconfirm base-devel git
-  retry git clone https://aur.archlinux.org/yay.git "$tmp_dir/yay"
-  if retry build_yay "$tmp_dir/yay"; then
-    aur_helper="yay"
-  else
-    status=$?
+  mkdir -p "$REPOSITORIES_DIR"
+  retry sudo pacman -S --needed --noconfirm base-devel
+  require_command curl
+  require_command tar
+
+  archive_file="$(mktemp)"
+  register_cleanup_path "$archive_file"
+
+  echo "Baixando snapshot do yay..."
+  if ! retry curl -fsSL "$YAY_SNAPSHOT_URL" -o "$archive_file"; then
+    return 1
   fi
 
-  rm -rf "$tmp_dir"
+  rm -rf "$YAY_REPO_DIR"
+  echo "Extraindo snapshot do yay em $YAY_REPO_DIR..."
+  if ! tar -xzf "$archive_file" -C "$REPOSITORIES_DIR"; then
+    return 1
+  fi
+
+  if [[ -d "$REPOSITORIES_DIR/yay" && "$REPOSITORIES_DIR/yay" != "$YAY_REPO_DIR" ]]; then
+    mv "$REPOSITORIES_DIR/yay" "$YAY_REPO_DIR"
+  fi
+
+  if (( status == 0 )); then
+    if retry build_yay "$YAY_REPO_DIR"; then
+      aur_helper="yay"
+    else
+      status=$?
+    fi
+  fi
+
   return "$status"
 }
 
@@ -474,6 +497,7 @@ create_directories() {
     "$HOME/Pictures/Screenshots" \
     "$HOME/Pictures/Wallpapers" \
     "$HOME/Projects" \
+    "$REPOSITORIES_DIR" \
     "$HOME/Videos"
 }
 
@@ -668,6 +692,7 @@ run_bootstrap() {
     POSTINSTALL_LOG_FILE="$LOG_FILE" \
     POSTINSTALL_LOG_INITIALIZED=1 \
     POSTINSTALL_LOCK_HELD=1 \
+    POSTINSTALL_SYSTEM_UPDATED=1 \
     OPEN_ZEN_TABS="$OPEN_ZEN_TABS" \
     REPLACE_GITHUB_SSH_KEYS="$REPLACE_GITHUB_SSH_KEYS" \
     RETRY_ATTEMPTS="$RETRY_ATTEMPTS" \
@@ -766,8 +791,12 @@ run_install() {
   ensure_multilib
   optimize_mirrors
 
-  echo "Atualizando o sistema..."
-  retry sudo pacman -Syu --noconfirm
+  if [[ "$SYSTEM_UPDATED" == "1" ]]; then
+    echo "Sistema ja atualizado no bootstrap. Pulando nova atualizacao completa."
+  else
+    echo "Atualizando o sistema..."
+    retry sudo pacman -Syu --noconfirm
+  fi
 
   install_packages_in_order
 
