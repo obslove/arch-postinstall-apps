@@ -1,14 +1,16 @@
-# Uma linha por pacote. Linhas vazias e linhas com # sao ignoradas.
-# Oficiais:
+# Uma linha por item. Linhas vazias e linhas com # sao ignoradas.
+# A ordem e respeitada pelo instalador.
+# `codex` e um item especial: ele roda o setup do Codex CLI.
+# `yay` nao entra na lista: ele e instalado automaticamente antes do primeiro pacote AUR, se necessario.
+
+zen-browser-bin
+google-chrome
+git
+shellcheck
+nodejs
+npm
+codex
 code
 discord
-git
-npm
-nodejs
-shellcheck
 spotify-launcher
 steam
-
-# AUR:
-google-chrome
-zen-browser-bin

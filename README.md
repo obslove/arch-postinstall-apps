@@ -44,17 +44,11 @@ Execute como usuário normal, não com `sudo bash`.
 - restaura a mirrorlist anterior se o `reflector` falhar
 - marca checkpoint para não atualizar a mirrorlist novamente em reruns
 - atualiza o sistema com `pacman -Syu`
-- separa a lista entre pacotes oficiais e pacotes AUR
-- instala os pacotes via `pacman` primeiro
+- segue a ordem definida em `config/packages.txt`
+- instala cada item com `pacman`, `yay` ou setup especial, conforme o tipo
+- instala `yay` automaticamente antes do primeiro pacote AUR, se necessário
 - informa quando não houver pacotes AUR na lista
-- instala `yay` se precisar
-- instala o restante via AUR
 - repete automaticamente etapas mais frágeis se alguma falhar na primeira tentativa
-- instala `nodejs` e `npm` via `pacman`
-- roda `npm config set prefix "$HOME/Codex"`
-- instala `@openai/codex` no prefix `~/Codex`
-- adiciona `~/Codex/bin` ao `PATH` no `.bashrc`
-- marca checkpoint para não repetir a configuração do Codex CLI em reruns
 - instala `github-cli` e `openssh`
 - cria a chave SSH se não existir
 - autentica no GitHub com `gh`, abrindo o navegador padrão
@@ -152,23 +146,26 @@ shellcheck install.sh
 
 ## Pacotes
 
-- `code`
-- `discord`
+- `zen-browser-bin` (AUR)
+- `google-chrome` (AUR)
 - `git`
+- `shellcheck`
 - `nodejs`
 - `npm`
-- `shellcheck`
-- `google-chrome` (AUR)
+- `codex` (setup especial)
+- `code`
+- `discord`
 - `spotify-launcher`
 - `steam`
-- `zen-browser-bin` (AUR)
 
 Edite `config/packages.txt` para alterar a lista principal.
 Se existir `config/packages-extra.txt`, ele também será carregado.
 Se esse arquivo não existir, o script registra isso no log e segue normalmente.
 
-Se não houver helper AUR instalado, o script instala `yay`.
+O instalador respeita a ordem definida em `config/packages.txt`.
+Se não houver helper AUR instalado, o script instala `yay` antes do primeiro pacote AUR.
 Se `paru` ou `yay` já existirem, o script reutiliza o helper encontrado.
+O item `codex` não é um pacote do sistema: ele executa o setup do Codex CLI.
 O script instala `reflector` e atualiza a mirrorlist antes do `pacman -Syu`.
 
 ## Estrutura

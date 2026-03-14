@@ -276,21 +276,6 @@ optimize_mirrors() {
   mark_checkpoint "mirrors"
 }
 
-split_packages() {
-  local package
-
-  official_packages=()
-  aur_packages=()
-
-  for package in "${packages[@]}"; do
-    if pacman -Si "$package" >/dev/null 2>&1; then
-      official_packages+=("$package")
-    else
-      aur_packages+=("$package")
-    fi
-  done
-}
-
 detect_aur_helper() {
   if command -v paru >/dev/null 2>&1; then
     aur_helper="paru"
@@ -349,43 +334,55 @@ ensure_aur_helper() {
   echo "Usando helper AUR: $aur_helper"
 }
 
-install_official_packages() {
+install_packages_in_order() {
   local package
+  local announced_aur_absence=0
 
-  if ((${#official_packages[@]} == 0)); then
-    return
-  fi
+  official_packages=()
+  aur_packages=()
 
-  echo "Instalando via pacman: ${official_packages[*]}"
-  for package in "${official_packages[@]}"; do
-    if retry sudo pacman -S --needed --noconfirm "$package"; then
+  for package in "${packages[@]}"; do
+    case "$package" in
+      codex)
+        echo "Configurando Codex CLI..."
+        setup_codex_cli
+        continue
+        ;;
+    esac
+
+    if pacman -Si "$package" >/dev/null 2>&1; then
+      official_packages+=("$package")
+      echo "Instalando via pacman: $package"
+      if retry sudo pacman -S --needed --noconfirm "$package"; then
+        continue
+      fi
+
+      official_failed+=("$package")
       continue
     fi
 
-    official_failed+=("$package")
-  done
-}
+    if [[ "$announced_aur_absence" == "0" && ${#aur_packages[@]} == 0 ]]; then
+      echo "Encontrado o primeiro pacote AUR na lista."
+      announced_aur_absence=1
+    fi
 
-install_aur_packages() {
-  local package
+    aur_packages+=("$package")
+    if ! ensure_aur_helper; then
+      aur_failed+=("$package")
+      continue
+    fi
 
-  if ((${#aur_packages[@]} == 0)); then
-    echo "Nenhum pacote AUR na lista. Pulando etapa do AUR."
-    return
-  fi
-
-  if ! ensure_aur_helper; then
-    aur_failed+=("${aur_packages[@]}")
-    return
-  fi
-  echo "Instalando via AUR: ${aur_packages[*]}"
-  for package in "${aur_packages[@]}"; do
+    echo "Instalando via AUR: $package"
     if retry "$aur_helper" -S --needed --noconfirm "$package"; then
       continue
     fi
 
     aur_failed+=("$package")
   done
+
+  if ((${#aur_packages[@]} == 0)); then
+    echo "Nenhum pacote AUR na lista. Pulando etapa do AUR."
+  fi
 }
 
 print_summary() {
@@ -772,17 +769,12 @@ run_install() {
   echo "Atualizando o sistema..."
   retry sudo pacman -Syu --noconfirm
 
-  split_packages
-
-  install_official_packages
-  install_aur_packages
+  install_packages_in_order
 
   if ((${#official_failed[@]} > 0 || ${#aur_failed[@]} > 0)); then
     print_summary
     exit 1
   fi
-
-  setup_codex_cli
   setup_github_ssh
   verify_installation
   open_zen_tabs
