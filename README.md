@@ -26,6 +26,10 @@ Quando rodado fora do repo, ele instala `git`, clona/atualiza `~/Repositories/ar
 - instala os pacotes via `pacman` primeiro
 - instala `yay` se precisar
 - instala o restante via AUR
+- instala `nodejs` e `npm`
+- roda `npm config set prefix "$HOME/Codex"`
+- instala `@openai/codex` globalmente
+- adiciona `~/Codex/bin` ao `PATH` no `.bashrc`
 - instala `github-cli` e `openssh`
 - cria a chave SSH se nao existir
 - autentica no GitHub com `gh` no Zen Browser, se ele estiver instalado

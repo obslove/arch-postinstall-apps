@@ -4,6 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 PACKAGE_FILE="$SCRIPT_DIR/config/packages.txt"
+BASHRC_FILE="$HOME/.bashrc"
 REPO_HTTPS_URL="https://github.com/obslove/arch-postinstall-apps.git"
 REPO_SSH_URL="git@github.com:obslove/arch-postinstall-apps.git"
 REPO_BRANCH="${1:-${BOOTSTRAP_BRANCH:-main}}"
@@ -209,6 +210,27 @@ create_directories() {
     "$HOME/Videos"
 }
 
+setup_codex_cli() {
+  echo "Instalando nodejs e npm..."
+  sudo pacman -S --needed --noconfirm nodejs npm
+
+  require_command npm
+
+  echo "Configurando npm prefix em $HOME/Codex..."
+  npm config set prefix "$HOME/Codex"
+
+  if [[ ! -f "$BASHRC_FILE" ]]; then
+    touch "$BASHRC_FILE"
+  fi
+
+  if ! grep -qxF 'export PATH="$HOME/Codex/bin:$PATH"' "$BASHRC_FILE"; then
+    printf '\nexport PATH="$HOME/Codex/bin:$PATH"\n' >>"$BASHRC_FILE"
+  fi
+
+  echo "Instalando Codex CLI..."
+  npm install -g @openai/codex
+}
+
 ensure_ssh_key() {
   local ssh_dir
   local key_comment
@@ -320,6 +342,7 @@ run_install() {
 
   install_official_packages
   install_aur_packages
+  setup_codex_cli
   setup_github_ssh
   print_summary
   open_zen_tabs
