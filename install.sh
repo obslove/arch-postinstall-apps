@@ -23,6 +23,13 @@ aur_failed=()
 packages=()
 aur_helper=""
 
+ensure_not_root() {
+  if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
+    echo "Erro: rode este script como usuario normal, nao como root." >&2
+    exit 1
+  fi
+}
+
 init_logging() {
   if [[ "${POSTINSTALL_LOG_INITIALIZED:-0}" == "1" ]]; then
     return
@@ -109,17 +116,40 @@ ensure_multilib() {
   sudo sed -i \
     '/^[[:space:]]*#\[multilib\][[:space:]]*$/,/^[[:space:]]*#Include = \/etc\/pacman.d\/mirrorlist[[:space:]]*$/ s/^[[:space:]]*#//' \
     /etc/pacman.conf
+
+  if ! multilib_enabled; then
+    echo "Erro: nao foi possivel habilitar multilib automaticamente." >&2
+    exit 1
+  fi
+
   sudo pacman -Syy --noconfirm
 }
 
 optimize_mirrors() {
+  local current_mirrorlist="/etc/pacman.d/mirrorlist"
+  local backup_mirrorlist
+  local temp_mirrorlist
+
   if ! command -v reflector >/dev/null 2>&1; then
     echo "Instalando reflector..."
     retry sudo pacman -S --needed --noconfirm reflector
   fi
 
   echo "Atualizando mirrorlist com reflector..."
-  retry sudo reflector --latest 20 --protocol https --sort rate --save /etc/pacman.d/mirrorlist
+  backup_mirrorlist="$(mktemp)"
+  temp_mirrorlist="$(mktemp)"
+
+  sudo cp "$current_mirrorlist" "$backup_mirrorlist"
+  if retry reflector --latest 20 --protocol https --sort rate --save "$temp_mirrorlist"; then
+    sudo install -m 644 "$temp_mirrorlist" "$current_mirrorlist"
+  else
+    echo "Aviso: reflector falhou. Restaurando mirrorlist anterior."
+    sudo install -m 644 "$backup_mirrorlist" "$current_mirrorlist"
+    rm -f "$backup_mirrorlist" "$temp_mirrorlist"
+    return 1
+  fi
+
+  rm -f "$backup_mirrorlist" "$temp_mirrorlist"
 }
 
 split_packages() {
@@ -331,24 +361,48 @@ ensure_github_auth() {
 
 upload_ssh_key() {
   local current_key
+  local current_key_id=""
   local key_id
   local key_title
 
   current_key="$(<"${SSH_KEY_PATH}.pub")"
-  if [[ "$REPLACE_GITHUB_SSH_KEYS" == "1" ]]; then
-    echo "Removendo chaves SSH existentes do GitHub..."
-    while IFS= read -r key_id; do
-      [[ -n "$key_id" ]] || continue
-      gh api --method DELETE "user/keys/$key_id"
-    done < <(gh api user/keys --jq '.[].id')
-  elif gh api user/keys --jq '.[].key' | grep -qxF "$current_key"; then
+  while IFS=$'\t' read -r key_id key_value; do
+    [[ -n "$key_id" ]] || continue
+    if [[ "$key_value" == "$current_key" ]]; then
+      current_key_id="$key_id"
+      break
+    fi
+  done < <(gh api user/keys --jq '.[] | [.id, .key] | @tsv')
+
+  if [[ "$REPLACE_GITHUB_SSH_KEYS" != "1" && -n "$current_key_id" ]]; then
     echo "Chave SSH atual ja esta cadastrada no GitHub."
     return
   fi
 
   key_title="$(hostname)-arch-postinstall-apps"
-  echo "Enviando chave SSH para o GitHub..."
-  gh ssh-key add "${SSH_KEY_PATH}.pub" --title "$key_title"
+  if [[ -z "$current_key_id" ]]; then
+    echo "Enviando chave SSH para o GitHub..."
+    current_key_id="$(gh api user/keys --method POST -f "title=$key_title" -f "key=$current_key" --jq '.id')"
+  else
+    echo "Chave SSH atual ja existe no GitHub."
+  fi
+
+  if [[ "$REPLACE_GITHUB_SSH_KEYS" != "1" ]]; then
+    return
+  fi
+
+  echo "Removendo chaves SSH antigas do GitHub..."
+  while IFS= read -r key_id; do
+    [[ -n "$key_id" ]] || continue
+    [[ "$key_id" == "$current_key_id" ]] && continue
+    gh api --method DELETE "user/keys/$key_id"
+  done < <(gh api user/keys --jq '.[].id')
+}
+
+repo_is_dirty() {
+  ! git -C "$INSTALL_DIR" diff --quiet --no-ext-diff || \
+    ! git -C "$INSTALL_DIR" diff --cached --quiet --no-ext-diff || \
+    [[ -n "$(git -C "$INSTALL_DIR" status --porcelain --untracked-files=normal)" ]]
 }
 
 sync_repo() {
@@ -357,13 +411,21 @@ sync_repo() {
   if [[ -d "$INSTALL_DIR/.git" ]]; then
     echo "Atualizando repositorio em $INSTALL_DIR..."
     git -C "$INSTALL_DIR" remote set-url origin "$REPO_HTTPS_URL"
+    if repo_is_dirty; then
+      echo "Aviso: repositorio local tem mudancas. Pulando atualizacao automatica."
+      return
+    fi
+
     retry git -C "$INSTALL_DIR" fetch origin
     if git -C "$INSTALL_DIR" show-ref --verify --quiet "refs/heads/$REPO_BRANCH"; then
       git -C "$INSTALL_DIR" checkout "$REPO_BRANCH"
     else
       git -C "$INSTALL_DIR" checkout -b "$REPO_BRANCH" "origin/$REPO_BRANCH"
     fi
-    retry git -C "$INSTALL_DIR" pull --ff-only origin "$REPO_BRANCH"
+
+    if ! retry git -C "$INSTALL_DIR" pull --ff-only origin "$REPO_BRANCH"; then
+      echo "Aviso: nao foi possivel atualizar o repositorio local. Continuando com a copia atual."
+    fi
   else
     if [[ -e "$INSTALL_DIR" ]]; then
       echo "Erro: $INSTALL_DIR ja existe e nao e um repositorio git." >&2
@@ -381,7 +443,16 @@ run_bootstrap() {
   require_command git
   sync_repo
 
-  exec bash "$INSTALL_DIR/install.sh"
+  exec env \
+    BOOTSTRAP_BRANCH="$REPO_BRANCH" \
+    BOOTSTRAP_DIR="$INSTALL_DIR" \
+    POSTINSTALL_LOG_FILE="$LOG_FILE" \
+    POSTINSTALL_LOG_INITIALIZED=1 \
+    OPEN_ZEN_TABS="$OPEN_ZEN_TABS" \
+    REPLACE_GITHUB_SSH_KEYS="$REPLACE_GITHUB_SSH_KEYS" \
+    RETRY_ATTEMPTS="$RETRY_ATTEMPTS" \
+    RETRY_DELAY_SECONDS="$RETRY_DELAY_SECONDS" \
+    bash "$INSTALL_DIR/install.sh" "$REPO_BRANCH"
 }
 
 setup_github_ssh() {
@@ -436,6 +507,7 @@ run_install() {
 
 main() {
   init_logging
+  ensure_not_root
   ensure_arch
   require_command pacman
   require_command sudo

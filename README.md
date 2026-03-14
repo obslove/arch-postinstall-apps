@@ -14,6 +14,7 @@ curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/
 ```
 
 Quando rodado fora do repo, ele instala `git`, clona/atualiza `~/Repositories/arch-postinstall-apps` e continua dali.
+Rode como usuario normal, nao com `sudo bash`.
 
 ## O que acontece
 
@@ -21,9 +22,11 @@ Quando rodado fora do repo, ele instala `git`, clona/atualiza `~/Repositories/ar
 - grava log em `~/Backups/arch-postinstall.log`
 - instala `git`
 - clona ou atualiza `~/Repositories/arch-postinstall-apps`
+- preserva a branch escolhida entre bootstrap e segunda etapa
 - cria `~/Backups`, `~/Dots`, `~/Pictures/Wallpapers`, `~/Pictures/Screenshots`, `~/Videos` e `~/Codex`
 - instala `reflector`
 - habilita `multilib` se precisar
+- restaura a mirrorlist anterior se o `reflector` falhar
 - instala os pacotes via `pacman` primeiro
 - instala `yay` se precisar
 - instala o restante via AUR
@@ -37,6 +40,7 @@ Quando rodado fora do repo, ele instala `git`, clona/atualiza `~/Repositories/ar
 - autentica no GitHub com `gh` no Zen Browser, se ele estiver instalado
 - apaga as chaves SSH atuais do GitHub
 - envia a chave SSH nova para o GitHub
+- mantem a chave nova antes de remover as antigas
 - pula a parte do GitHub se a autenticacao falhar
 - pode abrir ChatGPT, tres abas do GitHub e YouTube no Zen Browser, se voce habilitar
 
