@@ -11,10 +11,14 @@ REPO_BRANCH="${1:-${BOOTSTRAP_BRANCH:-main}}"
 INSTALL_DIR="${BOOTSTRAP_DIR:-$HOME/Repositories/arch-postinstall-apps}"
 SSH_KEY_PATH="${SSH_KEY_PATH:-$HOME/.ssh/id_ed25519}"
 LOG_FILE="${POSTINSTALL_LOG_FILE:-$HOME/Backups/arch-postinstall.log}"
+SUMMARY_FILE="${POSTINSTALL_SUMMARY_FILE:-$HOME/Backups/arch-postinstall-summary.txt}"
 OPEN_ZEN_TABS="${OPEN_ZEN_TABS:-0}"
 REPLACE_GITHUB_SSH_KEYS="${REPLACE_GITHUB_SSH_KEYS:-1}"
 RETRY_ATTEMPTS="${RETRY_ATTEMPTS:-3}"
 RETRY_DELAY_SECONDS="${RETRY_DELAY_SECONDS:-5}"
+STATE_DIR="${POSTINSTALL_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/arch-postinstall-apps}"
+LOCK_DIR="${POSTINSTALL_LOCK_DIR:-$STATE_DIR/lock}"
+LOCK_HELD="${POSTINSTALL_LOCK_HELD:-0}"
 
 official_packages=()
 aur_packages=()
@@ -31,6 +35,39 @@ ensure_not_root() {
     echo "Erro: rode este script como usuario normal, nao como root." >&2
     exit 1
   fi
+}
+
+checkpoint_file() {
+  printf '%s/checkpoints/%s.done\n' "$STATE_DIR" "$1"
+}
+
+has_checkpoint() {
+  [[ -f "$(checkpoint_file "$1")" ]]
+}
+
+mark_checkpoint() {
+  mkdir -p "$STATE_DIR/checkpoints"
+  touch "$(checkpoint_file "$1")"
+}
+
+acquire_lock() {
+  if [[ "$LOCK_HELD" == "1" ]]; then
+    return
+  fi
+
+  mkdir -p "$STATE_DIR"
+  if mkdir "$LOCK_DIR" 2>/dev/null; then
+    printf '%s\n' "$$" >"$LOCK_DIR/pid"
+    register_cleanup_path "$LOCK_DIR"
+    export POSTINSTALL_LOCK_HELD=1
+    return
+  fi
+
+  echo "Erro: ja existe outra execucao do script em andamento." >&2
+  if [[ -f "$LOCK_DIR/pid" ]]; then
+    echo "PID atual do lock: $(<"$LOCK_DIR/pid")" >&2
+  fi
+  exit 1
 }
 
 register_cleanup_path() {
@@ -307,16 +344,38 @@ print_summary() {
   echo
   echo "Concluido."
   echo "Log: $LOG_FILE"
+  echo "Resumo: $SUMMARY_FILE"
   echo "Pacman: ${official_packages[*]:-nenhum}"
   echo "AUR: ${aur_packages[*]:-nenhum}"
   echo "Falhas pacman: ${official_failed[*]:-nenhuma}"
   echo "Falhas AUR: ${aur_failed[*]:-nenhuma}"
   echo "Verificados: ${verified_commands[*]:-nenhum}"
   echo "Ausentes: ${missing_commands[*]:-nenhum}"
+
+  mkdir -p "$(dirname "$SUMMARY_FILE")"
+  cat >"$SUMMARY_FILE" <<EOF
+Data: $(date '+%Y-%m-%d %H:%M:%S %z')
+Log: $LOG_FILE
+Pacman: ${official_packages[*]:-nenhum}
+AUR: ${aur_packages[*]:-nenhum}
+Falhas pacman: ${official_failed[*]:-nenhuma}
+Falhas AUR: ${aur_failed[*]:-nenhuma}
+Verificados: ${verified_commands[*]:-nenhum}
+Ausentes: ${missing_commands[*]:-nenhum}
+Checkpoints:
+- codex_cli: $(if has_checkpoint "codex_cli"; then echo concluido; else echo pendente; fi)
+- github_ssh: $(if has_checkpoint "github_ssh"; then echo concluido; else echo pendente; fi)
+- zen_tabs: $(if has_checkpoint "zen_tabs"; then echo concluido; else echo pendente; fi)
+EOF
 }
 
 open_zen_tabs() {
   if [[ "$OPEN_ZEN_TABS" != "1" ]]; then
+    return
+  fi
+
+  if has_checkpoint "zen_tabs"; then
+    echo "Abas do Zen ja abertas anteriormente. Pulando."
     return
   fi
 
@@ -336,6 +395,7 @@ open_zen_tabs() {
     "https://github.com/obslove/arch-postinstall-apps" \
     "https://www.youtube.com/" \
     >/dev/null 2>&1 &
+  mark_checkpoint "zen_tabs"
 }
 
 create_directories() {
@@ -351,6 +411,11 @@ create_directories() {
 
 setup_codex_cli() {
   local codex_path_line="export PATH=\"\$HOME/Codex/bin:\$PATH\""
+
+  if has_checkpoint "codex_cli" && command -v codex >/dev/null 2>&1; then
+    echo "Codex CLI ja configurado. Pulando."
+    return
+  fi
 
   require_command npm
 
@@ -369,6 +434,7 @@ setup_codex_cli() {
 
   echo "Instalando Codex CLI em $HOME/Codex..."
   retry npm install -g @openai/codex
+  mark_checkpoint "codex_cli"
 }
 
 ensure_ssh_key() {
@@ -499,19 +565,26 @@ run_bootstrap() {
   require_command git
   sync_repo
 
-  exec env \
+  env \
     BOOTSTRAP_BRANCH="$REPO_BRANCH" \
     BOOTSTRAP_DIR="$INSTALL_DIR" \
     POSTINSTALL_LOG_FILE="$LOG_FILE" \
     POSTINSTALL_LOG_INITIALIZED=1 \
+    POSTINSTALL_LOCK_HELD=1 \
     OPEN_ZEN_TABS="$OPEN_ZEN_TABS" \
     REPLACE_GITHUB_SSH_KEYS="$REPLACE_GITHUB_SSH_KEYS" \
     RETRY_ATTEMPTS="$RETRY_ATTEMPTS" \
     RETRY_DELAY_SECONDS="$RETRY_DELAY_SECONDS" \
     bash "$INSTALL_DIR/install.sh" "$REPO_BRANCH"
+  exit $?
 }
 
 setup_github_ssh() {
+  if has_checkpoint "github_ssh" && gh auth status >/dev/null 2>&1 && [[ -f "${SSH_KEY_PATH}.pub" ]]; then
+    echo "GitHub SSH ja configurado. Pulando."
+    return
+  fi
+
   if ! check_github_network; then
     return
   fi
@@ -538,6 +611,7 @@ setup_github_ssh() {
   fi
 
   git -C "$SCRIPT_DIR" remote set-url origin "$REPO_SSH_URL" || true
+  mark_checkpoint "github_ssh"
 }
 
 verify_command() {
@@ -591,14 +665,15 @@ run_install() {
   setup_codex_cli
   setup_github_ssh
   verify_installation
-  print_summary
   open_zen_tabs
+  print_summary
 }
 
 main() {
-  init_logging
   trap cleanup EXIT
   ensure_not_root
+  acquire_lock
+  init_logging
   ensure_arch
   require_command pacman
   require_command sudo

@@ -20,6 +20,7 @@ Rode como usuario normal, nao com `sudo bash`.
 
 - instala `curl` se faltar
 - grava log em `~/Backups/arch-postinstall.log`
+- grava resumo curto em `~/Backups/arch-postinstall-summary.txt`
 - verifica conectividade antes das etapas que dependem de rede
 - instala `git`
 - clona ou atualiza `~/Repositories/arch-postinstall-apps`
@@ -33,10 +34,12 @@ Rode como usuario normal, nao com `sudo bash`.
 - instala o restante via AUR
 - repete automaticamente etapas de rede mais frageis se alguma falhar de primeira
 - limpa arquivos temporarios mesmo se o script abortar
+- evita duas execucoes ao mesmo tempo com lockfile
 - instala `nodejs` e `npm` via `pacman`
 - roda `npm config set prefix "$HOME/Codex"`
 - instala `@openai/codex` no prefix `~/Codex`
 - adiciona `~/Codex/bin` ao `PATH` no `.bashrc`
+- marca checkpoint para nao repetir a configuracao do Codex CLI em reruns
 - instala `github-cli` e `openssh`
 - cria a chave SSH se nao existir
 - autentica no GitHub com `gh` no Zen Browser, se ele estiver instalado
@@ -44,7 +47,9 @@ Rode como usuario normal, nao com `sudo bash`.
 - envia a chave SSH nova para o GitHub
 - mantem a chave nova antes de remover as antigas
 - pula a parte do GitHub se a autenticacao falhar
+- marca checkpoint para nao repetir a configuracao SSH do GitHub em reruns
 - pode abrir ChatGPT, tres abas do GitHub e YouTube no Zen Browser, se voce habilitar
+- marca checkpoint para nao reabrir as abas do Zen em reruns
 - verifica no fim se os binarios principais realmente ficaram disponiveis
 
 ## O que vai pedir interacao
