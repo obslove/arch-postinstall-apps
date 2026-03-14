@@ -11,6 +11,16 @@ cleanup() {
 
 trap cleanup EXIT
 
+if [[ ! -f /etc/arch-release ]]; then
+  echo "Erro: este bootstrap foi feito para Arch Linux." >&2
+  exit 1
+fi
+
+if ! command -v pacman >/dev/null 2>&1; then
+  echo "Erro: pacman nao encontrado." >&2
+  exit 1
+fi
+
 sudo pacman -Syu --needed --noconfirm git
 git clone "$REPO_URL" "$TMP_DIR/repo"
 cd "$TMP_DIR/repo"

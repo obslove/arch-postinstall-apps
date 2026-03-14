@@ -1,3 +1,4 @@
+# Uma linha por pacote. Linhas vazias e linhas com # sao ignoradas.
 code
 discord
 git
