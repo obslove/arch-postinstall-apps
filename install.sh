@@ -578,7 +578,11 @@ sync_repo() {
       return
     fi
 
-    retry git -C "$INSTALL_DIR" fetch origin
+    if ! retry git -C "$INSTALL_DIR" fetch origin; then
+      echo "Aviso: nao foi possivel buscar atualizacoes do repositorio. Continuando com a copia local."
+      return
+    fi
+
     if git -C "$INSTALL_DIR" show-ref --verify --quiet "refs/heads/$REPO_BRANCH"; then
       git -C "$INSTALL_DIR" checkout "$REPO_BRANCH"
     else
@@ -600,15 +604,15 @@ sync_repo() {
 }
 
 run_bootstrap() {
+  retry sudo pacman -Syu --needed --noconfirm git
+
+  require_command git
   check_package_network
-  if ! can_reach_https_host "github.com"; then
+  if [[ ! -d "$INSTALL_DIR/.git" ]] && ! can_reach_https_host "github.com"; then
     echo "Erro: sem acesso ao GitHub para clonar o repositorio." >&2
     exit 1
   fi
 
-  retry sudo pacman -Syu --needed --noconfirm git
-
-  require_command git
   sync_repo
 
   env \
@@ -626,7 +630,7 @@ run_bootstrap() {
 }
 
 setup_github_ssh() {
-  if has_checkpoint "github_ssh" && gh auth status >/dev/null 2>&1 && [[ -f "${SSH_KEY_PATH}.pub" ]]; then
+  if has_checkpoint "github_ssh" && command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1 && [[ -f "${SSH_KEY_PATH}.pub" ]]; then
     echo "GitHub SSH ja configurado. Pulando."
     return
   fi
@@ -711,8 +715,8 @@ verify_installation() {
 }
 
 run_install() {
-  check_package_network
   load_packages
+  check_package_network
   create_directories
   ensure_multilib
   optimize_mirrors
