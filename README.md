@@ -4,7 +4,7 @@ Script simples para reinstalacao no Arch Linux.
 
 ## About
 
-Instala seus apps no Arch, priorizando `pacman` e usando AUR so quando precisar.
+Instala seus apps no Arch, priorizando `pacman` e usando AUR so quando precisar, clonando o repo localmente e criando uma chave SSH.
 
 ## Instalacao rapida
 
@@ -31,6 +31,8 @@ curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/
 ```bash
 bash install.sh
 ``` 
+
+O bootstrap clona o repo em `~/arch-postinstall-apps` e cria `~/.ssh/id_ed25519` se ela nao existir.
 
 ## Pacotes
 
