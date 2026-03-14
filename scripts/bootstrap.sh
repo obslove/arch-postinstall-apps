@@ -5,7 +5,7 @@ set -euo pipefail
 REPO_HTTPS_URL="https://github.com/obslove/arch-postinstall-apps.git"
 REPO_SSH_URL="git@github.com:obslove/arch-postinstall-apps.git"
 REPO_BRANCH="${1:-${BOOTSTRAP_BRANCH:-main}}"
-INSTALL_DIR="${BOOTSTRAP_DIR:-$HOME/arch-postinstall-apps}"
+INSTALL_DIR="${BOOTSTRAP_DIR:-$HOME/Repositories/arch-postinstall-apps}"
 SSH_KEY_PATH="${SSH_KEY_PATH:-$HOME/.ssh/id_ed25519}"
 
 ensure_arch() {
@@ -45,6 +45,8 @@ ensure_ssh_key() {
 }
 
 sync_repo() {
+  mkdir -p "$(dirname "$INSTALL_DIR")"
+
   if [[ -d "$INSTALL_DIR/.git" ]]; then
     echo "Atualizando repositorio em $INSTALL_DIR..."
     git -C "$INSTALL_DIR" remote set-url origin "$REPO_HTTPS_URL"
@@ -91,7 +93,7 @@ main() {
   print_ssh_instructions
 
   cd "$INSTALL_DIR"
-  exec bash install.sh
+  exec bash scripts/install.sh
 }
 
 main "$@"

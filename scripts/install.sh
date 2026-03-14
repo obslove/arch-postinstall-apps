@@ -4,4 +4,4 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-exec bash "$SCRIPT_DIR/bin/postinstall-apps" "$@"
+exec bash "$SCRIPT_DIR/postinstall-apps" "$@"

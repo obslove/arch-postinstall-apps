@@ -1,39 +1,38 @@
 # Arch Postinstall Apps
 
-Script simples para reinstalacao no Arch Linux.
+Setup simples de apps para Arch Linux.
 
 ## About
 
-Instala seus apps no Arch, priorizando `pacman` e usando AUR so quando precisar, clonando o repo localmente e criando uma chave SSH.
+Instala seus apps no Arch com `pacman` primeiro e AUR depois.
 
 ## Instalacao rapida
 
 Se tiver `curl`:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/bootstrap.sh | bash
+curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/scripts/bootstrap.sh | bash
 ```
 
 Se tiver `wget`:
 
 ```bash
-wget -qO- https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/bootstrap.sh | bash
+wget -qO- https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/scripts/bootstrap.sh | bash
 ```
 
 Outra branch:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/bootstrap.sh | bash -s -- sua-branch
+curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/scripts/bootstrap.sh | bash -s -- sua-branch
 ```
 
-## Uso
+O bootstrap clona o repo em `~/Repositories/arch-postinstall-apps`, cria `~/.ssh/id_ed25519` se ela nao existir e roda o instalador.
+
+## Uso local
 
 ```bash
-bash install.sh
-``` 
-
-O bootstrap clona o repo em `~/arch-postinstall-apps` e cria `~/.ssh/id_ed25519` se ela nao existir.
-Se nao houver helper AUR instalado, o script instala `yay` automaticamente. Se ja existir `paru` ou `yay`, ele reutiliza o helper encontrado.
+bash scripts/install.sh
+```
 
 ## Pacotes
 
@@ -45,15 +44,16 @@ Se nao houver helper AUR instalado, o script instala `yay` automaticamente. Se j
 - `steam`
 - `zen-browser-bin` (AUR)
 
-Edite `packages.txt` para mudar a lista.
+Edite `config/packages.txt` para mudar a lista.
 
+Se nao houver helper AUR instalado, o script instala `yay`. Se ja existir `paru` ou `yay`, ele reutiliza o helper encontrado.
 Se `reflector` estiver instalado, o script atualiza a mirrorlist antes do `pacman -Syu`.
 
 ## Estrutura
 
 ```text
-bootstrap.sh
-install.sh
-bin/postinstall-apps
-packages.txt
+config/packages.txt
+scripts/bootstrap.sh
+scripts/install.sh
+scripts/postinstall-apps
 ```
