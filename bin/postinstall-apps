@@ -10,6 +10,7 @@ aur_packages=()
 official_failed=()
 aur_failed=()
 packages=()
+aur_helper=""
 
 require_command() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -89,17 +90,22 @@ split_packages() {
   done
 }
 
-ensure_aur_helper() {
+detect_aur_helper() {
   if command -v paru >/dev/null 2>&1; then
-    echo "paru"
-    return
+    aur_helper="paru"
+    return 0
   fi
 
   if command -v yay >/dev/null 2>&1; then
-    echo "yay"
-    return
+    aur_helper="yay"
+    return 0
   fi
 
+  aur_helper=""
+  return 1
+}
+
+install_yay() {
   local tmp_dir
   tmp_dir="$(mktemp -d)"
 
@@ -111,7 +117,17 @@ ensure_aur_helper() {
     makepkg -si --noconfirm
   )
   rm -rf "$tmp_dir"
-  echo "yay"
+  aur_helper="yay"
+}
+
+ensure_aur_helper() {
+  if detect_aur_helper; then
+    echo "Usando helper AUR: $aur_helper"
+    return
+  fi
+
+  install_yay
+  echo "Usando helper AUR: $aur_helper"
 }
 
 install_official_packages() {
@@ -132,14 +148,13 @@ install_official_packages() {
 }
 
 install_aur_packages() {
-  local aur_helper
   local package
 
   if ((${#aur_packages[@]} == 0)); then
     return
   fi
 
-  aur_helper="$(ensure_aur_helper | tail -n 1)"
+  ensure_aur_helper
   echo "Instalando via AUR: ${aur_packages[*]}"
   for package in "${aur_packages[@]}"; do
     if "$aur_helper" -S --needed --noconfirm "$package"; then

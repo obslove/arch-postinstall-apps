@@ -33,6 +33,7 @@ bash install.sh
 ``` 
 
 O bootstrap clona o repo em `~/arch-postinstall-apps` e cria `~/.ssh/id_ed25519` se ela nao existir.
+Se nao houver helper AUR instalado, o script instala `yay` automaticamente. Se ja existir `paru` ou `yay`, ele reutiliza o helper encontrado.
 
 ## Pacotes
 
