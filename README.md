@@ -1,35 +1,18 @@
 # Arch Postinstall Apps
 
-Script simples de pos-instalacao para Arch Linux.
+Script simples para reinstalacao no Arch Linux.
 
-## Estrutura
+## About
 
-```text
-.
-├── bin/
-│   └── postinstall-apps
-├── packages.txt
-└── README.md
-```
-
-## O que ele faz
-
-- habilita `multilib` se precisar
-- instala o que existir via `pacman` primeiro
-- manda para o AUR so o que nao existir no repo oficial
-- usa `paru` se ja existir, senao instala `yay`
+Instala seus apps no Arch, priorizando `pacman` e usando AUR so quando precisar.
 
 ## Uso
 
 ```bash
 bash bin/postinstall-apps
-```
+``` 
 
 ## Pacotes
-
-A lista fica em `packages.txt`.
-
-Pacotes atuais:
 
 - `code`
 - `discord`
@@ -39,6 +22,12 @@ Pacotes atuais:
 - `steam`
 - `zen-browser-bin`
 
-## Editar
+Edite `packages.txt` para mudar a lista.
 
-Adicione ou remova linhas em `packages.txt`.
+## Estrutura
+
+```text
+bin/postinstall-apps
+packages.txt
+README.md
+```
