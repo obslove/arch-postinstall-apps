@@ -8,21 +8,15 @@ Um script so para bootstrap e pos-instalacao no Arch.
 
 ## Instalacao rapida
 
-Se tiver `curl`:
-
 ```bash
+command -v curl >/dev/null 2>&1 || sudo pacman -Syu --needed --noconfirm curl
 curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh | bash
-```
-
-Se tiver `wget`:
-
-```bash
-wget -qO- https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh | bash
 ```
 
 Outra branch:
 
 ```bash
+command -v curl >/dev/null 2>&1 || sudo pacman -Syu --needed --noconfirm curl
 curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh | bash -s -- sua-branch
 ```
 
