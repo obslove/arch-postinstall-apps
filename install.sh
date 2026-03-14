@@ -224,7 +224,7 @@ setup_codex_cli() {
     printf '\nexport PATH="$HOME/Codex/bin:$PATH"\n' >>"$BASHRC_FILE"
   fi
 
-  echo "Instalando Codex CLI..."
+  echo "Instalando Codex CLI em $HOME/Codex..."
   npm install -g @openai/codex
 }
 
