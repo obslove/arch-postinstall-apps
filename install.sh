@@ -452,6 +452,7 @@ create_directories() {
     "$HOME/Dots" \
     "$HOME/Pictures/Screenshots" \
     "$HOME/Pictures/Wallpapers" \
+    "$HOME/Projects" \
     "$HOME/Videos"
 }
 

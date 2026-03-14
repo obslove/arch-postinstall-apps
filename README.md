@@ -25,7 +25,7 @@ Rode como usuario normal, nao com `sudo bash`.
 - instala `git`
 - clona ou atualiza `~/Repositories/arch-postinstall-apps`
 - preserva a branch escolhida entre bootstrap e segunda etapa
-- cria `~/Backups`, `~/Dots`, `~/Pictures/Wallpapers`, `~/Pictures/Screenshots`, `~/Videos` e `~/Codex`
+- cria `~/Backups`, `~/Dots`, `~/Pictures/Wallpapers`, `~/Pictures/Screenshots`, `~/Videos`, `~/Projects` e `~/Codex`
 - instala `reflector`
 - habilita `multilib` se precisar
 - restaura a mirrorlist anterior se o `reflector` falhar
