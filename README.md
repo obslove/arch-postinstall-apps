@@ -9,8 +9,7 @@ Um script so para bootstrap e pos-instalacao no Arch.
 ## Instalacao rapida
 
 ```bash
-command -v curl >/dev/null 2>&1 || sudo pacman -Syu --needed --noconfirm curl
-curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh | bash
+bash <(curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh)
 ```
 
 Quando rodado fora do repo, ele instala `git`, clona/atualiza `~/Repositories/arch-postinstall-apps` e continua dali.
