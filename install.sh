@@ -6,7 +6,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 PACKAGE_FILE="$SCRIPT_DIR/config/packages.txt"
 REPO_HTTPS_URL="https://github.com/obslove/arch-postinstall-apps.git"
 REPO_SSH_URL="git@github.com:obslove/arch-postinstall-apps.git"
-REPO_NAME="obslove/arch-postinstall-apps"
 REPO_BRANCH="${1:-${BOOTSTRAP_BRANCH:-main}}"
 INSTALL_DIR="${BOOTSTRAP_DIR:-$HOME/Repositories/arch-postinstall-apps}"
 SSH_KEY_PATH="${SSH_KEY_PATH:-$HOME/.ssh/id_ed25519}"
@@ -322,8 +321,8 @@ run_install() {
   install_official_packages
   install_aur_packages
   setup_github_ssh
-  open_zen_tabs
   print_summary
+  open_zen_tabs
 
   if ((${#official_failed[@]} > 0 || ${#aur_failed[@]} > 0)); then
     exit 1
