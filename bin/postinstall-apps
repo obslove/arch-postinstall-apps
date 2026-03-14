@@ -111,14 +111,14 @@ main() {
   load_packages
   ensure_multilib
 
-  echo "Sincronizando pacman..."
-  sudo pacman -Sy --noconfirm
+  echo "Atualizando o sistema..."
+  sudo pacman -Syu --noconfirm
 
   split_packages
 
   if ((${#official_packages[@]} > 0)); then
     echo "Instalando via pacman: ${official_packages[*]}"
-    sudo pacman -Syu --needed --noconfirm "${official_packages[@]}"
+    sudo pacman -S --needed --noconfirm "${official_packages[@]}"
   fi
 
   if ((${#aur_packages[@]} > 0)); then

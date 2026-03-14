@@ -1,0 +1,20 @@
+name: check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  shell:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Bash syntax
+        run: |
+          bash -n bootstrap.sh
+          bash -n install.sh
+          bash -n bin/postinstall-apps
+      - name: Shellcheck
+        run: shellcheck bootstrap.sh install.sh bin/postinstall-apps

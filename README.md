@@ -31,10 +31,10 @@ bash install.sh
 - `code`
 - `discord`
 - `git`
-- `google-chrome`
+- `google-chrome` (AUR)
 - `spotify-launcher`
 - `steam`
-- `zen-browser-bin`
+- `zen-browser-bin` (AUR)
 
 Edite `packages.txt` para mudar a lista.
 
