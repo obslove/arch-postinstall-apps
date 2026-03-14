@@ -6,6 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 PACKAGE_FILE="$SCRIPT_DIR/config/packages.txt"
 REPO_HTTPS_URL="https://github.com/obslove/arch-postinstall-apps.git"
 REPO_SSH_URL="git@github.com:obslove/arch-postinstall-apps.git"
+REPO_NAME="obslove/arch-postinstall-apps"
 REPO_BRANCH="${1:-${BOOTSTRAP_BRANCH:-main}}"
 INSTALL_DIR="${BOOTSTRAP_DIR:-$HOME/Repositories/arch-postinstall-apps}"
 SSH_KEY_PATH="${SSH_KEY_PATH:-$HOME/.ssh/id_ed25519}"
@@ -201,12 +202,35 @@ ensure_ssh_key() {
   ssh-keygen -t ed25519 -C "$key_comment" -f "$SSH_KEY_PATH" -N ""
 }
 
+ensure_github_auth() {
+  if gh auth status >/dev/null 2>&1; then
+    echo "GitHub CLI ja autenticado."
+    return
+  fi
+
+  echo "Autenticando no GitHub com gh..."
+  gh auth login --web --git-protocol ssh
+}
+
+upload_ssh_key() {
+  local key_title
+
+  if gh api user/keys --jq '.[].key' 2>/dev/null | grep -qxF "$(cat "${SSH_KEY_PATH}.pub")"; then
+    echo "Chave SSH ja cadastrada no GitHub."
+    return
+  fi
+
+  key_title="$(hostname)-arch-postinstall-apps"
+  echo "Enviando chave SSH para o GitHub..."
+  gh ssh-key add "${SSH_KEY_PATH}.pub" --title "$key_title"
+}
+
 sync_repo() {
   mkdir -p "$(dirname "$INSTALL_DIR")"
 
   if [[ -d "$INSTALL_DIR/.git" ]]; then
     echo "Atualizando repositorio em $INSTALL_DIR..."
-    git -C "$INSTALL_DIR" remote set-url origin "$REPO_HTTPS_URL"
+    git -C "$INSTALL_DIR" remote set-url origin "$REPO_SSH_URL"
     git -C "$INSTALL_DIR" fetch origin
     if git -C "$INSTALL_DIR" show-ref --verify --quiet "refs/heads/$REPO_BRANCH"; then
       git -C "$INSTALL_DIR" checkout "$REPO_BRANCH"
@@ -221,29 +245,23 @@ sync_repo() {
     fi
 
     echo "Clonando repositorio em $INSTALL_DIR..."
-    git clone --branch "$REPO_BRANCH" --single-branch "$REPO_HTTPS_URL" "$INSTALL_DIR"
+    gh repo clone "$REPO_NAME" "$INSTALL_DIR" -- --branch "$REPO_BRANCH" --single-branch
   fi
 
   git -C "$INSTALL_DIR" remote set-url origin "$REPO_SSH_URL"
 }
 
-print_ssh_instructions() {
-  echo
-  echo "Chave publica SSH:"
-  cat "${SSH_KEY_PATH}.pub"
-  echo
-  echo "Adicione essa chave no GitHub para usar o remoto SSH."
-}
-
 run_bootstrap() {
-  sudo pacman -Syu --needed --noconfirm git openssh
+  sudo pacman -Syu --needed --noconfirm git github-cli openssh
 
+  require_command gh
   require_command git
   require_command ssh-keygen
 
   ensure_ssh_key
+  ensure_github_auth
+  upload_ssh_key
   sync_repo
-  print_ssh_instructions
 
   exec bash "$INSTALL_DIR/install.sh"
 }
