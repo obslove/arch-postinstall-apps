@@ -4,6 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 PACKAGE_FILE="$SCRIPT_DIR/config/packages.txt"
+EXTRA_PACKAGE_FILE="$SCRIPT_DIR/config/packages-extra.txt"
 BASHRC_FILE="$HOME/.bashrc"
 REPO_HTTPS_URL="https://github.com/obslove/arch-postinstall-apps.git"
 REPO_SSH_URL="git@github.com:obslove/arch-postinstall-apps.git"
@@ -29,6 +30,7 @@ aur_helper=""
 cleanup_paths=()
 verified_commands=()
 missing_commands=()
+version_info=()
 
 ensure_not_root() {
   if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
@@ -155,6 +157,32 @@ check_github_network() {
   return 1
 }
 
+append_package() {
+  local package="$1"
+  local existing
+
+  for existing in "${packages[@]}"; do
+    if [[ "$existing" == "$package" ]]; then
+      return
+    fi
+  done
+
+  packages+=("$package")
+}
+
+load_package_file() {
+  local package_path="$1"
+  local line
+
+  [[ -f "$package_path" ]] || return
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ -n "$line" ]] || continue
+    [[ "$line" =~ ^[[:space:]]*# ]] && continue
+    append_package "$line"
+  done <"$package_path"
+}
+
 ensure_arch() {
   if [[ ! -f /etc/arch-release ]]; then
     echo "Erro: este script foi feito para Arch Linux." >&2
@@ -163,19 +191,14 @@ ensure_arch() {
 }
 
 load_packages() {
-  local line
-
   [[ -f "$PACKAGE_FILE" ]] || {
     echo "Erro: lista de pacotes nao encontrada em $PACKAGE_FILE" >&2
     exit 1
   }
 
   packages=()
-  while IFS= read -r line || [[ -n "$line" ]]; do
-    [[ -n "$line" ]] || continue
-    [[ "$line" =~ ^[[:space:]]*# ]] && continue
-    packages+=("$line")
-  done <"$PACKAGE_FILE"
+  load_package_file "$PACKAGE_FILE"
+  load_package_file "$EXTRA_PACKAGE_FILE"
 }
 
 multilib_enabled() {
@@ -212,6 +235,11 @@ optimize_mirrors() {
   local backup_mirrorlist
   local temp_mirrorlist
 
+  if has_checkpoint "mirrors"; then
+    echo "Mirrorlist ja atualizada anteriormente. Pulando."
+    return
+  fi
+
   if ! command -v reflector >/dev/null 2>&1; then
     echo "Instalando reflector..."
     retry sudo pacman -S --needed --noconfirm reflector
@@ -234,6 +262,7 @@ optimize_mirrors() {
   fi
 
   rm -f "$backup_mirrorlist" "$temp_mirrorlist"
+  mark_checkpoint "mirrors"
 }
 
 split_packages() {
@@ -341,30 +370,47 @@ install_aur_packages() {
 }
 
 print_summary() {
+  local version_line
+
   echo
   echo "Concluido."
   echo "Log: $LOG_FILE"
   echo "Resumo: $SUMMARY_FILE"
+  echo "Repo: $INSTALL_DIR"
+  echo "Branch: $REPO_BRANCH"
   echo "Pacman: ${official_packages[*]:-nenhum}"
   echo "AUR: ${aur_packages[*]:-nenhum}"
   echo "Falhas pacman: ${official_failed[*]:-nenhuma}"
   echo "Falhas AUR: ${aur_failed[*]:-nenhuma}"
   echo "Verificados: ${verified_commands[*]:-nenhum}"
   echo "Ausentes: ${missing_commands[*]:-nenhum}"
+  if ((${#version_info[@]} == 0)); then
+    echo "Versoes: nenhuma"
+  else
+    echo "Versoes:"
+    for version_line in "${version_info[@]}"; do
+      echo "- $version_line"
+    done
+  fi
 
   mkdir -p "$(dirname "$SUMMARY_FILE")"
   cat >"$SUMMARY_FILE" <<EOF
 Data: $(date '+%Y-%m-%d %H:%M:%S %z')
 Log: $LOG_FILE
+Repo: $INSTALL_DIR
+Branch: $REPO_BRANCH
 Pacman: ${official_packages[*]:-nenhum}
 AUR: ${aur_packages[*]:-nenhum}
 Falhas pacman: ${official_failed[*]:-nenhuma}
 Falhas AUR: ${aur_failed[*]:-nenhuma}
 Verificados: ${verified_commands[*]:-nenhum}
 Ausentes: ${missing_commands[*]:-nenhum}
+Versoes:
+$(if ((${#version_info[@]} == 0)); then echo "- nenhuma"; else printf '%s\n' "${version_info[@]/#/- }"; fi)
 Checkpoints:
 - codex_cli: $(if has_checkpoint "codex_cli"; then echo concluido; else echo pendente; fi)
 - github_ssh: $(if has_checkpoint "github_ssh"; then echo concluido; else echo pendente; fi)
+- mirrors: $(if has_checkpoint "mirrors"; then echo concluido; else echo pendente; fi)
 - zen_tabs: $(if has_checkpoint "zen_tabs"; then echo concluido; else echo pendente; fi)
 EOF
 }
@@ -626,9 +672,24 @@ verify_command() {
   missing_commands+=("$label")
 }
 
+collect_version() {
+  local label="$1"
+  shift
+  local output
+
+  if ! command -v "$1" >/dev/null 2>&1; then
+    return
+  fi
+
+  output="$("$@" 2>/dev/null | sed -n '1p' || true)"
+  [[ -n "$output" ]] || return
+  version_info+=("$label: $output")
+}
+
 verify_installation() {
   verified_commands=()
   missing_commands=()
+  version_info=()
 
   verify_command "code" "code"
   verify_command "discord" "discord"
@@ -640,6 +701,13 @@ verify_installation() {
   verify_command "ssh-keygen" "ssh-keygen"
   verify_command "steam" "steam"
   verify_command "zen-browser" "zen-browser"
+
+  collect_version "node" node --version
+  collect_version "npm" npm --version
+  collect_version "gh" gh --version
+  collect_version "codex" codex --version
+  collect_version "zen-browser" zen-browser --version
+  collect_version "google-chrome-stable" google-chrome-stable --version
 }
 
 run_install() {

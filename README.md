@@ -13,6 +13,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-app
 ```
 
 Quando rodado fora do repo, ele instala `git`, clona/atualiza `~/Repositories/arch-postinstall-apps` e continua dali.
+Esse comando assume `curl` presente na instalacao padrao do Arch.
 Rode como usuario normal, nao com `sudo bash`.
 
 ## O que acontece
@@ -28,6 +29,7 @@ Rode como usuario normal, nao com `sudo bash`.
 - instala `reflector`
 - habilita `multilib` se precisar
 - restaura a mirrorlist anterior se o `reflector` falhar
+- marca checkpoint para nao atualizar mirrors de novo em reruns
 - instala os pacotes via `pacman` primeiro
 - instala `yay` se precisar
 - instala o restante via AUR
@@ -50,6 +52,7 @@ Rode como usuario normal, nao com `sudo bash`.
 - pode abrir ChatGPT, tres abas do GitHub e YouTube no Zen Browser, se voce habilitar
 - marca checkpoint para nao reabrir as abas do Zen em reruns
 - verifica no fim se os binarios principais realmente ficaram disponiveis
+- grava no resumo a branch usada, o caminho do repo e versoes principais
 
 ## O que vai pedir interacao
 
@@ -75,6 +78,13 @@ export OPEN_ZEN_TABS=1
 bash install.sh
 ```
 
+## Validacao local
+
+```bash
+bash -n install.sh
+shellcheck install.sh
+```
+
 ## Pacotes
 
 - `code`
@@ -82,12 +92,14 @@ bash install.sh
 - `git`
 - `nodejs`
 - `npm`
+- `shellcheck`
 - `google-chrome` (AUR)
 - `spotify-launcher`
 - `steam`
 - `zen-browser-bin` (AUR)
 
 Edite `config/packages.txt` para mudar a lista.
+Se existir `config/packages-extra.txt`, ele tambem sera carregado.
 
 Se nao houver helper AUR instalado, o script instala `yay`. Se ja existir `paru` ou `yay`, ele reutiliza o helper encontrado.
 O script instala `reflector` e atualiza a mirrorlist antes do `pacman -Syu`.
@@ -95,6 +107,7 @@ O script instala `reflector` e atualiza a mirrorlist antes do `pacman -Syu`.
 ## Estrutura
 
 ```text
+config/packages-extra.txt.example
 config/packages.txt
 install.sh
 ```
