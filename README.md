@@ -8,22 +8,14 @@ Instala seus apps no Arch, priorizando `pacman` e usando AUR so quando precisar.
 
 ## Instalacao rapida
 
-Com `curl`:
-
 ```bash
-curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/bootstrap.sh | bash
-```
-
-Com `wget`:
-
-```bash
-wget -qO- https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/bootstrap.sh | bash
+bash -c 'if command -v curl >/dev/null 2>&1; then curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/bootstrap.sh; elif command -v wget >/dev/null 2>&1; then wget -qO- https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/bootstrap.sh; else echo "Erro: instale curl ou wget." >&2; exit 1; fi' | bash
 ```
 
 Outra branch:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/bootstrap.sh | bash -s -- sua-branch
+bash -c 'if command -v curl >/dev/null 2>&1; then curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/bootstrap.sh; elif command -v wget >/dev/null 2>&1; then wget -qO- https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/bootstrap.sh; else echo "Erro: instale curl ou wget." >&2; exit 1; fi' | bash -s -- sua-branch
 ```
 
 ## Uso
