@@ -152,7 +152,7 @@ get_host_name() {
 }
 
 sanitize_label() {
-  printf '%s' "$1" | tr -cs '[:alnum:]._-@' '-'
+  printf '%s' "$1" | tr -cs '[:alnum:].@_-' '-'
 }
 
 run_gh_auth_flow() {
