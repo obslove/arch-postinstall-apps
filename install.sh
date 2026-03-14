@@ -269,7 +269,7 @@ sync_repo() {
 }
 
 run_bootstrap() {
-  sudo pacman -Syu --needed --noconfirm git github-cli openssh
+  sudo pacman -Syu --needed --noconfirm git
 
   require_command git
   sync_repo
@@ -278,6 +278,8 @@ run_bootstrap() {
 }
 
 setup_github_ssh() {
+  sudo pacman -S --needed --noconfirm github-cli openssh
+
   require_command gh
   require_command ssh-keygen
 
