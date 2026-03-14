@@ -9,14 +9,11 @@ Um script so para bootstrap e pos-instalacao no Arch.
 ## Instalacao rapida
 
 ```bash
-sudo pacman -Syu --needed --noconfirm git github-cli openssh
-gh auth login --web --git-protocol ssh
-gh repo clone obslove/arch-postinstall-apps ~/Repositories/arch-postinstall-apps
-bash ~/Repositories/arch-postinstall-apps/install.sh
+command -v curl >/dev/null 2>&1 || sudo pacman -Syu --needed --noconfirm curl
+curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh | bash
 ```
 
-Como o repo e privado, o fluxo oficial comeca com `gh auth login` e `gh repo clone`.
-Depois disso, o `install.sh` cria e envia a chave SSH para o GitHub se precisar e segue com a instalacao.
+Quando rodado fora do repo, ele instala `git`, `github-cli` e `openssh`, autentica com `gh`, cria e envia a chave SSH para o GitHub, clona/atualiza `~/Repositories/arch-postinstall-apps` e continua dali.
 
 ## Uso local
 
