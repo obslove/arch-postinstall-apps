@@ -9,7 +9,7 @@ Instala seus apps no Arch, priorizando `pacman` e usando AUR so quando precisar.
 ## Instalacao rapida
 
 ```bash
-sudo pacman -Syu --needed git && git clone https://github.com/obslove/arch-postinstall-apps.git && cd arch-postinstall-apps && bash install.sh
+curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/bootstrap.sh | bash
 ```
 
 ## Uso
