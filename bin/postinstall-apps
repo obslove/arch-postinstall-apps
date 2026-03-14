@@ -2,18 +2,12 @@
 
 set -euo pipefail
 
-packages=(
-  code
-  discord
-  git
-  google-chrome
-  spotify-launcher
-  steam
-  zen-browser-bin
-)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PACKAGE_FILE="$SCRIPT_DIR/../packages.txt"
 
 official_packages=()
 aur_packages=()
+packages=()
 
 require_command() {
   if ! command -v "$1" >/dev/null 2>&1; then
@@ -27,6 +21,22 @@ ensure_arch() {
     echo "Erro: este script foi feito para Arch Linux." >&2
     exit 1
   fi
+}
+
+load_packages() {
+  local line
+
+  [[ -f "$PACKAGE_FILE" ]] || {
+    echo "Erro: lista de pacotes nao encontrada em $PACKAGE_FILE" >&2
+    exit 1
+  }
+
+  packages=()
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ -n "$line" ]] || continue
+    [[ "$line" =~ ^[[:space:]]*# ]] && continue
+    packages+=("$line")
+  done <"$PACKAGE_FILE"
 }
 
 multilib_enabled() {
@@ -69,13 +79,11 @@ split_packages() {
 
 ensure_aur_helper() {
   if command -v paru >/dev/null 2>&1; then
-    echo "Usando paru."
     echo "paru"
     return
   fi
 
   if command -v yay >/dev/null 2>&1; then
-    echo "Usando yay."
     echo "yay"
     return
   fi
@@ -100,7 +108,7 @@ main() {
   ensure_arch
   require_command pacman
   require_command sudo
-
+  load_packages
   ensure_multilib
 
   echo "Sincronizando pacman..."

@@ -2,14 +2,34 @@
 
 Script simples de pos-instalacao para Arch Linux.
 
-Ele:
+## Estrutura
+
+```text
+.
+├── bin/
+│   └── postinstall-apps
+├── packages.txt
+└── README.md
+```
+
+## O que ele faz
 
 - habilita `multilib` se precisar
-- tenta instalar os apps via `pacman` primeiro
-- instala via AUR so o que nao existir no repositorio oficial
-- usa `paru` se ja existir, senao `yay`
+- instala o que existir via `pacman` primeiro
+- manda para o AUR so o que nao existir no repo oficial
+- usa `paru` se ja existir, senao instala `yay`
+
+## Uso
+
+```bash
+bash bin/postinstall-apps
+```
 
 ## Pacotes
+
+A lista fica em `packages.txt`.
+
+Pacotes atuais:
 
 - `code`
 - `discord`
@@ -19,29 +39,6 @@ Ele:
 - `steam`
 - `zen-browser-bin`
 
-## Uso
+## Editar
 
-```bash
-bash arch-postinstall-apps.sh
-```
-
-Se quiser deixar mais facil no seu usuario:
-
-```bash
-alias postinstall-apps='bash "$HOME/arch-postinstall-apps.sh"'
-```
-
-## Editar a lista
-
-Edite o array `packages` no topo do arquivo `arch-postinstall-apps.sh`.
-
-## Subir para o GitHub
-
-```bash
-git init
-git add .
-git commit -m "Initial commit"
-git branch -M main
-git remote add origin https://github.com/SEU_USUARIO/arch-postinstall-apps.git
-git push -u origin main
-```
+Adicione ou remova linhas em `packages.txt`.

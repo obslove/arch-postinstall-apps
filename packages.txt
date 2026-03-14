@@ -1,0 +1,7 @@
+code
+discord
+git
+google-chrome
+spotify-launcher
+steam
+zen-browser-bin
