@@ -6,10 +6,16 @@ Script simples para reinstalacao no Arch Linux.
 
 Instala seus apps no Arch, priorizando `pacman` e usando AUR so quando precisar.
 
+## Instalacao rapida
+
+```bash
+sudo pacman -Syu --needed git && git clone https://github.com/obslove/arch-postinstall-apps.git && cd arch-postinstall-apps && bash install.sh
+```
+
 ## Uso
 
 ```bash
-bash bin/postinstall-apps
+bash install.sh
 ``` 
 
 ## Pacotes
@@ -27,7 +33,7 @@ Edite `packages.txt` para mudar a lista.
 ## Estrutura
 
 ```text
+install.sh
 bin/postinstall-apps
 packages.txt
-README.md
 ```
