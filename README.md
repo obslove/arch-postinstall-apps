@@ -9,13 +9,30 @@ Instala seus apps no Arch, priorizando `pacman` e usando AUR so quando precisar.
 ## Instalacao rapida
 
 ```bash
-bash -c 'if command -v curl >/dev/null 2>&1; then curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/bootstrap.sh; elif command -v wget >/dev/null 2>&1; then wget -qO- https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/bootstrap.sh; else echo "Erro: instale curl ou wget." >&2; exit 1; fi' | bash
+URL="https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/bootstrap.sh"
+
+if command -v curl >/dev/null 2>&1; then
+  curl -fsSL "$URL" | bash
+elif command -v wget >/dev/null 2>&1; then
+  wget -qO- "$URL" | bash
+else
+  echo "Erro: instale curl ou wget." >&2
+fi
 ```
 
 Outra branch:
 
 ```bash
-bash -c 'if command -v curl >/dev/null 2>&1; then curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/bootstrap.sh; elif command -v wget >/dev/null 2>&1; then wget -qO- https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/bootstrap.sh; else echo "Erro: instale curl ou wget." >&2; exit 1; fi' | bash -s -- sua-branch
+URL="https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/bootstrap.sh"
+BRANCH="sua-branch"
+
+if command -v curl >/dev/null 2>&1; then
+  curl -fsSL "$URL" | bash -s -- "$BRANCH"
+elif command -v wget >/dev/null 2>&1; then
+  wget -qO- "$URL" | bash -s -- "$BRANCH"
+else
+  echo "Erro: instale curl ou wget." >&2
+fi
 ```
 
 ## Uso
