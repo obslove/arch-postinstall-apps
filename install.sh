@@ -35,6 +35,7 @@ cleanup_paths=()
 verified_commands=()
 missing_commands=()
 version_info=()
+temp_wl_clipboard_installed=0
 
 ensure_not_root() {
   if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
@@ -155,16 +156,67 @@ sanitize_label() {
   printf '%s' "$1" | tr -cs '[:alnum:].@_-' '-'
 }
 
+has_clipboard_utility() {
+  command -v wl-copy >/dev/null 2>&1 || \
+    command -v xclip >/dev/null 2>&1 || \
+    command -v xsel >/dev/null 2>&1 || \
+    command -v termux-clipboard-set >/dev/null 2>&1
+}
+
+ensure_temp_clipboard_utility() {
+  if has_clipboard_utility; then
+    return 0
+  fi
+
+  if [[ -z "${WAYLAND_DISPLAY:-}" ]]; then
+    return 1
+  fi
+
+  if pacman -Q wl-clipboard >/dev/null 2>&1; then
+    return 0
+  fi
+
+  echo "Instalando wl-clipboard temporariamente para copiar o codigo do GitHub..."
+  if ! retry sudo pacman -S --needed --noconfirm wl-clipboard; then
+    echo "Aviso: nao foi possivel instalar wl-clipboard. Continuando sem copia automatica."
+    return 1
+  fi
+
+  temp_wl_clipboard_installed=1
+  return 0
+}
+
+cleanup_temp_clipboard_utility() {
+  if [[ "$temp_wl_clipboard_installed" != "1" ]]; then
+    return 0
+  fi
+
+  echo "Removendo wl-clipboard instalado temporariamente..."
+  if ! retry sudo pacman -Rns --noconfirm wl-clipboard; then
+    echo "Aviso: nao foi possivel remover wl-clipboard automaticamente."
+    return 1
+  fi
+
+  temp_wl_clipboard_installed=0
+}
+
 run_gh_auth_flow() {
+  local clipboard_args=()
+
   echo "Abrindo o navegador padrao para autenticacao do GitHub..."
-  echo "O codigo de dispositivo sera copiado automaticamente para a area de transferencia."
+  if ensure_temp_clipboard_utility; then
+    clipboard_args+=(--clipboard)
+    echo "O codigo de dispositivo sera copiado automaticamente para a area de transferencia."
+  else
+    echo "Clipboard indisponivel. Copie o codigo manualmente no terminal."
+  fi
 
   if [[ -t 0 ]]; then
-    printf '\n' | gh "$@" --clipboard
+    printf '\n' | gh "$@" "${clipboard_args[@]}"
     return
   fi
 
-  gh "$@" --clipboard
+  gh "$@" "${clipboard_args[@]}"
 }
 
 append_package() {
@@ -719,15 +771,18 @@ setup_github_ssh() {
 
   ensure_ssh_key
   if ! ensure_github_auth; then
+    cleanup_temp_clipboard_utility || true
     echo "Aviso: autenticacao do GitHub nao concluida. Pulando upload da chave SSH."
     return
   fi
 
   if ! upload_ssh_key; then
+    cleanup_temp_clipboard_utility || true
     echo "Aviso: nao foi possivel enviar a chave SSH para o GitHub."
     return
   fi
 
+  cleanup_temp_clipboard_utility || true
   git -C "$SCRIPT_DIR" remote set-url origin "$REPO_SSH_URL" || true
   mark_checkpoint "github_ssh"
 }
