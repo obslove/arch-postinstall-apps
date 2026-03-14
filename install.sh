@@ -211,9 +211,6 @@ create_directories() {
 }
 
 setup_codex_cli() {
-  echo "Instalando nodejs e npm..."
-  sudo pacman -S --needed --noconfirm nodejs npm
-
   require_command npm
 
   echo "Configurando npm prefix em $HOME/Codex..."

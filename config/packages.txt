@@ -3,6 +3,8 @@
 code
 discord
 git
+npm
+nodejs
 spotify-launcher
 steam
 

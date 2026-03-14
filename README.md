@@ -26,7 +26,7 @@ Quando rodado fora do repo, ele instala `git`, clona/atualiza `~/Repositories/ar
 - instala os pacotes via `pacman` primeiro
 - instala `yay` se precisar
 - instala o restante via AUR
-- instala `nodejs` e `npm`
+- instala `nodejs` e `npm` via `pacman`
 - roda `npm config set prefix "$HOME/Codex"`
 - instala `@openai/codex` globalmente
 - adiciona `~/Codex/bin` ao `PATH` no `.bashrc`
@@ -54,6 +54,8 @@ bash install.sh
 - `code`
 - `discord`
 - `git`
+- `nodejs`
+- `npm`
 - `google-chrome` (AUR)
 - `spotify-launcher`
 - `steam`
