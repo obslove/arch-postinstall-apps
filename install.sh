@@ -41,10 +41,11 @@ verified_commands=()
 missing_commands=()
 version_info=()
 temp_clipboard_package=""
+official_repo_index_file=""
 
 ensure_not_root() {
   if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
-    echo "Erro: rode este script como usuário normal, não como root." >&2
+    echo "Erro: execute este script como usuário comum, e não como root." >&2
     exit 1
   fi
 }
@@ -82,6 +83,8 @@ checkpoint_older_than_days() {
 }
 
 acquire_lock() {
+  local existing_pid=""
+
   if [[ "$LOCK_HELD" == "1" ]]; then
     return
   fi
@@ -92,6 +95,21 @@ acquire_lock() {
     register_cleanup_path "$LOCK_DIR"
     export POSTINSTALL_LOCK_HELD=1
     return
+  fi
+
+  if [[ -f "$LOCK_DIR/pid" ]]; then
+    existing_pid="$(<"$LOCK_DIR/pid")"
+  fi
+
+  if [[ -z "$existing_pid" ]] || ! kill -0 "$existing_pid" 2>/dev/null; then
+    echo "Aviso: foi detectado um lock órfão. Limpando a execução anterior."
+    rm -rf "$LOCK_DIR"
+    if mkdir "$LOCK_DIR" 2>/dev/null; then
+      printf '%s\n' "$$" >"$LOCK_DIR/pid"
+      register_cleanup_path "$LOCK_DIR"
+      export POSTINSTALL_LOCK_HELD=1
+      return
+    fi
   fi
 
   echo "Erro: já existe outra execução do script em andamento." >&2
@@ -216,6 +234,10 @@ get_host_name() {
 
 sanitize_label() {
   printf '%s' "$1" | tr -cs '[:alnum:].@_-' '-'
+}
+
+build_ssh_key_title() {
+  printf '%s@%s\n' "$USER" "$(sanitize_label "$(get_host_name)")"
 }
 
 is_wayland_session() {
@@ -345,7 +367,7 @@ run_gh_auth_flow() {
     clipboard_args+=(--clipboard)
     echo "O código de dispositivo será copiado automaticamente para a área de transferência."
   else
-    echo "Clipboard indisponível. Copie o código manualmente no terminal."
+    echo "Área de transferência indisponível. Copie o código manualmente no terminal."
   fi
 
   if [[ -t 0 ]]; then
@@ -375,7 +397,7 @@ load_package_file() {
 
   if [[ ! -f "$package_path" ]]; then
     if [[ "$package_path" == "$EXTRA_PACKAGE_FILE" ]]; then
-      announce_detail "Pacotes extras não encontrados em $package_path. Pulando."
+      announce_detail "Pacotes extras não encontrados em $package_path. Etapa ignorada."
     fi
     return 0
   fi
@@ -418,11 +440,11 @@ multilib_enabled() {
 
 ensure_multilib() {
   if multilib_enabled; then
-    announce_detail "multilib já está habilitado."
+    announce_detail "O repositório multilib já está habilitado."
     return
   fi
 
-  announce_detail "Habilitando multilib..."
+  announce_detail "Habilitando o repositório multilib..."
   sudo cp /etc/pacman.conf "/etc/pacman.conf.bak.$(date +%Y%m%d%H%M%S)"
   sudo sed -i \
     '/^[[:space:]]*#\[multilib\][[:space:]]*$/,/^[[:space:]]*#Include = \/etc\/pacman.d\/mirrorlist[[:space:]]*$/ s/^[[:space:]]*#//' \
@@ -443,12 +465,12 @@ optimize_mirrors() {
   local reflector_status=0
 
   if has_checkpoint "mirrors" && ! checkpoint_older_than_days "mirrors" "$MIRROR_CHECKPOINT_MAX_AGE_DAYS"; then
-    announce_detail "Mirrorlist já atualizada recentemente. Pulando."
+    announce_detail "A lista de mirrors já foi atualizada recentemente. Etapa ignorada."
     return
   fi
 
   if has_checkpoint "mirrors"; then
-    announce_detail "Checkpoint de mirrors expirado. Atualizando novamente..."
+    announce_detail "O checkpoint de mirrors expirou. Atualizando novamente..."
   else
     announce_detail "Mirrorlist ainda não foi atualizada nesta máquina."
   fi
@@ -476,10 +498,10 @@ optimize_mirrors() {
   else
     reflector_status=$?
     if grep -q '^Server' "$temp_mirrorlist"; then
-      echo "Aviso: reflector retornou warnings/timeouts, mas gerou uma mirrorlist válida. Continuando com ela."
+      echo "Aviso: o reflector retornou avisos ou limites de tempo, mas gerou uma lista de mirrors válida. O script continuará com ela."
       sudo install -m 644 "$temp_mirrorlist" "$current_mirrorlist"
     else
-      echo "Aviso: reflector falhou sem gerar mirrorlist válida. Restaurando mirrorlist anterior."
+      echo "Aviso: o reflector falhou sem gerar uma lista de mirrors válida. Restaurando a lista anterior."
       sudo install -m 644 "$backup_mirrorlist" "$current_mirrorlist"
       rm -f "$backup_mirrorlist" "$temp_mirrorlist"
       return "$reflector_status"
@@ -512,6 +534,27 @@ build_yay() {
     cd "$yay_dir"
     makepkg -si --noconfirm
   )
+}
+
+refresh_official_repo_index() {
+  if [[ -n "$official_repo_index_file" && -f "$official_repo_index_file" ]]; then
+    return 0
+  fi
+
+  official_repo_index_file="$(mktemp)"
+  register_cleanup_path "$official_repo_index_file"
+
+  if ! pacman -Slq | sort -u >"$official_repo_index_file"; then
+    echo "Erro: não foi possível carregar a lista de pacotes oficiais do pacman." >&2
+    return 1
+  fi
+}
+
+package_exists_in_official_repos() {
+  local package="$1"
+
+  refresh_official_repo_index
+  grep -qxF "$package" "$official_repo_index_file"
 }
 
 install_yay() {
@@ -559,7 +602,7 @@ ensure_aur_helper() {
     return
   fi
 
-  announce_detail "Nenhum helper AUR encontrado. Vou instalar o yay..."
+  announce_detail "Nenhum helper AUR foi encontrado. O script instalará o yay..."
   if ! install_yay; then
     echo "Erro: não foi possível preparar um helper AUR (yay)." >&2
     return 1
@@ -568,7 +611,22 @@ ensure_aur_helper() {
 }
 
 github_ssh_ready() {
-  has_checkpoint "github_ssh" && [[ -f "${SSH_KEY_PATH}.pub" ]]
+  [[ -f "${SSH_KEY_PATH}.pub" ]] || return 1
+  command -v gh >/dev/null 2>&1 || return 1
+  gh auth status >/dev/null 2>&1 || return 1
+  has_checkpoint "github_ssh" || return 1
+  github_has_current_ssh_key
+}
+
+github_has_current_ssh_key() {
+  local current_key
+  local existing_keys
+
+  [[ -f "${SSH_KEY_PATH}.pub" ]] || return 1
+  current_key="$(<"${SSH_KEY_PATH}.pub")"
+  existing_keys="$(gh api user/keys --jq '.[].key' 2>/dev/null || true)"
+  [[ -n "$existing_keys" ]] || return 1
+  grep -qxF "$current_key" <<<"$existing_keys"
 }
 
 desired_repo_origin_url() {
@@ -594,7 +652,7 @@ ensure_repo_origin_remote() {
   fi
 
   if [[ "$current_origin_url" != "$REPO_HTTPS_URL" && "$current_origin_url" != "$REPO_SSH_URL" ]]; then
-    announce_detail "Remote origin personalizado detectado em $repo_dir. Mantendo configuração atual."
+    announce_detail "Foi detectado um remoto origin personalizado em $repo_dir. A configuração atual será mantida."
     return
   fi
 
@@ -603,11 +661,32 @@ ensure_repo_origin_remote() {
   fi
 }
 
+get_repo_branch() {
+  local repo_dir="$1"
+  local branch_name=""
+
+  if ! git -C "$repo_dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    return 1
+  fi
+
+  branch_name="$(git -C "$repo_dir" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+  if [[ -n "$branch_name" ]]; then
+    printf '%s\n' "$branch_name"
+    return 0
+  fi
+
+  branch_name="$(git -C "$repo_dir" rev-parse --short HEAD 2>/dev/null || true)"
+  [[ -n "$branch_name" ]] || return 1
+  printf 'detached@%s\n' "$branch_name"
+}
+
 install_packages_in_order() {
   local package
   local announced_aur_absence=0
   local shown_pacman_step=0
   local shown_aur_step=0
+
+  refresh_official_repo_index
 
   official_packages=()
   aur_packages=()
@@ -621,7 +700,7 @@ install_packages_in_order() {
         ;;
     esac
 
-    if pacman -Si "$package" >/dev/null 2>&1; then
+    if package_exists_in_official_repos "$package"; then
       official_packages+=("$package")
       if [[ "$shown_pacman_step" == "0" ]]; then
         announce_step "Instalando apps oficiais..."
@@ -637,7 +716,7 @@ install_packages_in_order() {
     fi
 
     if [[ "$announced_aur_absence" == "0" && ${#aur_packages[@]} == 0 ]]; then
-      announce_detail "Encontrado o primeiro pacote AUR na lista."
+      announce_detail "O primeiro pacote AUR foi encontrado na lista."
       announced_aur_absence=1
     fi
 
@@ -660,17 +739,23 @@ install_packages_in_order() {
   done
 
   if ((${#aur_packages[@]} == 0)); then
-    announce_detail "Nenhum pacote AUR na lista. Pulando etapa do AUR."
+    announce_detail "Nenhum pacote AUR foi encontrado na lista. A etapa do AUR será ignorada."
   fi
 }
 
 print_summary() {
   local host_name
+  local actual_branch
   local repo_path
+  local requested_branch_note=""
   local version_line
 
   host_name="$(get_host_name)"
+  actual_branch="$(get_repo_branch "$SCRIPT_DIR" 2>/dev/null || printf '%s\n' "$REPO_BRANCH")"
   repo_path="$SCRIPT_DIR"
+  if [[ "$actual_branch" != "$REPO_BRANCH" ]]; then
+    requested_branch_note="$REPO_BRANCH"
+  fi
 
   if [[ "$STEP_OUTPUT_ONLY" == "1" ]]; then
     echo
@@ -684,7 +769,10 @@ print_summary() {
     echo "Resumo: $SUMMARY_FILE"
     echo "Hostname: $host_name"
     echo "Repositório: $repo_path"
-    echo "Branch: $REPO_BRANCH"
+    echo "Branch: $actual_branch"
+    if [[ -n "$requested_branch_note" ]]; then
+      echo "Branch solicitada: $requested_branch_note"
+    fi
     echo "Pacman: ${official_packages[*]:-nenhum}"
     echo "AUR: ${aur_packages[*]:-nenhum}"
     echo "Falhas pacman: ${official_failed[*]:-nenhuma}"
@@ -707,7 +795,8 @@ Data: $(date '+%Y-%m-%d %H:%M:%S %z')
 Log: $LOG_FILE
 Hostname: $host_name
 Repositório: $repo_path
-Branch: $REPO_BRANCH
+Branch: $actual_branch
+$(if [[ -n "$requested_branch_note" ]]; then printf 'Branch solicitada: %s\n' "$requested_branch_note"; fi)
 Pacman: ${official_packages[*]:-nenhum}
 AUR: ${aur_packages[*]:-nenhum}
 Falhas pacman: ${official_failed[*]:-nenhuma}
@@ -748,13 +837,13 @@ setup_codex_cli() {
 end"
 
   if has_checkpoint "codex_cli" && command -v codex >/dev/null 2>&1; then
-    announce_detail "Codex CLI já configurado. Pulando."
+    announce_detail "O Codex CLI já está configurado. Etapa ignorada."
     return
   fi
 
   require_command npm
 
-  announce_detail "Configurando npm prefix em $HOME/Codex..."
+  announce_detail "Configurando o prefixo do npm em $HOME/Codex..."
   run_log_only npm config set prefix "$HOME/Codex"
 
   if [[ ! -f "$BASHRC_FILE" ]]; then
@@ -799,7 +888,7 @@ ensure_ssh_key() {
   chmod 700 "$ssh_dir"
 
   if [[ -f "$SSH_KEY_PATH" ]]; then
-    announce_detail "Chave SSH já existe em $SSH_KEY_PATH"
+    announce_detail "A chave SSH já existe em $SSH_KEY_PATH."
     return
   fi
 
@@ -829,17 +918,19 @@ upload_ssh_key() {
   local existing_keys
   local key_id
   local key_ids
+  local key_title
 
   current_key="$(<"${SSH_KEY_PATH}.pub")"
+  key_title="$(build_ssh_key_title)"
   if ! existing_keys="$(gh api user/keys --jq '.[] | [.id, .key] | @tsv' 2>/dev/null)"; then
-    announce_detail "Permissão admin:public_key ausente no gh. Vou renovar a autenticação."
+    announce_detail "A permissão admin:public_key não está disponível no gh. A autenticação será renovada."
     if ! run_gh_auth_flow auth refresh -h github.com -s admin:public_key; then
       echo "Aviso: não foi possível renovar o escopo admin:public_key no gh."
       return 1
     fi
 
     if ! existing_keys="$(gh api user/keys --jq '.[] | [.id, .key] | @tsv' 2>/dev/null)"; then
-      echo "Aviso: gh continua sem acesso para gerenciar chaves SSH no GitHub."
+      echo "Aviso: o gh continua sem acesso para gerenciar chaves SSH no GitHub."
       return 1
     fi
   fi
@@ -854,15 +945,15 @@ upload_ssh_key() {
   done <<<"$existing_keys"
 
   if [[ "$REPLACE_GITHUB_SSH_KEYS" != "1" && -n "$current_key_id" ]]; then
-    announce_detail "Chave SSH atual já está cadastrada no GitHub."
+    announce_detail "A chave SSH atual já está cadastrada no GitHub."
     return
   fi
 
   if [[ -z "$current_key_id" ]]; then
-    announce_detail "Enviando chave SSH para o GitHub..."
-    current_key_id="$(retry gh api user/keys --method POST -f "title=obslove" -f "key=$current_key" --jq '.id')"
+    announce_detail "Enviando a chave SSH ao GitHub..."
+    current_key_id="$(retry gh api user/keys --method POST -f "title=$key_title" -f "key=$current_key" --jq '.id')"
   else
-    announce_detail "Chave SSH atual já existe no GitHub."
+    announce_detail "A chave SSH atual já existe no GitHub."
   fi
 
   if [[ "$REPLACE_GITHUB_SSH_KEYS" != "1" ]]; then
@@ -886,6 +977,7 @@ repo_is_dirty() {
 }
 
 sync_repo() {
+  local current_branch=""
   local fetched_origin=0
 
   mkdir -p "$(dirname "$INSTALL_DIR")"
@@ -893,7 +985,14 @@ sync_repo() {
   if [[ -d "$INSTALL_DIR/.git" ]]; then
     announce_step "Atualizando repositório..."
     if repo_is_dirty; then
-      echo "Aviso: repositório local tem mudanças. Pulando atualização automática."
+      current_branch="$(get_repo_branch "$INSTALL_DIR" 2>/dev/null || true)"
+      if [[ -n "$current_branch" && "$current_branch" != "$REPO_BRANCH" ]]; then
+        echo "Erro: o clone gerenciado está com mudanças locais na branch '$current_branch'." >&2
+        echo "Não dá para executar com segurança a branch solicitada '$REPO_BRANCH' sem limpar ou mover essas mudanças." >&2
+        exit 1
+      fi
+
+      echo "Aviso: o repositório local tem alterações. A atualização automática será ignorada."
       return
     fi
 
@@ -902,7 +1001,7 @@ sync_repo() {
     if retry_log_only git -C "$INSTALL_DIR" fetch origin; then
       fetched_origin=1
     else
-      echo "Aviso: falha ao buscar atualizações de origin. Vou tentar usar a cópia local."
+      echo "Aviso: falha ao buscar atualizações de origin. O script tentará usar a cópia local."
     fi
 
     if git -C "$INSTALL_DIR" show-ref --verify --quiet "refs/heads/$REPO_BRANCH"; then
@@ -919,12 +1018,12 @@ sync_repo() {
     fi
 
     if [[ "$fetched_origin" == "0" ]]; then
-      echo "Aviso: pulando 'git pull' porque o fetch de origin falhou. Continuando com a branch local."
+      echo "Aviso: o 'git pull' será ignorado porque o fetch de origin falhou. O script continuará com a branch local."
       return
     fi
 
     if ! retry_log_only git -C "$INSTALL_DIR" pull --ff-only origin "$REPO_BRANCH"; then
-      echo "Aviso: falha ao atualizar '$REPO_BRANCH' via 'git pull --ff-only'. Continuando com a cópia atual."
+      echo "Aviso: falha ao atualizar '$REPO_BRANCH' com 'git pull --ff-only'. O script continuará com a cópia atual."
     fi
   else
     if [[ -e "$INSTALL_DIR" ]]; then
@@ -965,25 +1064,25 @@ run_bootstrap() {
 setup_github_ssh() {
   if has_checkpoint "github_ssh" && command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1 && [[ -f "${SSH_KEY_PATH}.pub" ]]; then
     ensure_repo_origin_remote "$SCRIPT_DIR"
-    announce_detail "GitHub SSH já configurado. Pulando."
+    announce_detail "O GitHub SSH já está configurado. Etapa ignorada."
     return
   fi
 
   announce_step "Configurando GitHub SSH..."
   if ! retry_log_only sudo pacman -S --needed --noconfirm github-cli openssh; then
-    echo "Aviso: não foi possível instalar github-cli/openssh. Pulando configuração do GitHub."
+    echo "Aviso: não foi possível instalar github-cli/openssh. A configuração do GitHub será ignorada."
     return
   fi
 
   if ! command -v gh >/dev/null 2>&1 || ! command -v ssh-keygen >/dev/null 2>&1; then
-    echo "Aviso: github-cli ou ssh-keygen indisponível. Pulando configuração do GitHub."
+    echo "Aviso: github-cli ou ssh-keygen está indisponível. A configuração do GitHub será ignorada."
     return
   fi
 
   ensure_ssh_key
   if ! ensure_github_auth; then
     cleanup_temp_clipboard_utility || true
-    echo "Aviso: autenticação do GitHub não concluída. Pulando upload da chave SSH."
+    echo "Aviso: a autenticação do GitHub não foi concluída. O envio da chave SSH será ignorado."
     return
   fi
 
@@ -1147,7 +1246,7 @@ run_install() {
   optimize_mirrors
 
   if [[ "$SYSTEM_UPDATED" == "1" ]]; then
-    announce_detail "Sistema já atualizado no bootstrap. Pulando nova atualização completa."
+    announce_detail "O sistema já foi atualizado no bootstrap. A nova atualização completa será ignorada."
   else
     announce_step "Atualizando o sistema..."
     retry_log_only sudo pacman -Syu --noconfirm

@@ -1,3 +1,3 @@
-# Pacotes opcionais seus.
-# Se quiser usar, crie config/packages-extra.txt com uma linha por pacote.
-# Linhas vazias e linhas com # sao ignoradas.
+# Pacotes opcionais.
+# Se quiser usá-los, crie `config/packages-extra.txt` com uma linha por pacote.
+# Linhas vazias e linhas iniciadas com `#` são ignoradas.

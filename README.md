@@ -1,10 +1,10 @@
 # Arch Postinstall Apps
 
-Setup simples de aplicativos para Arch Linux.
+Script de bootstrap e pós-instalação para Arch Linux.
 
 ## Sobre
 
-Um único script para bootstrap e pós-instalação no Arch Linux.
+Um único script para preparar o ambiente inicial e a pós-instalação no Arch Linux.
 
 ## Instalação rápida
 
@@ -26,10 +26,10 @@ bash <(curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-app
 bash <(curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh)
 ```
 
-Quando executado fora do repositório, o script instala `git`, clona ou atualiza `~/Repositories/arch-postinstall-apps` e continua a execução a partir dali.
+Quando executado fora do repositório, o script instala `git`, clona ou atualiza `~/Repositories/arch-postinstall-apps` e continua a execução a partir desse diretório.
 Quando executado dentro de um clone local, ele usa o repositório atual e não força a migração para `~/Repositories/arch-postinstall-apps`.
-Esse comando assume que `curl` esteja disponível na instalação padrão do Arch.
-Execute como usuário normal, não com `sudo bash`.
+Esse comando pressupõe que `curl` esteja disponível na instalação padrão do Arch.
+Execute-o como usuário comum, e não com `sudo bash`.
 
 ## Pacotes
 
@@ -39,89 +39,92 @@ Execute como usuário normal, não com `sudo bash`.
 - `shellcheck`
 - `nodejs`
 - `npm`
-- `codex` (setup especial)
+- `codex` (configuração especial)
 - `code`
 - `discord`
 - `spotify-launcher`
 - `steam`
 
 Edite `config/packages.txt` para alterar a lista principal.
-Se existir `config/packages-extra.txt`, ele também será carregado.
-Se esse arquivo não existir, o script registra isso no log e segue normalmente.
+Se existir `config/packages-extra.txt`, esse arquivo também será carregado.
+Se ele não existir, o script registrará essa ausência no log e continuará normalmente.
 
 O instalador respeita a ordem definida em `config/packages.txt`.
 Os repositórios usados pelo script ficam em `~/Repositories`.
-Se não houver helper AUR instalado, o script instala `yay` antes do primeiro pacote AUR.
-Se `paru` ou `yay` já existirem, o script reutiliza o helper encontrado.
-O item `codex` não é um pacote do sistema: ele executa o setup do Codex CLI.
-O script instala `reflector` e atualiza a mirrorlist antes do `pacman -Syu`, usando `10s` como timeout padrão para conexão e download.
-O checkpoint de mirrors expira por padrão após `7` dias, para evitar que a mirrorlist fique congelada para sempre.
-Em sessão Hyprland, o script também garante `pipewire`, `wireplumber`, `xdg-utils`, `xdg-desktop-portal`, `xdg-desktop-portal-gtk` e `xdg-desktop-portal-hyprland`.
+Se não houver helper AUR instalado, o script instalará `yay` antes do primeiro pacote AUR.
+Se `paru` ou `yay` já existirem, o helper encontrado será reutilizado.
+O item `codex` não é um pacote do sistema: ele executa uma configuração especial do Codex CLI.
+O script instala `reflector` e atualiza a lista de mirrors antes de `pacman -Syu`, usando `10s` como tempo limite padrão para conexão e download.
+O checkpoint de mirrors expira, por padrão, após `7` dias, para evitar que a lista fique desatualizada por tempo indeterminado.
+Em sessões Hyprland, o script também garante `pipewire`, `wireplumber`, `xdg-utils`, `xdg-desktop-portal`, `xdg-desktop-portal-gtk` e `xdg-desktop-portal-hyprland`.
 
 ## O que acontece
 
-- evita duas execuções simultâneas com lockfile
-- grava log em `~/Backups/arch-postinstall.log`
-- mostra por padrão um modo resumido por etapas no terminal
-- mantém os detalhes completos no log
-- instala `git`
-- clona ou atualiza `~/Repositories/arch-postinstall-apps` quando executado fora do repositório
-- mantém clones auxiliares, como `yay`, dentro de `~/Repositories`
-- preserva a branch escolhida entre o bootstrap e a segunda etapa
-- usa o clone atual normalmente quando você roda `bash install.sh` dentro de um repositório já existente
-- cria `~/Backups`, `~/Codex`, `~/Dots`, `~/Pictures/Wallpapers`, `~/Pictures/Screenshots`, `~/Projects`, `~/Repositories` e `~/Videos`
-- carrega `config/packages.txt` e, se existir, `config/packages-extra.txt`
-- habilita `multilib`, se necessário
-- instala `reflector`
-- aceita warnings/timeouts parciais do `reflector` se ele ainda gerar uma mirrorlist válida
-- restaura a mirrorlist anterior se o `reflector` falhar sem gerar mirrorlist válida
-- marca checkpoint para não atualizar a mirrorlist novamente em reruns recentes
-- atualiza a mirrorlist de novo quando o checkpoint de mirrors estiver velho demais
-- atualiza o sistema com `pacman -Syu`
-- segue a ordem definida em `config/packages.txt`
-- instala cada item com `pacman`, `yay` ou setup especial, conforme o tipo
-- instala `yay` automaticamente antes do primeiro pacote AUR, se necessário
-- informa quando não houver pacotes AUR na lista
-- repete automaticamente etapas mais frágeis se alguma falhar na primeira tentativa
-- configura o Codex CLI com prefixo em `~/Codex`
-- adiciona `~/Codex/bin` ao `PATH` do `bash`, `zsh` e `fish`
-- instala `github-cli` e `openssh`
-- cria a chave SSH se não existir
-- tenta abrir automaticamente `https://github.com/login/device` no navegador padrão
-- autentica no GitHub com `gh`, usando o device flow web
-- copia automaticamente o código do device flow para a área de transferência quando existir utilitário compatível com a sessão atual
-- instala `wl-clipboard` temporariamente em sessões Wayland ou `xclip` em sessões X11 se faltar utilitário de clipboard compatível
-- remove o utilitário de clipboard temporário ao fim da etapa do GitHub, se ele tiver sido instalado pelo script
-- renova o scope `admin:public_key` se precisar para gerenciar chaves SSH
-- envia a chave SSH para o GitHub com título fixo `obslove`
-- mantém a chave atual antes de remover as antigas, se `REPLACE_GITHUB_SSH_KEYS=1`
-- pula a parte do GitHub se a autenticação falhar
-- marca checkpoint para não repetir a configuração SSH do GitHub em reruns
-- em sessão Hyprland, garante a pilha de integração desktop e screen sharing com `pipewire`, `wireplumber` e `xdg-desktop-portal`
-- verifica no fim se os binários principais realmente ficaram disponíveis
-- em Wayland, verifica clipboard, pacotes de portal e serviços de usuário como `pipewire.service`, `wireplumber.service` e `xdg-desktop-portal.service`
-- grava resumo em `~/Backups/arch-postinstall-summary.txt`
-- grava `Hostname` no resumo final
-- grava no resumo a branch usada, o caminho do repositório realmente em uso e as versões principais
-- inclui no resumo o clone gerenciado separado, quando a execução aconteceu fora dele
-- limpa arquivos temporários mesmo se o script abortar
+- Evita duas execuções simultâneas por meio de um arquivo de bloqueio.
+- Recupera automaticamente um lock órfão quando a execução anterior termina sem limpeza adequada.
+- Grava o log em `~/Backups/arch-postinstall.log`.
+- Exibe, por padrão, um modo resumido por etapas no terminal.
+- Mantém os detalhes completos no arquivo de log.
+- Instala `git`.
+- Clona ou atualiza `~/Repositories/arch-postinstall-apps` quando executado fora do repositório.
+- Mantém clones auxiliares, como `yay`, dentro de `~/Repositories`.
+- Preserva a branch escolhida entre o bootstrap e a segunda etapa.
+- Usa o clone atual normalmente quando você executa `bash install.sh` dentro de um repositório já existente.
+- Interrompe o bootstrap se o clone gerenciado estiver com alterações locais em outra branch, em vez de executar código da branch incorreta.
+- Cria `~/Backups`, `~/Codex`, `~/Dots`, `~/Pictures/Wallpapers`, `~/Pictures/Screenshots`, `~/Projects`, `~/Repositories` e `~/Videos`.
+- Carrega `config/packages.txt` e, se existir, `config/packages-extra.txt`.
+- Habilita `multilib`, se necessário.
+- Instala `reflector`.
+- Aceita avisos e limites de tempo parciais do `reflector` se ele ainda gerar uma lista de mirrors válida.
+- Restaura a lista de mirrors anterior se o `reflector` falhar sem gerar saída válida.
+- Marca um checkpoint para evitar a atualização da lista de mirrors em reruns recentes.
+- Atualiza a lista de mirrors novamente quando o checkpoint estiver antigo demais.
+- Atualiza o sistema com `pacman -Syu`.
+- Segue a ordem definida em `config/packages.txt`.
+- Instala cada item com `pacman`, `yay` ou configuração especial, conforme o tipo.
+- Instala `yay` automaticamente antes do primeiro pacote AUR, se necessário.
+- Informa quando não houver pacotes AUR na lista.
+- Repete automaticamente etapas mais frágeis quando a primeira tentativa falha.
+- Configura o Codex CLI com prefixo em `~/Codex`.
+- Adiciona `~/Codex/bin` ao `PATH` do `bash`, `zsh` e `fish`.
+- Instala `github-cli` e `openssh`.
+- Cria a chave SSH, se ela não existir.
+- Tenta abrir automaticamente `https://github.com/login/device` no navegador padrão.
+- Autentica no GitHub com `gh`, usando o fluxo web por código de dispositivo.
+- Copia automaticamente o código do fluxo de autenticação para a área de transferência quando houver um utilitário compatível com a sessão atual.
+- Instala `wl-clipboard` temporariamente em sessões Wayland ou `xclip` em sessões X11 quando faltar um utilitário de área de transferência compatível.
+- Remove o utilitário temporário de área de transferência ao fim da etapa do GitHub, se ele tiver sido instalado pelo script.
+- Renova o escopo `admin:public_key`, se necessário, para gerenciar chaves SSH.
+- Envia a chave SSH ao GitHub com título derivado de `usuário@hostname`.
+- Mantém a chave atual antes de remover as antigas, se `REPLACE_GITHUB_SSH_KEYS=1`.
+- Ignora a etapa do GitHub se a autenticação falhar.
+- Valida, em reruns, se a chave SSH atual ainda existe na conta do GitHub antes de confiar no checkpoint.
+- Em sessões Hyprland, garante a pilha de integração desktop e compartilhamento de tela com `pipewire`, `wireplumber` e `xdg-desktop-portal`.
+- Verifica, ao final, se os binários principais realmente ficaram disponíveis.
+- Em Wayland, verifica a área de transferência, os pacotes de portal e serviços de usuário como `pipewire.service`, `wireplumber.service` e `xdg-desktop-portal.service`.
+- Grava o resumo em `~/Backups/arch-postinstall-summary.txt`.
+- Registra `Hostname` no resumo final.
+- Registra, no resumo, a branch realmente em uso, o caminho do repositório e as versões principais.
+- Registra também a branch solicitada, se ela for diferente da branch em uso.
+- Inclui no resumo o clone gerenciado separado, quando a execução tiver acontecido fora dele.
+- Remove arquivos temporários mesmo se o script for interrompido.
 
 ## O que exige interação
 
-- senha do `sudo`
-- login no GitHub via `gh auth login`, com o navegador padrão abrindo a página do device flow
-- autorização extra do `gh auth refresh` se faltar o scope `admin:public_key`
-- eventualmente algum prompt raro de pacote AUR
+- Senha do `sudo`.
+- Login no GitHub via `gh auth login`, com o navegador padrão abrindo a página do fluxo por código de dispositivo.
+- Autorização adicional do `gh auth refresh`, se faltar o escopo `admin:public_key`.
+- Eventualmente, algum prompt raro de pacote AUR.
 
 ## Opcionais
 
-- `REPLACE_GITHUB_SSH_KEYS=0`: preserva as chaves SSH atuais do GitHub
-- `REFLECTOR_CONNECTION_TIMEOUT=10`: ajusta o timeout de conexão do `reflector`
-- `REFLECTOR_DOWNLOAD_TIMEOUT=10`: ajusta o timeout de download do `reflector`
-- `MIRROR_CHECKPOINT_MAX_AGE_DAYS=7`: define em quantos dias o checkpoint de mirrors expira
-- `STEP_OUTPUT_ONLY=0`: desativa o modo resumido e volta à saída completa no terminal
+- `REPLACE_GITHUB_SSH_KEYS=0`: preserva as chaves SSH atuais do GitHub.
+- `REFLECTOR_CONNECTION_TIMEOUT=10`: ajusta o tempo limite de conexão do `reflector`.
+- `REFLECTOR_DOWNLOAD_TIMEOUT=10`: ajusta o tempo limite de download do `reflector`.
+- `MIRROR_CHECKPOINT_MAX_AGE_DAYS=7`: define, em dias, quando o checkpoint de mirrors expira.
+- `STEP_OUTPUT_ONLY=0`: desativa o modo resumido e restaura a saída completa no terminal.
 
-Se quiser usar essas opções no bootstrap, exporte-as antes:
+Se quiser usar essas opções no bootstrap, exporte-as antes da execução:
 
 `fish`
 
