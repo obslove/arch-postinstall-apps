@@ -60,6 +60,8 @@ Em sessão Hyprland, o script também garante `pipewire`, `wireplumber`, `xdg-ut
 
 - evita duas execuções simultâneas com lockfile
 - grava log em `~/Backups/arch-postinstall.log`
+- mostra por padrão um modo resumido por etapas no terminal
+- mantém os detalhes completos no log
 - instala `git`
 - clona ou atualiza `~/Repositories/arch-postinstall-apps`
 - mantém clones auxiliares, como `yay`, dentro de `~/Repositories`
@@ -111,6 +113,7 @@ Em sessão Hyprland, o script também garante `pipewire`, `wireplumber`, `xdg-ut
 - `REPLACE_GITHUB_SSH_KEYS=0`: preserva as chaves SSH atuais do GitHub
 - `REFLECTOR_CONNECTION_TIMEOUT=10`: ajusta o timeout de conexão do `reflector`
 - `REFLECTOR_DOWNLOAD_TIMEOUT=10`: ajusta o timeout de download do `reflector`
+- `STEP_OUTPUT_ONLY=0`: desativa o modo resumido e volta à saída completa no terminal
 
 Se quiser usar essas opções no bootstrap, exporte-as antes:
 

@@ -23,6 +23,7 @@ RETRY_ATTEMPTS="${RETRY_ATTEMPTS:-3}"
 RETRY_DELAY_SECONDS="${RETRY_DELAY_SECONDS:-5}"
 REFLECTOR_CONNECTION_TIMEOUT="${REFLECTOR_CONNECTION_TIMEOUT:-10}"
 REFLECTOR_DOWNLOAD_TIMEOUT="${REFLECTOR_DOWNLOAD_TIMEOUT:-10}"
+STEP_OUTPUT_ONLY="${STEP_OUTPUT_ONLY:-1}"
 STATE_DIR="${POSTINSTALL_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/arch-postinstall-apps}"
 LOCK_DIR="${POSTINSTALL_LOCK_DIR:-$STATE_DIR/lock}"
 LOCK_HELD="${POSTINSTALL_LOCK_HELD:-0}"
@@ -108,6 +109,24 @@ init_logging() {
   echo "Log: $LOG_FILE"
 }
 
+announce_step() {
+  echo
+  echo "$1"
+}
+
+announce_detail() {
+  if [[ "$STEP_OUTPUT_ONLY" == "1" ]]; then
+    printf '%s\n' "$1" >>"$LOG_FILE"
+    return
+  fi
+
+  echo "$1"
+}
+
+run_log_only() {
+  "$@" >>"$LOG_FILE" 2>&1
+}
+
 retry() {
   local attempt=1
   local exit_code=0
@@ -124,6 +143,27 @@ retry() {
     fi
 
     echo "Tentativa $attempt/$RETRY_ATTEMPTS falhou. Repetindo em ${RETRY_DELAY_SECONDS}s: $*"
+    sleep "$RETRY_DELAY_SECONDS"
+    attempt=$((attempt + 1))
+  done
+}
+
+retry_log_only() {
+  local attempt=1
+  local exit_code=0
+
+  while true; do
+    if run_log_only "$@"; then
+      return 0
+    else
+      exit_code=$?
+    fi
+
+    if (( attempt >= RETRY_ATTEMPTS )); then
+      return "$exit_code"
+    fi
+
+    echo "Tentativa $attempt/$RETRY_ATTEMPTS falhou. Repetindo em ${RETRY_DELAY_SECONDS}s. Veja o log para detalhes."
     sleep "$RETRY_DELAY_SECONDS"
     attempt=$((attempt + 1))
   done
@@ -199,8 +239,8 @@ ensure_temp_clipboard_utility() {
     return 0
   fi
 
-  echo "Instalando $clipboard_package temporariamente para copiar o codigo do GitHub..."
-  if ! retry sudo pacman -S --needed --noconfirm "$clipboard_package"; then
+  announce_detail "Instalando $clipboard_package temporariamente para copiar o codigo do GitHub..."
+  if ! retry_log_only sudo pacman -S --needed --noconfirm "$clipboard_package"; then
     echo "Aviso: nao foi possivel instalar $clipboard_package. Continuando sem copia automatica."
     return 1
   fi
@@ -214,8 +254,8 @@ cleanup_temp_clipboard_utility() {
     return 0
   fi
 
-  echo "Removendo $temp_clipboard_package instalado temporariamente..."
-  if ! retry sudo pacman -Rns --noconfirm "$temp_clipboard_package"; then
+  announce_detail "Removendo $temp_clipboard_package instalado temporariamente..."
+  if ! retry_log_only sudo pacman -Rns --noconfirm "$temp_clipboard_package"; then
     echo "Aviso: nao foi possivel remover $temp_clipboard_package automaticamente."
     return 1
   fi
@@ -228,8 +268,8 @@ ensure_hyprland_desktop_integration() {
     return 0
   fi
 
-  echo "Garantindo integracao desktop para Hyprland..."
-  if ! retry sudo pacman -S --needed --noconfirm \
+  announce_detail "Garantindo integracao desktop para Hyprland..."
+  if ! retry_log_only sudo pacman -S --needed --noconfirm \
     pipewire \
     wireplumber \
     xdg-utils \
@@ -300,7 +340,7 @@ load_package_file() {
 
   if [[ ! -f "$package_path" ]]; then
     if [[ "$package_path" == "$EXTRA_PACKAGE_FILE" ]]; then
-      echo "Pacotes extras nao encontrados em $package_path. Pulando."
+      announce_detail "Pacotes extras nao encontrados em $package_path. Pulando."
     fi
     return 0
   fi
@@ -341,11 +381,11 @@ multilib_enabled() {
 
 ensure_multilib() {
   if multilib_enabled; then
-    echo "multilib ja esta habilitado."
+    announce_detail "multilib ja esta habilitado."
     return
   fi
 
-  echo "Habilitando multilib..."
+  announce_detail "Habilitando multilib..."
   sudo cp /etc/pacman.conf "/etc/pacman.conf.bak.$(date +%Y%m%d%H%M%S)"
   sudo sed -i \
     '/^[[:space:]]*#\[multilib\][[:space:]]*$/,/^[[:space:]]*#Include = \/etc\/pacman.d\/mirrorlist[[:space:]]*$/ s/^[[:space:]]*#//' \
@@ -356,7 +396,7 @@ ensure_multilib() {
     exit 1
   fi
 
-  sudo pacman -Syy --noconfirm
+  run_log_only sudo pacman -Syy --noconfirm
 }
 
 optimize_mirrors() {
@@ -366,23 +406,23 @@ optimize_mirrors() {
   local reflector_status=0
 
   if has_checkpoint "mirrors"; then
-    echo "Mirrorlist ja atualizada anteriormente. Pulando."
+    announce_detail "Mirrorlist ja atualizada anteriormente. Pulando."
     return
   fi
 
   if ! command -v reflector >/dev/null 2>&1; then
-    echo "Instalando reflector..."
-    retry sudo pacman -S --needed --noconfirm reflector
+    announce_detail "Instalando reflector..."
+    retry_log_only sudo pacman -S --needed --noconfirm reflector
   fi
 
-  echo "Atualizando mirrorlist com reflector..."
+  announce_step "Atualizando mirrors..."
   backup_mirrorlist="$(mktemp)"
   temp_mirrorlist="$(mktemp)"
   register_cleanup_path "$backup_mirrorlist"
   register_cleanup_path "$temp_mirrorlist"
 
   sudo cp "$current_mirrorlist" "$backup_mirrorlist"
-  if retry reflector \
+  if retry_log_only reflector \
     --connection-timeout "$REFLECTOR_CONNECTION_TIMEOUT" \
     --download-timeout "$REFLECTOR_DOWNLOAD_TIMEOUT" \
     --latest 20 \
@@ -435,22 +475,22 @@ install_yay() {
   local archive_file
   local status=0
 
-  echo "Instalando yay..."
+  announce_step "Preparando helper AUR..."
   mkdir -p "$REPOSITORIES_DIR"
-  retry sudo pacman -S --needed --noconfirm base-devel
+  retry_log_only sudo pacman -S --needed --noconfirm base-devel
   require_command curl
   require_command tar
 
   archive_file="$(mktemp)"
   register_cleanup_path "$archive_file"
 
-  echo "Baixando snapshot do yay..."
+  announce_detail "Baixando snapshot do yay..."
   if ! retry curl -fsSL "$YAY_SNAPSHOT_URL" -o "$archive_file"; then
     return 1
   fi
 
   rm -rf "$YAY_REPO_DIR"
-  echo "Extraindo snapshot do yay em $YAY_REPO_DIR..."
+  announce_detail "Extraindo snapshot do yay em $YAY_REPO_DIR..."
   if ! tar -xzf "$archive_file" -C "$REPOSITORIES_DIR"; then
     return 1
   fi
@@ -460,7 +500,7 @@ install_yay() {
   fi
 
   if (( status == 0 )); then
-    if retry build_yay "$YAY_REPO_DIR"; then
+    if retry_log_only build_yay "$YAY_REPO_DIR"; then
       aur_helper="yay"
     else
       status=$?
@@ -472,21 +512,23 @@ install_yay() {
 
 ensure_aur_helper() {
   if detect_aur_helper; then
-    echo "Usando helper AUR: $aur_helper"
+    announce_detail "Usando helper AUR: $aur_helper"
     return
   fi
 
-  echo "Nenhum helper AUR encontrado. Vou instalar o yay..."
+  announce_detail "Nenhum helper AUR encontrado. Vou instalar o yay..."
   if ! install_yay; then
     echo "Erro: nao foi possivel preparar um helper AUR (yay)." >&2
     return 1
   fi
-  echo "Usando helper AUR: $aur_helper"
+  announce_detail "Usando helper AUR: $aur_helper"
 }
 
 install_packages_in_order() {
   local package
   local announced_aur_absence=0
+  local shown_pacman_step=0
+  local shown_aur_step=0
 
   official_packages=()
   aur_packages=()
@@ -494,7 +536,7 @@ install_packages_in_order() {
   for package in "${packages[@]}"; do
     case "$package" in
       codex)
-        echo "Configurando Codex CLI..."
+        announce_step "Configurando Codex CLI..."
         setup_codex_cli
         continue
         ;;
@@ -502,8 +544,12 @@ install_packages_in_order() {
 
     if pacman -Si "$package" >/dev/null 2>&1; then
       official_packages+=("$package")
-      echo "Instalando via pacman: $package"
-      if retry sudo pacman -S --needed --noconfirm "$package"; then
+      if [[ "$shown_pacman_step" == "0" ]]; then
+        announce_step "Instalando apps oficiais..."
+        shown_pacman_step=1
+      fi
+      announce_detail "Instalando via pacman: $package"
+      if retry_log_only sudo pacman -S --needed --noconfirm "$package"; then
         continue
       fi
 
@@ -512,7 +558,7 @@ install_packages_in_order() {
     fi
 
     if [[ "$announced_aur_absence" == "0" && ${#aur_packages[@]} == 0 ]]; then
-      echo "Encontrado o primeiro pacote AUR na lista."
+      announce_detail "Encontrado o primeiro pacote AUR na lista."
       announced_aur_absence=1
     fi
 
@@ -522,8 +568,12 @@ install_packages_in_order() {
       continue
     fi
 
-    echo "Instalando via AUR: $package"
-    if retry "$aur_helper" -S --needed --noconfirm "$package"; then
+    if [[ "$shown_aur_step" == "0" ]]; then
+      announce_step "Instalando apps AUR..."
+      shown_aur_step=1
+    fi
+    announce_detail "Instalando via AUR: $package"
+    if retry_log_only "$aur_helper" -S --needed --noconfirm "$package"; then
       continue
     fi
 
@@ -531,7 +581,7 @@ install_packages_in_order() {
   done
 
   if ((${#aur_packages[@]} == 0)); then
-    echo "Nenhum pacote AUR na lista. Pulando etapa do AUR."
+    announce_detail "Nenhum pacote AUR na lista. Pulando etapa do AUR."
   fi
 }
 
@@ -541,26 +591,33 @@ print_summary() {
 
   host_name="$(get_host_name)"
 
-  echo
-  echo "Concluido."
-  echo "Log: $LOG_FILE"
-  echo "Resumo: $SUMMARY_FILE"
-  echo "Hostname: $host_name"
-  echo "Repo: $INSTALL_DIR"
-  echo "Branch: $REPO_BRANCH"
-  echo "Pacman: ${official_packages[*]:-nenhum}"
-  echo "AUR: ${aur_packages[*]:-nenhum}"
-  echo "Falhas pacman: ${official_failed[*]:-nenhuma}"
-  echo "Falhas AUR: ${aur_failed[*]:-nenhuma}"
-  echo "Verificados: ${verified_commands[*]:-nenhum}"
-  echo "Ausentes: ${missing_commands[*]:-nenhum}"
-  if ((${#version_info[@]} == 0)); then
-    echo "Versoes: nenhuma"
+  if [[ "$STEP_OUTPUT_ONLY" == "1" ]]; then
+    echo
+    echo "Concluido."
+    echo "Log: $LOG_FILE"
+    echo "Resumo: $SUMMARY_FILE"
   else
-    echo "Versoes:"
-    for version_line in "${version_info[@]}"; do
-      echo "- $version_line"
-    done
+    echo
+    echo "Concluido."
+    echo "Log: $LOG_FILE"
+    echo "Resumo: $SUMMARY_FILE"
+    echo "Hostname: $host_name"
+    echo "Repo: $INSTALL_DIR"
+    echo "Branch: $REPO_BRANCH"
+    echo "Pacman: ${official_packages[*]:-nenhum}"
+    echo "AUR: ${aur_packages[*]:-nenhum}"
+    echo "Falhas pacman: ${official_failed[*]:-nenhuma}"
+    echo "Falhas AUR: ${aur_failed[*]:-nenhuma}"
+    echo "Verificados: ${verified_commands[*]:-nenhum}"
+    echo "Ausentes: ${missing_commands[*]:-nenhum}"
+    if ((${#version_info[@]} == 0)); then
+      echo "Versoes: nenhuma"
+    else
+      echo "Versoes:"
+      for version_line in "${version_info[@]}"; do
+        echo "- $version_line"
+      done
+    fi
   fi
 
   mkdir -p "$(dirname "$SUMMARY_FILE")"
@@ -586,7 +643,7 @@ EOF
 }
 
 create_directories() {
-  echo "Criando pastas base..."
+  announce_step "Criando diretorios..."
   mkdir -p \
     "$HOME/Backups" \
     "$HOME/Codex" \
@@ -605,14 +662,14 @@ setup_codex_cli() {
 end'
 
   if has_checkpoint "codex_cli" && command -v codex >/dev/null 2>&1; then
-    echo "Codex CLI ja configurado. Pulando."
+    announce_detail "Codex CLI ja configurado. Pulando."
     return
   fi
 
   require_command npm
 
-  echo "Configurando npm prefix em $HOME/Codex..."
-  npm config set prefix "$HOME/Codex"
+  announce_detail "Configurando npm prefix em $HOME/Codex..."
+  run_log_only npm config set prefix "$HOME/Codex"
 
   if [[ ! -f "$BASHRC_FILE" ]]; then
     touch "$BASHRC_FILE"
@@ -641,8 +698,8 @@ end'
 
   export PATH="$HOME/Codex/bin:$PATH"
 
-  echo "Instalando Codex CLI em $HOME/Codex..."
-  retry npm install -g @openai/codex
+  announce_detail "Instalando Codex CLI em $HOME/Codex..."
+  retry_log_only npm install -g @openai/codex
   mark_checkpoint "codex_cli"
 }
 
@@ -656,7 +713,7 @@ ensure_ssh_key() {
   chmod 700 "$ssh_dir"
 
   if [[ -f "$SSH_KEY_PATH" ]]; then
-    echo "Chave SSH ja existe em $SSH_KEY_PATH"
+    announce_detail "Chave SSH ja existe em $SSH_KEY_PATH"
     return
   fi
 
@@ -666,13 +723,13 @@ ensure_ssh_key() {
     key_comment="${USER}@${host_name}"
   fi
 
-  echo "Criando chave SSH em $SSH_KEY_PATH..."
+  announce_detail "Criando chave SSH em $SSH_KEY_PATH..."
   ssh-keygen -t ed25519 -C "$key_comment" -f "$SSH_KEY_PATH" -N ""
 }
 
 ensure_github_auth() {
   if gh auth status >/dev/null 2>&1; then
-    echo "GitHub CLI ja autenticado."
+    announce_detail "GitHub CLI ja autenticado."
     return
   fi
 
@@ -689,7 +746,7 @@ upload_ssh_key() {
 
   current_key="$(<"${SSH_KEY_PATH}.pub")"
   if ! existing_keys="$(gh api user/keys --jq '.[] | [.id, .key] | @tsv' 2>/dev/null)"; then
-    echo "Permissao admin:public_key ausente no gh. Vou renovar a autenticacao."
+    announce_detail "Permissao admin:public_key ausente no gh. Vou renovar a autenticacao."
     if ! run_gh_auth_flow auth refresh -h github.com -s admin:public_key; then
       echo "Aviso: nao foi possivel renovar o escopo admin:public_key no gh."
       return 1
@@ -711,22 +768,22 @@ upload_ssh_key() {
   done <<<"$existing_keys"
 
   if [[ "$REPLACE_GITHUB_SSH_KEYS" != "1" && -n "$current_key_id" ]]; then
-    echo "Chave SSH atual ja esta cadastrada no GitHub."
+    announce_detail "Chave SSH atual ja esta cadastrada no GitHub."
     return
   fi
 
   if [[ -z "$current_key_id" ]]; then
-    echo "Enviando chave SSH para o GitHub..."
+    announce_detail "Enviando chave SSH para o GitHub..."
     current_key_id="$(retry gh api user/keys --method POST -f "title=obslove" -f "key=$current_key" --jq '.id')"
   else
-    echo "Chave SSH atual ja existe no GitHub."
+    announce_detail "Chave SSH atual ja existe no GitHub."
   fi
 
   if [[ "$REPLACE_GITHUB_SSH_KEYS" != "1" ]]; then
     return
   fi
 
-  echo "Removendo chaves SSH antigas do GitHub..."
+  announce_detail "Removendo chaves SSH antigas do GitHub..."
   key_ids="$(gh api user/keys --jq '.[].id' 2>/dev/null || true)"
   while IFS= read -r key_id; do
     [[ -n "$key_id" ]] || continue
@@ -748,14 +805,14 @@ sync_repo() {
   mkdir -p "$(dirname "$INSTALL_DIR")"
 
   if [[ -d "$INSTALL_DIR/.git" ]]; then
-    echo "Atualizando repositorio em $INSTALL_DIR..."
+    announce_step "Atualizando repositorio..."
     git -C "$INSTALL_DIR" remote set-url origin "$REPO_HTTPS_URL"
     if repo_is_dirty; then
       echo "Aviso: repositorio local tem mudancas. Pulando atualizacao automatica."
       return
     fi
 
-    if retry git -C "$INSTALL_DIR" fetch origin; then
+    if retry_log_only git -C "$INSTALL_DIR" fetch origin; then
       fetched_origin=1
     else
       echo "Aviso: falha ao buscar atualizacoes de origin. Vou tentar usar a copia local."
@@ -779,7 +836,7 @@ sync_repo() {
       return
     fi
 
-    if ! retry git -C "$INSTALL_DIR" pull --ff-only origin "$REPO_BRANCH"; then
+    if ! retry_log_only git -C "$INSTALL_DIR" pull --ff-only origin "$REPO_BRANCH"; then
       echo "Aviso: falha ao atualizar '$REPO_BRANCH' via 'git pull --ff-only'. Continuando com a copia atual."
     fi
   else
@@ -788,8 +845,8 @@ sync_repo() {
       exit 1
     fi
 
-    echo "Clonando repositorio em $INSTALL_DIR..."
-    if ! retry git clone --branch "$REPO_BRANCH" --single-branch "$REPO_HTTPS_URL" "$INSTALL_DIR"; then
+    announce_step "Clonando repositorio..."
+    if ! retry_log_only git clone --branch "$REPO_BRANCH" --single-branch "$REPO_HTTPS_URL" "$INSTALL_DIR"; then
       echo "Erro: falha ao clonar '$REPO_BRANCH' de $REPO_HTTPS_URL." >&2
       echo "Verifique acesso ao GitHub e se a branch existe no remoto." >&2
       exit 1
@@ -798,7 +855,8 @@ sync_repo() {
 }
 
 run_bootstrap() {
-  retry sudo pacman -Syu --needed --noconfirm git
+  announce_step "Instalando dependencias iniciais..."
+  retry_log_only sudo pacman -Syu --needed --noconfirm git
 
   require_command git
   sync_repo
@@ -819,11 +877,12 @@ run_bootstrap() {
 
 setup_github_ssh() {
   if has_checkpoint "github_ssh" && command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1 && [[ -f "${SSH_KEY_PATH}.pub" ]]; then
-    echo "GitHub SSH ja configurado. Pulando."
+    announce_detail "GitHub SSH ja configurado. Pulando."
     return
   fi
 
-  if ! retry sudo pacman -S --needed --noconfirm github-cli openssh; then
+  announce_step "Configurando GitHub SSH..."
+  if ! retry_log_only sudo pacman -S --needed --noconfirm github-cli openssh; then
     echo "Aviso: nao foi possivel instalar github-cli/openssh. Pulando configuracao do GitHub."
     return
   fi
@@ -993,16 +1052,17 @@ verify_installation() {
 }
 
 run_install() {
+  announce_step "Carregando configuracao..."
   load_packages
   create_directories
   ensure_multilib
   optimize_mirrors
 
   if [[ "$SYSTEM_UPDATED" == "1" ]]; then
-    echo "Sistema ja atualizado no bootstrap. Pulando nova atualizacao completa."
+    announce_detail "Sistema ja atualizado no bootstrap. Pulando nova atualizacao completa."
   else
-    echo "Atualizando o sistema..."
-    retry sudo pacman -Syu --noconfirm
+    announce_step "Atualizando o sistema..."
+    retry_log_only sudo pacman -Syu --noconfirm
   fi
 
   install_packages_in_order
@@ -1011,8 +1071,10 @@ run_install() {
     print_summary
     exit 1
   fi
+  announce_step "Ajustando integracao desktop..."
   ensure_hyprland_desktop_integration || true
   setup_github_ssh
+  announce_step "Validando instalacao..."
   verify_installation
   print_summary
 }
@@ -1022,9 +1084,12 @@ main() {
   ensure_not_root
   acquire_lock
   init_logging
+  announce_step "Validando ambiente..."
   ensure_arch
   require_command pacman
   require_command sudo
+  echo "Autenticando sudo..."
+  sudo -v
 
   if [[ -f "$PACKAGE_FILE" ]]; then
     run_install
