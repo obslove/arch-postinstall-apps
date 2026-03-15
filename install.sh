@@ -35,7 +35,7 @@ cleanup_paths=()
 verified_commands=()
 missing_commands=()
 version_info=()
-temp_wl_clipboard_installed=0
+temp_clipboard_package=""
 
 ensure_not_root() {
   if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
@@ -156,6 +156,20 @@ sanitize_label() {
   printf '%s' "$1" | tr -cs '[:alnum:].@_-' '-'
 }
 
+is_wayland_session() {
+  [[ "${XDG_SESSION_TYPE:-}" == "wayland" || -n "${WAYLAND_DISPLAY:-}" ]]
+}
+
+is_x11_session() {
+  [[ "${XDG_SESSION_TYPE:-}" == "x11" || -n "${DISPLAY:-}" ]]
+}
+
+is_hyprland_session() {
+  [[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]] || \
+    [[ "${XDG_CURRENT_DESKTOP:-}" == *Hyprland* ]] || \
+    [[ "${DESKTOP_SESSION:-}" == "hyprland" ]]
+}
+
 has_clipboard_utility() {
   command -v wl-copy >/dev/null 2>&1 || \
     command -v xclip >/dev/null 2>&1 || \
@@ -164,40 +178,64 @@ has_clipboard_utility() {
 }
 
 ensure_temp_clipboard_utility() {
+  local clipboard_package=""
+
   if has_clipboard_utility; then
     return 0
   fi
 
-  if [[ -z "${WAYLAND_DISPLAY:-}" ]]; then
+  if is_wayland_session; then
+    clipboard_package="wl-clipboard"
+  elif is_x11_session; then
+    clipboard_package="xclip"
+  else
     return 1
   fi
 
-  if pacman -Q wl-clipboard >/dev/null 2>&1; then
+  if pacman -Q "$clipboard_package" >/dev/null 2>&1; then
     return 0
   fi
 
-  echo "Instalando wl-clipboard temporariamente para copiar o codigo do GitHub..."
-  if ! retry sudo pacman -S --needed --noconfirm wl-clipboard; then
-    echo "Aviso: nao foi possivel instalar wl-clipboard. Continuando sem copia automatica."
+  echo "Instalando $clipboard_package temporariamente para copiar o codigo do GitHub..."
+  if ! retry sudo pacman -S --needed --noconfirm "$clipboard_package"; then
+    echo "Aviso: nao foi possivel instalar $clipboard_package. Continuando sem copia automatica."
     return 1
   fi
 
-  temp_wl_clipboard_installed=1
+  temp_clipboard_package="$clipboard_package"
   return 0
 }
 
 cleanup_temp_clipboard_utility() {
-  if [[ "$temp_wl_clipboard_installed" != "1" ]]; then
+  if [[ -z "$temp_clipboard_package" ]]; then
     return 0
   fi
 
-  echo "Removendo wl-clipboard instalado temporariamente..."
-  if ! retry sudo pacman -Rns --noconfirm wl-clipboard; then
-    echo "Aviso: nao foi possivel remover wl-clipboard automaticamente."
+  echo "Removendo $temp_clipboard_package instalado temporariamente..."
+  if ! retry sudo pacman -Rns --noconfirm "$temp_clipboard_package"; then
+    echo "Aviso: nao foi possivel remover $temp_clipboard_package automaticamente."
     return 1
   fi
 
-  temp_wl_clipboard_installed=0
+  temp_clipboard_package=""
+}
+
+ensure_hyprland_desktop_integration() {
+  if ! is_hyprland_session; then
+    return 0
+  fi
+
+  echo "Garantindo integracao desktop para Hyprland..."
+  if ! retry sudo pacman -S --needed --noconfirm \
+    pipewire \
+    wireplumber \
+    xdg-utils \
+    xdg-desktop-portal \
+    xdg-desktop-portal-gtk \
+    xdg-desktop-portal-hyprland; then
+    echo "Aviso: nao foi possivel instalar a integracao desktop do Hyprland."
+    return 1
+  fi
 }
 
 open_url_in_background() {
@@ -533,6 +571,15 @@ EOF
 }
 
 open_zen_tabs() {
+  local url
+  local urls=(
+    "https://chatgpt.com/"
+    "https://github.com/"
+    "https://github.com/obslove"
+    "https://github.com/obslove/arch-postinstall-apps"
+    "https://www.youtube.com/"
+  )
+
   if [[ "$OPEN_ZEN_TABS" != "1" ]]; then
     return
   fi
@@ -542,22 +589,15 @@ open_zen_tabs() {
     return
   fi
 
-  if ! command -v zen-browser >/dev/null 2>&1; then
-    return
-  fi
-
   if [[ -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; then
     return
   fi
 
-  echo "Abrindo abas no Zen Browser..."
-  nohup zen-browser \
-    "https://chatgpt.com/" \
-    "https://github.com/" \
-    "https://github.com/obslove" \
-    "https://github.com/obslove/arch-postinstall-apps" \
-    "https://www.youtube.com/" \
-    >/dev/null 2>&1 &
+  echo "Abrindo links no navegador padrao..."
+  for url in "${urls[@]}"; do
+    open_url_in_background "$url" || true
+    sleep 1
+  done
   mark_checkpoint "zen_tabs"
 }
 
@@ -820,6 +860,46 @@ verify_command() {
   missing_commands+=("$label")
 }
 
+verify_package() {
+  local label="$1"
+  local package_name="$2"
+
+  if pacman -Q "$package_name" >/dev/null 2>&1; then
+    verified_commands+=("$label")
+    return
+  fi
+
+  missing_commands+=("$label")
+}
+
+user_service_exists() {
+  local service_name="$1"
+
+  systemctl --user cat "$service_name" >/dev/null 2>&1
+}
+
+verify_user_service() {
+  local label="$1"
+  local service_name="$2"
+
+  if ! command -v systemctl >/dev/null 2>&1; then
+    missing_commands+=("$label")
+    return
+  fi
+
+  if ! user_service_exists "$service_name"; then
+    missing_commands+=("$label")
+    return
+  fi
+
+  if systemctl --user --quiet is-active "$service_name"; then
+    verified_commands+=("$label")
+    return
+  fi
+
+  missing_commands+=("$label")
+}
+
 collect_version() {
   local label="$1"
   shift
@@ -853,6 +933,54 @@ verify_installation() {
   verify_command "steam" "steam"
   verify_command "zen-browser" "zen-browser"
 
+  if command -v xdg-open >/dev/null 2>&1; then
+    verified_commands+=("xdg-open")
+  elif command -v gio >/dev/null 2>&1; then
+    verified_commands+=("gio-open")
+  else
+    missing_commands+=("xdg-open")
+  fi
+
+  if is_wayland_session; then
+    if command -v wl-copy >/dev/null 2>&1 || command -v wl-paste >/dev/null 2>&1; then
+      verified_commands+=("wayland-clipboard")
+    else
+      missing_commands+=("wayland-clipboard")
+    fi
+  fi
+
+  if is_x11_session; then
+    if command -v xclip >/dev/null 2>&1 || command -v xsel >/dev/null 2>&1; then
+      verified_commands+=("x11-clipboard")
+    else
+      missing_commands+=("x11-clipboard")
+    fi
+  fi
+
+  if is_hyprland_session; then
+    verify_command "pipewire" "pipewire"
+    verify_command "wireplumber" "wireplumber"
+    verify_package "xdg-desktop-portal" "xdg-desktop-portal"
+    verify_package "xdg-desktop-portal-gtk" "xdg-desktop-portal-gtk"
+    verify_package "xdg-desktop-portal-hyprland" "xdg-desktop-portal-hyprland"
+  fi
+
+  if is_wayland_session; then
+    verify_user_service "pipewire.service" "pipewire.service"
+    verify_user_service "wireplumber.service" "wireplumber.service"
+    verify_user_service "xdg-desktop-portal.service" "xdg-desktop-portal.service"
+
+    if [[ \
+      " ${verified_commands[*]} " == *" pipewire.service "* && \
+      " ${verified_commands[*]} " == *" wireplumber.service "* && \
+      " ${verified_commands[*]} " == *" xdg-desktop-portal.service "* \
+    ]]; then
+      verified_commands+=("wayland-screen-sharing-stack")
+    else
+      missing_commands+=("wayland-screen-sharing-stack")
+    fi
+  fi
+
   collect_version "node" node --version
   collect_version "npm" npm --version
   collect_version "gh" gh --version
@@ -880,6 +1008,7 @@ run_install() {
     print_summary
     exit 1
   fi
+  ensure_hyprland_desktop_integration || true
   setup_github_ssh
   verify_installation
   open_zen_tabs
