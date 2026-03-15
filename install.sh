@@ -23,6 +23,7 @@ RETRY_ATTEMPTS="${RETRY_ATTEMPTS:-3}"
 RETRY_DELAY_SECONDS="${RETRY_DELAY_SECONDS:-5}"
 REFLECTOR_CONNECTION_TIMEOUT="${REFLECTOR_CONNECTION_TIMEOUT:-10}"
 REFLECTOR_DOWNLOAD_TIMEOUT="${REFLECTOR_DOWNLOAD_TIMEOUT:-10}"
+MIRROR_CHECKPOINT_MAX_AGE_DAYS="${MIRROR_CHECKPOINT_MAX_AGE_DAYS:-7}"
 STEP_OUTPUT_ONLY="${STEP_OUTPUT_ONLY:-1}"
 STATE_DIR="${POSTINSTALL_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/arch-postinstall-apps}"
 LOCK_DIR="${POSTINSTALL_LOCK_DIR:-$STATE_DIR/lock}"
@@ -59,6 +60,25 @@ has_checkpoint() {
 mark_checkpoint() {
   mkdir -p "$STATE_DIR/checkpoints"
   touch "$(checkpoint_file "$1")"
+}
+
+checkpoint_older_than_days() {
+  local checkpoint_name="$1"
+  local max_age_days="$2"
+  local file_path
+  local now_epoch
+  local file_epoch
+  local max_age_seconds
+
+  file_path="$(checkpoint_file "$checkpoint_name")"
+  [[ -f "$file_path" ]] || return 0
+
+  now_epoch="$(date +%s)"
+  file_epoch="$(stat -c %Y "$file_path" 2>/dev/null || true)"
+  [[ -n "$file_epoch" ]] || return 0
+
+  max_age_seconds=$((max_age_days * 86400))
+  (( now_epoch - file_epoch > max_age_seconds ))
 }
 
 acquire_lock() {
@@ -219,10 +239,26 @@ has_clipboard_utility() {
     command -v termux-clipboard-set >/dev/null 2>&1
 }
 
+has_session_clipboard_utility() {
+  if is_wayland_session; then
+    command -v wl-copy >/dev/null 2>&1 && return 0
+    command -v termux-clipboard-set >/dev/null 2>&1 && return 0
+    return 1
+  fi
+
+  if is_x11_session; then
+    command -v xclip >/dev/null 2>&1 && return 0
+    command -v xsel >/dev/null 2>&1 && return 0
+    return 1
+  fi
+
+  has_clipboard_utility
+}
+
 ensure_temp_clipboard_utility() {
   local clipboard_package=""
 
-  if has_clipboard_utility; then
+  if has_session_clipboard_utility; then
     return 0
   fi
 
@@ -345,6 +381,8 @@ load_package_file() {
   fi
 
   while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line#"${line%%[![:space:]]*}"}"
+    line="${line%"${line##*[![:space:]]}"}"
     [[ -n "$line" ]] || continue
     [[ "$line" =~ ^[[:space:]]*# ]] && continue
     append_package "$line"
@@ -404,9 +442,15 @@ optimize_mirrors() {
   local temp_mirrorlist
   local reflector_status=0
 
-  if has_checkpoint "mirrors"; then
-    announce_detail "Mirrorlist já atualizada anteriormente. Pulando."
+  if has_checkpoint "mirrors" && ! checkpoint_older_than_days "mirrors" "$MIRROR_CHECKPOINT_MAX_AGE_DAYS"; then
+    announce_detail "Mirrorlist já atualizada recentemente. Pulando."
     return
+  fi
+
+  if has_checkpoint "mirrors"; then
+    announce_detail "Checkpoint de mirrors expirado. Atualizando novamente..."
+  else
+    announce_detail "Mirrorlist ainda não foi atualizada nesta máquina."
   fi
 
   if ! command -v reflector >/dev/null 2>&1; then
@@ -483,13 +527,13 @@ install_yay() {
   archive_file="$(mktemp)"
   register_cleanup_path "$archive_file"
 
-    announce_detail "Baixando snapshot do yay..."
+  announce_detail "Baixando snapshot do yay..."
   if ! retry curl -fsSL "$YAY_SNAPSHOT_URL" -o "$archive_file"; then
     return 1
   fi
 
   rm -rf "$YAY_REPO_DIR"
-    announce_detail "Extraindo snapshot do yay em $YAY_REPO_DIR..."
+  announce_detail "Extraindo snapshot do yay em $YAY_REPO_DIR..."
   if ! tar -xzf "$archive_file" -C "$REPOSITORIES_DIR"; then
     return 1
   fi
@@ -521,6 +565,42 @@ ensure_aur_helper() {
     return 1
   fi
   announce_detail "Usando helper AUR: $aur_helper"
+}
+
+github_ssh_ready() {
+  has_checkpoint "github_ssh" && [[ -f "${SSH_KEY_PATH}.pub" ]]
+}
+
+desired_repo_origin_url() {
+  if github_ssh_ready; then
+    printf '%s\n' "$REPO_SSH_URL"
+    return
+  fi
+
+  printf '%s\n' "$REPO_HTTPS_URL"
+}
+
+ensure_repo_origin_remote() {
+  local repo_dir="$1"
+  local current_origin_url=""
+  local desired_origin_url
+
+  desired_origin_url="$(desired_repo_origin_url)"
+  current_origin_url="$(git -C "$repo_dir" remote get-url origin 2>/dev/null || true)"
+
+  if [[ -z "$current_origin_url" ]]; then
+    git -C "$repo_dir" remote add origin "$desired_origin_url"
+    return
+  fi
+
+  if [[ "$current_origin_url" != "$REPO_HTTPS_URL" && "$current_origin_url" != "$REPO_SSH_URL" ]]; then
+    announce_detail "Remote origin personalizado detectado em $repo_dir. Mantendo configuração atual."
+    return
+  fi
+
+  if [[ "$current_origin_url" != "$desired_origin_url" ]]; then
+    git -C "$repo_dir" remote set-url origin "$desired_origin_url"
+  fi
 }
 
 install_packages_in_order() {
@@ -586,9 +666,11 @@ install_packages_in_order() {
 
 print_summary() {
   local host_name
+  local repo_path
   local version_line
 
   host_name="$(get_host_name)"
+  repo_path="$SCRIPT_DIR"
 
   if [[ "$STEP_OUTPUT_ONLY" == "1" ]]; then
     echo
@@ -601,7 +683,7 @@ print_summary() {
     echo "Log: $LOG_FILE"
     echo "Resumo: $SUMMARY_FILE"
     echo "Hostname: $host_name"
-    echo "Repositório: $INSTALL_DIR"
+    echo "Repositório: $repo_path"
     echo "Branch: $REPO_BRANCH"
     echo "Pacman: ${official_packages[*]:-nenhum}"
     echo "AUR: ${aur_packages[*]:-nenhum}"
@@ -624,7 +706,7 @@ print_summary() {
 Data: $(date '+%Y-%m-%d %H:%M:%S %z')
 Log: $LOG_FILE
 Hostname: $host_name
-Repositório: $INSTALL_DIR
+Repositório: $repo_path
 Branch: $REPO_BRANCH
 Pacman: ${official_packages[*]:-nenhum}
 AUR: ${aur_packages[*]:-nenhum}
@@ -639,6 +721,10 @@ Checkpoints:
 - github_ssh: $(if has_checkpoint "github_ssh"; then echo concluido; else echo pendente; fi)
 - mirrors: $(if has_checkpoint "mirrors"; then echo concluido; else echo pendente; fi)
 EOF
+
+  if [[ "$SCRIPT_DIR" != "$INSTALL_DIR" ]]; then
+    printf 'Clone gerenciado: %s\n' "$INSTALL_DIR" >>"$SUMMARY_FILE"
+  fi
 }
 
 create_directories() {
@@ -806,11 +892,12 @@ sync_repo() {
 
   if [[ -d "$INSTALL_DIR/.git" ]]; then
     announce_step "Atualizando repositório..."
-    git -C "$INSTALL_DIR" remote set-url origin "$REPO_HTTPS_URL"
     if repo_is_dirty; then
       echo "Aviso: repositório local tem mudanças. Pulando atualização automática."
       return
     fi
+
+    ensure_repo_origin_remote "$INSTALL_DIR"
 
     if retry_log_only git -C "$INSTALL_DIR" fetch origin; then
       fetched_origin=1
@@ -877,6 +964,7 @@ run_bootstrap() {
 
 setup_github_ssh() {
   if has_checkpoint "github_ssh" && command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1 && [[ -f "${SSH_KEY_PATH}.pub" ]]; then
+    ensure_repo_origin_remote "$SCRIPT_DIR"
     announce_detail "GitHub SSH já configurado. Pulando."
     return
   fi
@@ -906,8 +994,8 @@ setup_github_ssh() {
   fi
 
   cleanup_temp_clipboard_utility || true
-  git -C "$SCRIPT_DIR" remote set-url origin "$REPO_SSH_URL" || true
   mark_checkpoint "github_ssh"
+  ensure_repo_origin_remote "$SCRIPT_DIR"
 }
 
 verify_command() {
@@ -1004,7 +1092,7 @@ verify_installation() {
   fi
 
   if is_wayland_session; then
-    if command -v wl-copy >/dev/null 2>&1 || command -v wl-paste >/dev/null 2>&1; then
+    if command -v wl-copy >/dev/null 2>&1 && command -v wl-paste >/dev/null 2>&1; then
       verified_commands+=("wayland-clipboard")
     else
       missing_commands+=("wayland-clipboard")

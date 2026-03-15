@@ -27,6 +27,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-app
 ```
 
 Quando executado fora do repositório, o script instala `git`, clona ou atualiza `~/Repositories/arch-postinstall-apps` e continua a execução a partir dali.
+Quando executado dentro de um clone local, ele usa o repositório atual e não força a migração para `~/Repositories/arch-postinstall-apps`.
 Esse comando assume que `curl` esteja disponível na instalação padrão do Arch.
 Execute como usuário normal, não com `sudo bash`.
 
@@ -54,6 +55,7 @@ Se não houver helper AUR instalado, o script instala `yay` antes do primeiro pa
 Se `paru` ou `yay` já existirem, o script reutiliza o helper encontrado.
 O item `codex` não é um pacote do sistema: ele executa o setup do Codex CLI.
 O script instala `reflector` e atualiza a mirrorlist antes do `pacman -Syu`, usando `10s` como timeout padrão para conexão e download.
+O checkpoint de mirrors expira por padrão após `7` dias, para evitar que a mirrorlist fique congelada para sempre.
 Em sessão Hyprland, o script também garante `pipewire`, `wireplumber`, `xdg-utils`, `xdg-desktop-portal`, `xdg-desktop-portal-gtk` e `xdg-desktop-portal-hyprland`.
 
 ## O que acontece
@@ -63,16 +65,18 @@ Em sessão Hyprland, o script também garante `pipewire`, `wireplumber`, `xdg-ut
 - mostra por padrão um modo resumido por etapas no terminal
 - mantém os detalhes completos no log
 - instala `git`
-- clona ou atualiza `~/Repositories/arch-postinstall-apps`
+- clona ou atualiza `~/Repositories/arch-postinstall-apps` quando executado fora do repositório
 - mantém clones auxiliares, como `yay`, dentro de `~/Repositories`
 - preserva a branch escolhida entre o bootstrap e a segunda etapa
+- usa o clone atual normalmente quando você roda `bash install.sh` dentro de um repositório já existente
 - cria `~/Backups`, `~/Codex`, `~/Dots`, `~/Pictures/Wallpapers`, `~/Pictures/Screenshots`, `~/Projects`, `~/Repositories` e `~/Videos`
 - carrega `config/packages.txt` e, se existir, `config/packages-extra.txt`
 - habilita `multilib`, se necessário
 - instala `reflector`
 - aceita warnings/timeouts parciais do `reflector` se ele ainda gerar uma mirrorlist válida
 - restaura a mirrorlist anterior se o `reflector` falhar sem gerar mirrorlist válida
-- marca checkpoint para não atualizar a mirrorlist novamente em reruns
+- marca checkpoint para não atualizar a mirrorlist novamente em reruns recentes
+- atualiza a mirrorlist de novo quando o checkpoint de mirrors estiver velho demais
 - atualiza o sistema com `pacman -Syu`
 - segue a ordem definida em `config/packages.txt`
 - instala cada item com `pacman`, `yay` ou setup especial, conforme o tipo
@@ -85,8 +89,8 @@ Em sessão Hyprland, o script também garante `pipewire`, `wireplumber`, `xdg-ut
 - cria a chave SSH se não existir
 - tenta abrir automaticamente `https://github.com/login/device` no navegador padrão
 - autentica no GitHub com `gh`, usando o device flow web
-- copia automaticamente o código do device flow para a área de transferência
-- instala `wl-clipboard` temporariamente em sessões Wayland ou `xclip` em sessões X11 se faltar utilitário de clipboard
+- copia automaticamente o código do device flow para a área de transferência quando existir utilitário compatível com a sessão atual
+- instala `wl-clipboard` temporariamente em sessões Wayland ou `xclip` em sessões X11 se faltar utilitário de clipboard compatível
 - remove o utilitário de clipboard temporário ao fim da etapa do GitHub, se ele tiver sido instalado pelo script
 - renova o scope `admin:public_key` se precisar para gerenciar chaves SSH
 - envia a chave SSH para o GitHub com título fixo `obslove`
@@ -98,7 +102,8 @@ Em sessão Hyprland, o script também garante `pipewire`, `wireplumber`, `xdg-ut
 - em Wayland, verifica clipboard, pacotes de portal e serviços de usuário como `pipewire.service`, `wireplumber.service` e `xdg-desktop-portal.service`
 - grava resumo em `~/Backups/arch-postinstall-summary.txt`
 - grava `Hostname` no resumo final
-- grava no resumo a branch usada, o caminho do repositório e as versões principais
+- grava no resumo a branch usada, o caminho do repositório realmente em uso e as versões principais
+- inclui no resumo o clone gerenciado separado, quando a execução aconteceu fora dele
 - limpa arquivos temporários mesmo se o script abortar
 
 ## O que exige interação
@@ -113,6 +118,7 @@ Em sessão Hyprland, o script também garante `pipewire`, `wireplumber`, `xdg-ut
 - `REPLACE_GITHUB_SSH_KEYS=0`: preserva as chaves SSH atuais do GitHub
 - `REFLECTOR_CONNECTION_TIMEOUT=10`: ajusta o timeout de conexão do `reflector`
 - `REFLECTOR_DOWNLOAD_TIMEOUT=10`: ajusta o timeout de download do `reflector`
+- `MIRROR_CHECKPOINT_MAX_AGE_DAYS=7`: define em quantos dias o checkpoint de mirrors expira
 - `STEP_OUTPUT_ONLY=0`: desativa o modo resumido e volta à saída completa no terminal
 
 Se quiser usar essas opções no bootstrap, exporte-as antes:
