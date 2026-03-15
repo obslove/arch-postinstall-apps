@@ -657,9 +657,10 @@ create_directories() {
 
 setup_codex_cli() {
   local codex_path_line="export PATH=\"\$HOME/Codex/bin:\$PATH\""
-  local fish_codex_path_block='if not contains "$HOME/Codex/bin" $PATH
-    set -gx PATH "$HOME/Codex/bin" $PATH
-end'
+  local fish_codex_path_marker="if not contains \"\$HOME/Codex/bin\" \$PATH"
+  local fish_codex_path_block="if not contains \"\$HOME/Codex/bin\" \$PATH
+    set -gx PATH \"\$HOME/Codex/bin\" \$PATH
+end"
 
   if has_checkpoint "codex_cli" && command -v codex >/dev/null 2>&1; then
     announce_detail "Codex CLI ja configurado. Pulando."
@@ -692,7 +693,7 @@ end'
     touch "$FISH_CONFIG_FILE"
   fi
 
-  if ! grep -qxF 'if not contains "$HOME/Codex/bin" $PATH' "$FISH_CONFIG_FILE"; then
+  if ! grep -qxF "$fish_codex_path_marker" "$FISH_CONFIG_FILE"; then
     printf '\n%s\n' "$fish_codex_path_block" >>"$FISH_CONFIG_FILE"
   fi
 
