@@ -53,7 +53,7 @@ Os repositórios usados pelo script ficam em `~/Repositories`.
 Se não houver helper AUR instalado, o script instala `yay` antes do primeiro pacote AUR.
 Se `paru` ou `yay` já existirem, o script reutiliza o helper encontrado.
 O item `codex` não é um pacote do sistema: ele executa o setup do Codex CLI.
-O script instala `reflector` e atualiza a mirrorlist antes do `pacman -Syu`.
+O script instala `reflector` e atualiza a mirrorlist antes do `pacman -Syu`, usando `10s` como timeout padrão para conexão e download.
 Em sessão Hyprland, o script também garante `pipewire`, `wireplumber`, `xdg-utils`, `xdg-desktop-portal`, `xdg-desktop-portal-gtk` e `xdg-desktop-portal-hyprland`.
 
 ## O que acontece
@@ -68,7 +68,8 @@ Em sessão Hyprland, o script também garante `pipewire`, `wireplumber`, `xdg-ut
 - carrega `config/packages.txt` e, se existir, `config/packages-extra.txt`
 - habilita `multilib`, se necessário
 - instala `reflector`
-- restaura a mirrorlist anterior se o `reflector` falhar
+- aceita warnings/timeouts parciais do `reflector` se ele ainda gerar uma mirrorlist válida
+- restaura a mirrorlist anterior se o `reflector` falhar sem gerar mirrorlist válida
 - marca checkpoint para não atualizar a mirrorlist novamente em reruns
 - atualiza o sistema com `pacman -Syu`
 - segue a ordem definida em `config/packages.txt`
@@ -108,6 +109,8 @@ Em sessão Hyprland, o script também garante `pipewire`, `wireplumber`, `xdg-ut
 ## Opcionais
 
 - `REPLACE_GITHUB_SSH_KEYS=0`: preserva as chaves SSH atuais do GitHub
+- `REFLECTOR_CONNECTION_TIMEOUT=10`: ajusta o timeout de conexão do `reflector`
+- `REFLECTOR_DOWNLOAD_TIMEOUT=10`: ajusta o timeout de download do `reflector`
 
 Se quiser usar essas opções no bootstrap, exporte-as antes:
 

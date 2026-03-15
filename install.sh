@@ -21,6 +21,8 @@ SUMMARY_FILE="${POSTINSTALL_SUMMARY_FILE:-$HOME/Backups/arch-postinstall-summary
 REPLACE_GITHUB_SSH_KEYS="${REPLACE_GITHUB_SSH_KEYS:-1}"
 RETRY_ATTEMPTS="${RETRY_ATTEMPTS:-3}"
 RETRY_DELAY_SECONDS="${RETRY_DELAY_SECONDS:-5}"
+REFLECTOR_CONNECTION_TIMEOUT="${REFLECTOR_CONNECTION_TIMEOUT:-10}"
+REFLECTOR_DOWNLOAD_TIMEOUT="${REFLECTOR_DOWNLOAD_TIMEOUT:-10}"
 STATE_DIR="${POSTINSTALL_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/arch-postinstall-apps}"
 LOCK_DIR="${POSTINSTALL_LOCK_DIR:-$STATE_DIR/lock}"
 LOCK_HELD="${POSTINSTALL_LOCK_HELD:-0}"
@@ -361,6 +363,7 @@ optimize_mirrors() {
   local current_mirrorlist="/etc/pacman.d/mirrorlist"
   local backup_mirrorlist
   local temp_mirrorlist
+  local reflector_status=0
 
   if has_checkpoint "mirrors"; then
     echo "Mirrorlist ja atualizada anteriormente. Pulando."
@@ -379,13 +382,25 @@ optimize_mirrors() {
   register_cleanup_path "$temp_mirrorlist"
 
   sudo cp "$current_mirrorlist" "$backup_mirrorlist"
-  if retry reflector --latest 20 --protocol https --sort rate --save "$temp_mirrorlist"; then
+  if retry reflector \
+    --connection-timeout "$REFLECTOR_CONNECTION_TIMEOUT" \
+    --download-timeout "$REFLECTOR_DOWNLOAD_TIMEOUT" \
+    --latest 20 \
+    --protocol https \
+    --sort rate \
+    --save "$temp_mirrorlist"; then
     sudo install -m 644 "$temp_mirrorlist" "$current_mirrorlist"
   else
-    echo "Aviso: reflector falhou. Restaurando mirrorlist anterior."
-    sudo install -m 644 "$backup_mirrorlist" "$current_mirrorlist"
-    rm -f "$backup_mirrorlist" "$temp_mirrorlist"
-    return 1
+    reflector_status=$?
+    if grep -q '^Server' "$temp_mirrorlist"; then
+      echo "Aviso: reflector retornou warnings/timeouts, mas gerou uma mirrorlist valida. Continuando com ela."
+      sudo install -m 644 "$temp_mirrorlist" "$current_mirrorlist"
+    else
+      echo "Aviso: reflector falhou sem gerar mirrorlist valida. Restaurando mirrorlist anterior."
+      sudo install -m 644 "$backup_mirrorlist" "$current_mirrorlist"
+      rm -f "$backup_mirrorlist" "$temp_mirrorlist"
+      return "$reflector_status"
+    fi
   fi
 
   rm -f "$backup_mirrorlist" "$temp_mirrorlist"
