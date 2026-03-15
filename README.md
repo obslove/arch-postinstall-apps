@@ -91,8 +91,6 @@ Em sessão Hyprland, o script também garante `pipewire`, `wireplumber`, `xdg-ut
 - pula a parte do GitHub se a autenticação falhar
 - marca checkpoint para não repetir a configuração SSH do GitHub em reruns
 - em sessão Hyprland, garante a pilha de integração desktop e screen sharing com `pipewire`, `wireplumber` e `xdg-desktop-portal`
-- pode abrir ChatGPT, três páginas do GitHub e YouTube no navegador padrão, se você habilitar
-- marca checkpoint para não reabrir esses links em reruns
 - verifica no fim se os binários principais realmente ficaram disponíveis
 - em Wayland, verifica clipboard, pacotes de portal e serviços de usuário como `pipewire.service`, `wireplumber.service` e `xdg-desktop-portal.service`
 - grava resumo em `~/Backups/arch-postinstall-summary.txt`
@@ -110,7 +108,6 @@ Em sessão Hyprland, o script também garante `pipewire`, `wireplumber`, `xdg-ut
 ## Opcionais
 
 - `REPLACE_GITHUB_SSH_KEYS=0`: preserva as chaves SSH atuais do GitHub
-- `OPEN_ZEN_TABS=1`: abre ChatGPT, GitHub e YouTube no navegador padrão no fim
 
 Se quiser usar essas opções no bootstrap, exporte-as antes:
 
@@ -118,21 +115,18 @@ Se quiser usar essas opções no bootstrap, exporte-as antes:
 
 ```fish
 set -x REPLACE_GITHUB_SSH_KEYS 1
-set -x OPEN_ZEN_TABS 1
 ```
 
 `bash`
 
 ```bash
 export REPLACE_GITHUB_SSH_KEYS=1
-export OPEN_ZEN_TABS=1
 ```
 
 `zsh`
 
 ```zsh
 export REPLACE_GITHUB_SSH_KEYS=1
-export OPEN_ZEN_TABS=1
 ```
 
 ## Uso local

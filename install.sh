@@ -18,7 +18,6 @@ YAY_SNAPSHOT_URL="${YAY_SNAPSHOT_URL:-https://aur.archlinux.org/cgit/aur.git/sna
 SSH_KEY_PATH="${SSH_KEY_PATH:-$HOME/.ssh/id_ed25519}"
 LOG_FILE="${POSTINSTALL_LOG_FILE:-$HOME/Backups/arch-postinstall.log}"
 SUMMARY_FILE="${POSTINSTALL_SUMMARY_FILE:-$HOME/Backups/arch-postinstall-summary.txt}"
-OPEN_ZEN_TABS="${OPEN_ZEN_TABS:-0}"
 REPLACE_GITHUB_SSH_KEYS="${REPLACE_GITHUB_SSH_KEYS:-1}"
 RETRY_ATTEMPTS="${RETRY_ATTEMPTS:-3}"
 RETRY_DELAY_SECONDS="${RETRY_DELAY_SECONDS:-5}"
@@ -568,39 +567,7 @@ Checkpoints:
 - codex_cli: $(if has_checkpoint "codex_cli"; then echo concluido; else echo pendente; fi)
 - github_ssh: $(if has_checkpoint "github_ssh"; then echo concluido; else echo pendente; fi)
 - mirrors: $(if has_checkpoint "mirrors"; then echo concluido; else echo pendente; fi)
-- zen_tabs: $(if has_checkpoint "zen_tabs"; then echo concluido; else echo pendente; fi)
 EOF
-}
-
-open_zen_tabs() {
-  local url
-  local urls=(
-    "https://chatgpt.com/"
-    "https://github.com/"
-    "https://github.com/obslove"
-    "https://github.com/obslove/arch-postinstall-apps"
-    "https://www.youtube.com/"
-  )
-
-  if [[ "$OPEN_ZEN_TABS" != "1" ]]; then
-    return
-  fi
-
-  if has_checkpoint "zen_tabs"; then
-    echo "Abas do Zen ja abertas anteriormente. Pulando."
-    return
-  fi
-
-  if [[ -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; then
-    return
-  fi
-
-  echo "Abrindo links no navegador padrao..."
-  for url in "${urls[@]}"; do
-    open_url_in_background "$url" || true
-    sleep 1
-  done
-  mark_checkpoint "zen_tabs"
 }
 
 create_directories() {
@@ -828,7 +795,6 @@ run_bootstrap() {
     POSTINSTALL_LOG_INITIALIZED=1 \
     POSTINSTALL_LOCK_HELD=1 \
     POSTINSTALL_SYSTEM_UPDATED=1 \
-    OPEN_ZEN_TABS="$OPEN_ZEN_TABS" \
     REPLACE_GITHUB_SSH_KEYS="$REPLACE_GITHUB_SSH_KEYS" \
     RETRY_ATTEMPTS="$RETRY_ATTEMPTS" \
     RETRY_DELAY_SECONDS="$RETRY_DELAY_SECONDS" \
@@ -1033,7 +999,6 @@ run_install() {
   ensure_hyprland_desktop_integration || true
   setup_github_ssh
   verify_installation
-  open_zen_tabs
   print_summary
 }
 
