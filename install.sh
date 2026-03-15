@@ -200,10 +200,31 @@ cleanup_temp_clipboard_utility() {
   temp_wl_clipboard_installed=0
 }
 
+open_url_in_background() {
+  local url="$1"
+
+  if [[ -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; then
+    return 1
+  fi
+
+  if command -v xdg-open >/dev/null 2>&1; then
+    nohup xdg-open "$url" >/dev/null 2>&1 &
+    return 0
+  fi
+
+  if command -v gio >/dev/null 2>&1; then
+    nohup gio open "$url" >/dev/null 2>&1 &
+    return 0
+  fi
+
+  return 1
+}
+
 run_gh_auth_flow() {
   local clipboard_args=()
 
   echo "Abrindo o navegador padrao para autenticacao do GitHub..."
+  open_url_in_background "https://github.com/login/device" || true
   if ensure_temp_clipboard_utility; then
     clipboard_args+=(--clipboard)
     echo "O codigo de dispositivo sera copiado automaticamente para a area de transferencia."
