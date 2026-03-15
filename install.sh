@@ -6,6 +6,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 PACKAGE_FILE="$SCRIPT_DIR/config/packages.txt"
 EXTRA_PACKAGE_FILE="$SCRIPT_DIR/config/packages-extra.txt"
 BASHRC_FILE="$HOME/.bashrc"
+ZSHRC_FILE="$HOME/.zshrc"
+FISH_CONFIG_FILE="$HOME/.config/fish/config.fish"
 REPO_HTTPS_URL="https://github.com/obslove/arch-postinstall-apps.git"
 REPO_SSH_URL="git@github.com:obslove/arch-postinstall-apps.git"
 REPO_BRANCH="${1:-${BOOTSTRAP_BRANCH:-main}}"
@@ -616,6 +618,9 @@ create_directories() {
 
 setup_codex_cli() {
   local codex_path_line="export PATH=\"\$HOME/Codex/bin:\$PATH\""
+  local fish_codex_path_block='if not contains "$HOME/Codex/bin" $PATH
+    set -gx PATH "$HOME/Codex/bin" $PATH
+end'
 
   if has_checkpoint "codex_cli" && command -v codex >/dev/null 2>&1; then
     echo "Codex CLI ja configurado. Pulando."
@@ -633,6 +638,23 @@ setup_codex_cli() {
 
   if ! grep -qxF "$codex_path_line" "$BASHRC_FILE"; then
     printf '\n%s\n' "$codex_path_line" >>"$BASHRC_FILE"
+  fi
+
+  if [[ ! -f "$ZSHRC_FILE" ]]; then
+    touch "$ZSHRC_FILE"
+  fi
+
+  if ! grep -qxF "$codex_path_line" "$ZSHRC_FILE"; then
+    printf '\n%s\n' "$codex_path_line" >>"$ZSHRC_FILE"
+  fi
+
+  mkdir -p "$(dirname "$FISH_CONFIG_FILE")"
+  if [[ ! -f "$FISH_CONFIG_FILE" ]]; then
+    touch "$FISH_CONFIG_FILE"
+  fi
+
+  if ! grep -qxF 'if not contains "$HOME/Codex/bin" $PATH' "$FISH_CONFIG_FILE"; then
+    printf '\n%s\n' "$fish_codex_path_block" >>"$FISH_CONFIG_FILE"
   fi
 
   export PATH="$HOME/Codex/bin:$PATH"

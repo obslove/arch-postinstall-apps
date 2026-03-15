@@ -54,6 +54,7 @@ Se não houver helper AUR instalado, o script instala `yay` antes do primeiro pa
 Se `paru` ou `yay` já existirem, o script reutiliza o helper encontrado.
 O item `codex` não é um pacote do sistema: ele executa o setup do Codex CLI.
 O script instala `reflector` e atualiza a mirrorlist antes do `pacman -Syu`.
+Em sessão Hyprland, o script também garante `pipewire`, `wireplumber`, `xdg-utils`, `xdg-desktop-portal`, `xdg-desktop-portal-gtk` e `xdg-desktop-portal-hyprland`.
 
 ## O que acontece
 
@@ -75,18 +76,25 @@ O script instala `reflector` e atualiza a mirrorlist antes do `pacman -Syu`.
 - instala `yay` automaticamente antes do primeiro pacote AUR, se necessário
 - informa quando não houver pacotes AUR na lista
 - repete automaticamente etapas mais frágeis se alguma falhar na primeira tentativa
+- configura o Codex CLI com prefixo em `~/Codex`
+- adiciona `~/Codex/bin` ao `PATH` do `bash`, `zsh` e `fish`
 - instala `github-cli` e `openssh`
 - cria a chave SSH se não existir
-- autentica no GitHub com `gh`, abrindo o navegador padrão
+- tenta abrir automaticamente `https://github.com/login/device` no navegador padrão
+- autentica no GitHub com `gh`, usando o device flow web
 - copia automaticamente o código do device flow para a área de transferência
+- instala `wl-clipboard` temporariamente em sessões Wayland ou `xclip` em sessões X11 se faltar utilitário de clipboard
+- remove o utilitário de clipboard temporário ao fim da etapa do GitHub, se ele tiver sido instalado pelo script
 - renova o scope `admin:public_key` se precisar para gerenciar chaves SSH
 - envia a chave SSH para o GitHub com título fixo `obslove`
 - mantém a chave atual antes de remover as antigas, se `REPLACE_GITHUB_SSH_KEYS=1`
 - pula a parte do GitHub se a autenticação falhar
 - marca checkpoint para não repetir a configuração SSH do GitHub em reruns
-- pode abrir ChatGPT, três abas do GitHub e YouTube no Zen Browser, se você habilitar
-- marca checkpoint para não reabrir as abas do Zen em reruns
+- em sessão Hyprland, garante a pilha de integração desktop e screen sharing com `pipewire`, `wireplumber` e `xdg-desktop-portal`
+- pode abrir ChatGPT, três páginas do GitHub e YouTube no navegador padrão, se você habilitar
+- marca checkpoint para não reabrir esses links em reruns
 - verifica no fim se os binários principais realmente ficaram disponíveis
+- em Wayland, verifica clipboard, pacotes de portal e serviços de usuário como `pipewire.service`, `wireplumber.service` e `xdg-desktop-portal.service`
 - grava resumo em `~/Backups/arch-postinstall-summary.txt`
 - grava `Hostname` no resumo final
 - grava no resumo a branch usada, o caminho do repositório e as versões principais
@@ -95,14 +103,14 @@ O script instala `reflector` e atualiza a mirrorlist antes do `pacman -Syu`.
 ## O que exige interação
 
 - senha do `sudo`
-- login no GitHub via `gh auth login`, no final, abrindo no navegador padrão
+- login no GitHub via `gh auth login`, com o navegador padrão abrindo a página do device flow
 - autorização extra do `gh auth refresh` se faltar o scope `admin:public_key`
 - eventualmente algum prompt raro de pacote AUR
 
 ## Opcionais
 
 - `REPLACE_GITHUB_SSH_KEYS=0`: preserva as chaves SSH atuais do GitHub
-- `OPEN_ZEN_TABS=1`: abre ChatGPT, GitHub e YouTube no Zen Browser no fim
+- `OPEN_ZEN_TABS=1`: abre ChatGPT, GitHub e YouTube no navegador padrão no fim
 
 Se quiser usar essas opções no bootstrap, exporte-as antes:
 
