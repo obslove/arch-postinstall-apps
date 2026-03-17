@@ -851,6 +851,7 @@ print_summary() {
     echo "Dependências de suporte tratadas: ${support_packages[*]:-nenhuma}"
     echo "Dependências do ambiente gráfico tratadas: ${environment_packages[*]:-nenhuma}"
     echo "Configurações explícitas: ${completed_actions[*]:-nenhuma}"
+    echo "GitHub SSH esperado: $(if github_ssh_expected; then echo sim; else echo não; fi)"
     echo "GitHub SSH: $github_ssh_status"
     echo "Integração desktop: $desktop_integration_status"
     echo "Helper AUR: ${aur_helper_status:-indisponível}"
@@ -884,6 +885,7 @@ Itens da lista principal tratados via AUR: ${aur_packages[*]:-nenhum}
 Dependências de suporte tratadas: ${support_packages[*]:-nenhuma}
 Dependências do ambiente gráfico tratadas: ${environment_packages[*]:-nenhuma}
 Configurações explícitas: ${completed_actions[*]:-nenhuma}
+GitHub SSH esperado: $(if github_ssh_expected; then echo sim; else echo não; fi)
 GitHub SSH: $github_ssh_status
 Integração desktop: $desktop_integration_status
 Helper AUR: ${aur_helper_status:-indisponível}
@@ -1233,10 +1235,16 @@ sync_repo() {
 
 run_bootstrap() {
   local bootstrap_system_updated=0
+  local bootstrap_packages=(
+    ca-certificates
+    git
+    curl
+    tar
+  )
   local missing_packages=()
 
   announce_step "Verificando dependências iniciais já instaladas..."
-  collect_missing_packages missing_packages git
+  collect_missing_packages missing_packages "${bootstrap_packages[@]}"
   if ((${#missing_packages[@]} > 0)); then
     announce_step "Instalando dependências iniciais..."
     if ! retry_log_only sudo pacman -Syu --needed --noconfirm "${missing_packages[@]}"; then
@@ -1249,6 +1257,8 @@ run_bootstrap() {
   fi
 
   require_command git
+  require_command curl
+  require_command tar
   sync_repo
 
   env \
