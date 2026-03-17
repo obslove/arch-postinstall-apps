@@ -976,7 +976,7 @@ ensure_github_auth() {
   fi
 
   echo "Autenticando no GitHub com gh..."
-  run_gh_auth_flow auth login --web --git-protocol ssh
+  run_gh_auth_flow auth login --web --git-protocol ssh --scopes admin:public_key
 }
 
 upload_ssh_key() {
