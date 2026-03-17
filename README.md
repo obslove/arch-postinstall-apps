@@ -54,8 +54,6 @@ Os repositórios usados pelo script ficam em `~/Repositories`.
 Se não houver helper AUR instalado, o script instalará `yay` antes do primeiro pacote AUR.
 Se `paru` ou `yay` já existirem, o helper encontrado será reutilizado.
 O item `codex` não é um pacote do sistema: ele executa uma configuração especial do Codex CLI.
-O script instala `reflector` e atualiza a lista de mirrors antes de `pacman -Syu`, usando `10s` como tempo limite padrão para conexão e download.
-O checkpoint de mirrors expira, por padrão, após `7` dias, para evitar que a lista fique desatualizada por tempo indeterminado.
 Em sessões Hyprland, o script também garante `pipewire`, `wireplumber`, `xdg-utils`, `xdg-desktop-portal`, `xdg-desktop-portal-gtk` e `xdg-desktop-portal-hyprland`.
 
 ## O que acontece
@@ -74,11 +72,6 @@ Em sessões Hyprland, o script também garante `pipewire`, `wireplumber`, `xdg-u
 - Cria `~/Backups`, `~/Codex`, `~/Dots`, `~/Pictures/Wallpapers`, `~/Pictures/Screenshots`, `~/Projects`, `~/Repositories` e `~/Videos`.
 - Carrega `config/packages.txt` e, se existir, `config/packages-extra.txt`.
 - Habilita `multilib`, se necessário.
-- Instala `reflector`.
-- Aceita avisos e limites de tempo parciais do `reflector` se ele ainda gerar uma lista de mirrors válida.
-- Restaura a lista de mirrors anterior se o `reflector` falhar sem gerar saída válida.
-- Marca um checkpoint para evitar a atualização da lista de mirrors em reruns recentes.
-- Atualiza a lista de mirrors novamente quando o checkpoint estiver antigo demais.
 - Atualiza o sistema com `pacman -Syu`.
 - Segue a ordem definida em `config/packages.txt`.
 - Instala cada item com `pacman`, `yay` ou configuração especial, conforme o tipo.
@@ -92,10 +85,12 @@ Em sessões Hyprland, o script também garante `pipewire`, `wireplumber`, `xdg-u
 - Tenta abrir automaticamente `https://github.com/login/device` no navegador padrão.
 - Autentica no GitHub com `gh`, usando o fluxo web por código de dispositivo.
 - Copia automaticamente o código do fluxo de autenticação para a área de transferência quando houver um utilitário compatível com a sessão atual.
-- Instala `wl-clipboard` temporariamente em sessões Wayland ou `xclip` em sessões X11 quando faltar um utilitário de área de transferência compatível.
+- Instala `wl-clipboard` temporariamente em sessões Wayland quando faltar um utilitário de área de transferência compatível.
 - Remove o utilitário temporário de área de transferência ao fim da etapa do GitHub, se ele tiver sido instalado pelo script.
 - Renova o escopo `admin:public_key`, se necessário, para gerenciar chaves SSH.
-- Envia a chave SSH ao GitHub com título derivado de `usuário@hostname`.
+- Envia a chave SSH ao GitHub com o título fixo `vampire love`.
+- Recria a chave atual no GitHub se ela já existir com outro título.
+- Confirma, ao fim da etapa, se a chave atual realmente ficou registrada com o título esperado.
 - Mantém a chave atual antes de remover as antigas, se `REPLACE_GITHUB_SSH_KEYS=1`.
 - Ignora a etapa do GitHub se a autenticação falhar.
 - Valida, em reruns, se a chave SSH atual ainda existe na conta do GitHub antes de confiar no checkpoint.
@@ -119,9 +114,6 @@ Em sessões Hyprland, o script também garante `pipewire`, `wireplumber`, `xdg-u
 ## Opcionais
 
 - `REPLACE_GITHUB_SSH_KEYS=0`: preserva as chaves SSH atuais do GitHub.
-- `REFLECTOR_CONNECTION_TIMEOUT=10`: ajusta o tempo limite de conexão do `reflector`.
-- `REFLECTOR_DOWNLOAD_TIMEOUT=10`: ajusta o tempo limite de download do `reflector`.
-- `MIRROR_CHECKPOINT_MAX_AGE_DAYS=7`: define, em dias, quando o checkpoint de mirrors expira.
 - `STEP_OUTPUT_ONLY=0`: desativa o modo resumido e restaura a saída completa no terminal.
 
 Se quiser usar essas opções no bootstrap, exporte-as antes da execução:

@@ -21,9 +21,6 @@ SUMMARY_FILE="${POSTINSTALL_SUMMARY_FILE:-$HOME/Backups/arch-postinstall-summary
 REPLACE_GITHUB_SSH_KEYS="${REPLACE_GITHUB_SSH_KEYS:-1}"
 RETRY_ATTEMPTS="${RETRY_ATTEMPTS:-3}"
 RETRY_DELAY_SECONDS="${RETRY_DELAY_SECONDS:-5}"
-REFLECTOR_CONNECTION_TIMEOUT="${REFLECTOR_CONNECTION_TIMEOUT:-10}"
-REFLECTOR_DOWNLOAD_TIMEOUT="${REFLECTOR_DOWNLOAD_TIMEOUT:-10}"
-MIRROR_CHECKPOINT_MAX_AGE_DAYS="${MIRROR_CHECKPOINT_MAX_AGE_DAYS:-7}"
 STEP_OUTPUT_ONLY="${STEP_OUTPUT_ONLY:-1}"
 STATE_DIR="${POSTINSTALL_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/arch-postinstall-apps}"
 LOCK_DIR="${POSTINSTALL_LOCK_DIR:-$STATE_DIR/lock}"
@@ -61,25 +58,6 @@ has_checkpoint() {
 mark_checkpoint() {
   mkdir -p "$STATE_DIR/checkpoints"
   touch "$(checkpoint_file "$1")"
-}
-
-checkpoint_older_than_days() {
-  local checkpoint_name="$1"
-  local max_age_days="$2"
-  local file_path
-  local now_epoch
-  local file_epoch
-  local max_age_seconds
-
-  file_path="$(checkpoint_file "$checkpoint_name")"
-  [[ -f "$file_path" ]] || return 0
-
-  now_epoch="$(date +%s)"
-  file_epoch="$(stat -c %Y "$file_path" 2>/dev/null || true)"
-  [[ -n "$file_epoch" ]] || return 0
-
-  max_age_seconds=$((max_age_days * 86400))
-  (( now_epoch - file_epoch > max_age_seconds ))
 }
 
 acquire_lock() {
@@ -232,20 +210,12 @@ get_host_name() {
   uname -n
 }
 
-sanitize_label() {
-  printf '%s' "$1" | tr -cs '[:alnum:].@_-' '-'
-}
-
 build_ssh_key_title() {
-  printf '%s@%s\n' "$USER" "$(sanitize_label "$(get_host_name)")"
+  printf 'vampire love\n'
 }
 
 is_wayland_session() {
   [[ "${XDG_SESSION_TYPE:-}" == "wayland" || -n "${WAYLAND_DISPLAY:-}" ]]
-}
-
-is_x11_session() {
-  [[ "${XDG_SESSION_TYPE:-}" == "x11" || -n "${DISPLAY:-}" ]]
 }
 
 is_hyprland_session() {
@@ -256,8 +226,6 @@ is_hyprland_session() {
 
 has_clipboard_utility() {
   command -v wl-copy >/dev/null 2>&1 || \
-    command -v xclip >/dev/null 2>&1 || \
-    command -v xsel >/dev/null 2>&1 || \
     command -v termux-clipboard-set >/dev/null 2>&1
 }
 
@@ -265,12 +233,6 @@ has_session_clipboard_utility() {
   if is_wayland_session; then
     command -v wl-copy >/dev/null 2>&1 && return 0
     command -v termux-clipboard-set >/dev/null 2>&1 && return 0
-    return 1
-  fi
-
-  if is_x11_session; then
-    command -v xclip >/dev/null 2>&1 && return 0
-    command -v xsel >/dev/null 2>&1 && return 0
     return 1
   fi
 
@@ -286,8 +248,6 @@ ensure_temp_clipboard_utility() {
 
   if is_wayland_session; then
     clipboard_package="wl-clipboard"
-  elif is_x11_session; then
-    clipboard_package="xclip"
   else
     return 1
   fi
@@ -341,7 +301,7 @@ ensure_hyprland_desktop_integration() {
 open_url_in_background() {
   local url="$1"
 
-  if [[ -z "${DISPLAY:-}" && -z "${WAYLAND_DISPLAY:-}" ]]; then
+  if ! is_wayland_session; then
     return 1
   fi
 
@@ -456,60 +416,6 @@ ensure_multilib() {
   fi
 
   run_log_only sudo pacman -Syy --noconfirm
-}
-
-optimize_mirrors() {
-  local current_mirrorlist="/etc/pacman.d/mirrorlist"
-  local backup_mirrorlist
-  local temp_mirrorlist
-  local reflector_status=0
-
-  if has_checkpoint "mirrors" && ! checkpoint_older_than_days "mirrors" "$MIRROR_CHECKPOINT_MAX_AGE_DAYS"; then
-    announce_detail "A lista de mirrors já foi atualizada recentemente. Etapa ignorada."
-    return
-  fi
-
-  if has_checkpoint "mirrors"; then
-    announce_detail "O checkpoint de mirrors expirou. Atualizando novamente..."
-  else
-    announce_detail "Mirrorlist ainda não foi atualizada nesta máquina."
-  fi
-
-  if ! command -v reflector >/dev/null 2>&1; then
-    announce_detail "Instalando reflector..."
-    retry_log_only sudo pacman -S --needed --noconfirm reflector
-  fi
-
-  announce_step "Atualizando mirrors..."
-  backup_mirrorlist="$(mktemp)"
-  temp_mirrorlist="$(mktemp)"
-  register_cleanup_path "$backup_mirrorlist"
-  register_cleanup_path "$temp_mirrorlist"
-
-  sudo cp "$current_mirrorlist" "$backup_mirrorlist"
-  if retry_log_only reflector \
-    --connection-timeout "$REFLECTOR_CONNECTION_TIMEOUT" \
-    --download-timeout "$REFLECTOR_DOWNLOAD_TIMEOUT" \
-    --latest 20 \
-    --protocol https \
-    --sort rate \
-    --save "$temp_mirrorlist"; then
-    sudo install -m 644 "$temp_mirrorlist" "$current_mirrorlist"
-  else
-    reflector_status=$?
-    if grep -q '^Server' "$temp_mirrorlist"; then
-      echo "Aviso: o reflector retornou avisos ou limites de tempo, mas gerou uma lista de mirrors válida. O script continuará com ela."
-      sudo install -m 644 "$temp_mirrorlist" "$current_mirrorlist"
-    else
-      echo "Aviso: o reflector falhou sem gerar uma lista de mirrors válida. Restaurando a lista anterior."
-      sudo install -m 644 "$backup_mirrorlist" "$current_mirrorlist"
-      rm -f "$backup_mirrorlist" "$temp_mirrorlist"
-      return "$reflector_status"
-    fi
-  fi
-
-  rm -f "$backup_mirrorlist" "$temp_mirrorlist"
-  mark_checkpoint "mirrors"
 }
 
 detect_aur_helper() {
@@ -808,7 +714,6 @@ $(if ((${#version_info[@]} == 0)); then echo "- nenhuma"; else printf '%s\n' "${
 Checkpoints:
 - codex_cli: $(if has_checkpoint "codex_cli"; then echo concluido; else echo pendente; fi)
 - github_ssh: $(if has_checkpoint "github_ssh"; then echo concluido; else echo pendente; fi)
-- mirrors: $(if has_checkpoint "mirrors"; then echo concluido; else echo pendente; fi)
 EOF
 
   if [[ "$SCRIPT_DIR" != "$INSTALL_DIR" ]]; then
@@ -827,6 +732,28 @@ create_directories() {
     "$HOME/Projects" \
     "$REPOSITORIES_DIR" \
     "$HOME/Videos"
+}
+
+current_public_ssh_key() {
+  [[ -f "${SSH_KEY_PATH}.pub" ]] || return 1
+  awk 'NR == 1 { print $1, $2 }' "${SSH_KEY_PATH}.pub"
+}
+
+find_current_github_ssh_key() {
+  local current_key
+
+  current_key="$(current_public_ssh_key)" || return 1
+  gh api user/keys --jq ".[] | select(.key == \"$current_key\") | [.id, .title] | @tsv"
+}
+
+github_has_expected_ssh_key_title() {
+  local key_data
+  local current_key_title=""
+
+  key_data="$(find_current_github_ssh_key 2>/dev/null || true)"
+  [[ -n "$key_data" ]] || return 1
+  IFS=$'\t' read -r _ current_key_title <<<"$key_data"
+  [[ "$current_key_title" == "$(build_ssh_key_title)" ]]
 }
 
 setup_codex_cli() {
@@ -915,34 +842,44 @@ ensure_github_auth() {
 upload_ssh_key() {
   local current_key
   local current_key_id=""
+  local current_key_title=""
   local existing_keys
   local key_id
+  local key_title_from_api
+  local key_value
   local key_ids
   local key_title
 
-  current_key="$(<"${SSH_KEY_PATH}.pub")"
+  current_key="$(current_public_ssh_key)"
   key_title="$(build_ssh_key_title)"
-  if ! existing_keys="$(gh api user/keys --jq '.[] | [.id, .key] | @tsv' 2>/dev/null)"; then
+  if ! existing_keys="$(gh api user/keys --jq '.[] | [.id, .title, .key] | @tsv' 2>/dev/null)"; then
     announce_detail "A permissão admin:public_key não está disponível no gh. A autenticação será renovada."
     if ! run_gh_auth_flow auth refresh -h github.com -s admin:public_key; then
       echo "Aviso: não foi possível renovar o escopo admin:public_key no gh."
       return 1
     fi
 
-    if ! existing_keys="$(gh api user/keys --jq '.[] | [.id, .key] | @tsv' 2>/dev/null)"; then
+    if ! existing_keys="$(gh api user/keys --jq '.[] | [.id, .title, .key] | @tsv' 2>/dev/null)"; then
       echo "Aviso: o gh continua sem acesso para gerenciar chaves SSH no GitHub."
       return 1
     fi
   fi
 
-  while IFS=$'\t' read -r key_id key_value; do
+  while IFS=$'\t' read -r key_id key_title_from_api key_value; do
     [[ -n "$key_id" ]] || continue
     [[ -n "${key_value:-}" ]] || continue
     if [[ "$key_value" == "$current_key" ]]; then
       current_key_id="$key_id"
+      current_key_title="$key_title_from_api"
       break
     fi
   done <<<"$existing_keys"
+
+  if [[ -n "$current_key_id" && "$current_key_title" != "$key_title" ]]; then
+    announce_detail "A chave SSH atual já existe no GitHub com outro título. Recriando com o nome correto..."
+    retry gh api --method DELETE "user/keys/$current_key_id"
+    current_key_id=""
+  fi
 
   if [[ "$REPLACE_GITHUB_SSH_KEYS" != "1" && -n "$current_key_id" ]]; then
     announce_detail "A chave SSH atual já está cadastrada no GitHub."
@@ -968,6 +905,11 @@ upload_ssh_key() {
     [[ "$key_id" == "$current_key_id" ]] && continue
     retry gh api --method DELETE "user/keys/$key_id"
   done <<<"$key_ids"
+
+  if ! github_has_expected_ssh_key_title; then
+    echo "Aviso: a chave SSH foi enviada, mas o título esperado no GitHub não pôde ser confirmado."
+    return 1
+  fi
 }
 
 repo_is_dirty() {
@@ -1062,7 +1004,7 @@ run_bootstrap() {
 }
 
 setup_github_ssh() {
-  if has_checkpoint "github_ssh" && command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1 && [[ -f "${SSH_KEY_PATH}.pub" ]]; then
+  if has_checkpoint "github_ssh" && command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1 && github_has_expected_ssh_key_title; then
     ensure_repo_origin_remote "$SCRIPT_DIR"
     announce_detail "O GitHub SSH já está configurado. Etapa ignorada."
     return
@@ -1198,14 +1140,6 @@ verify_installation() {
     fi
   fi
 
-  if is_x11_session; then
-    if command -v xclip >/dev/null 2>&1 || command -v xsel >/dev/null 2>&1; then
-      verified_commands+=("x11-clipboard")
-    else
-      missing_commands+=("x11-clipboard")
-    fi
-  fi
-
   if is_hyprland_session; then
     verify_command "pipewire" "pipewire"
     verify_command "wireplumber" "wireplumber"
@@ -1243,7 +1177,6 @@ run_install() {
   load_packages
   create_directories
   ensure_multilib
-  optimize_mirrors
 
   if [[ "$SYSTEM_UPDATED" == "1" ]]; then
     announce_detail "O sistema já foi atualizado no bootstrap. A nova atualização completa será ignorada."
