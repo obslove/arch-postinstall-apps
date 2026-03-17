@@ -1103,9 +1103,10 @@ run_bootstrap() {
   local bootstrap_system_updated=0
   local missing_packages=()
 
-  announce_step "Instalando dependências iniciais..."
+  announce_step "Verificando dependências iniciais já instaladas..."
   collect_missing_packages missing_packages git
   if ((${#missing_packages[@]} > 0)); then
+    announce_step "Instalando dependências iniciais..."
     if ! retry_log_only sudo pacman -Syu --needed --noconfirm "${missing_packages[@]}"; then
       echo "Erro: não foi possível instalar as dependências iniciais." >&2
       exit 1

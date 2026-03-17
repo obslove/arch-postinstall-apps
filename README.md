@@ -136,6 +136,7 @@ O script também garante `pipewire`, `wireplumber`, `xdg-utils`, `xdg-desktop-po
 - Evita duas execuções simultâneas por meio de um arquivo de bloqueio.
 - Recupera automaticamente um lock órfão quando a execução anterior termina sem limpeza adequada.
 - Exibe, por padrão, um modo resumido por etapas no terminal e mantém os detalhes completos no arquivo de log.
+- Verifica as dependências iniciais antes de tentar instalá-las no bootstrap.
 - Mantém clones auxiliares, como `yay`, dentro de `~/Repositories`.
 - Preserva a branch escolhida entre o bootstrap e a segunda etapa.
 - Interrompe o bootstrap se o clone gerenciado estiver com alterações locais em outra branch, em vez de executar código da branch incorreta.
