@@ -21,6 +21,8 @@ LOG_FILE="${POSTINSTALL_LOG_FILE:-$HOME/Backups/arch-postinstall.log}"
 SUMMARY_FILE="${POSTINSTALL_SUMMARY_FILE:-$HOME/Backups/arch-postinstall-summary.txt}"
 REPLACE_GITHUB_SSH_KEYS="${REPLACE_GITHUB_SSH_KEYS:-1}"
 CHECK_ONLY="${CHECK_ONLY:-0}"
+SKIP_GITHUB_SSH="${SKIP_GITHUB_SSH:-0}"
+SKIP_DESKTOP_INTEGRATION="${SKIP_DESKTOP_INTEGRATION:-0}"
 RETRY_ATTEMPTS=1
 RETRY_DELAY_SECONDS=0
 STEP_OUTPUT_ONLY="${STEP_OUTPUT_ONLY:-1}"
@@ -43,7 +45,10 @@ verified_commands=()
 missing_commands=()
 version_info=()
 temp_clipboard_package=""
-official_repo_index_file=""
+official_repo_metadata_checked=0
+official_repo_metadata_ready=0
+github_ssh_status="pendente"
+desktop_integration_status="pendente"
 
 ensure_not_root() {
   if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
@@ -138,6 +143,14 @@ mark_missing_item() {
 
 package_is_installed() {
   pacman -Q "$1" >/dev/null 2>&1
+}
+
+desktop_integration_expected() {
+  [[ "$SKIP_DESKTOP_INTEGRATION" != "1" ]]
+}
+
+github_ssh_expected() {
+  [[ "$SKIP_GITHUB_SSH" != "1" ]]
 }
 
 collect_missing_packages() {
@@ -382,6 +395,7 @@ ensure_desktop_integration() {
   done
 
   if desktop_integration_ready; then
+    desktop_integration_status="ignorada por já estar pronta"
     if ! has_checkpoint "desktop_integration" && ! mark_checkpoint "desktop_integration"; then
       echo "Aviso: não foi possível registrar o checkpoint da integração desktop." >&2
     fi
@@ -392,14 +406,18 @@ ensure_desktop_integration() {
   collect_missing_packages missing_packages "${required_packages[@]}"
   announce_detail "Garantindo integração desktop..."
   if ! retry_log_only sudo pacman -S --needed --noconfirm "${missing_packages[@]}"; then
+    desktop_integration_status="falhou"
     echo "Erro: não foi possível instalar a integração desktop." >&2
     return 1
   fi
 
   if ! mark_checkpoint "desktop_integration"; then
+    desktop_integration_status="falhou"
     echo "Erro: não foi possível registrar o checkpoint da integração desktop." >&2
     return 1
   fi
+
+  desktop_integration_status="concluída"
 }
 
 run_gh_auth_flow() {
@@ -498,7 +516,10 @@ ensure_multilib() {
     exit 1
   fi
 
-  run_log_only sudo pacman -Syy --noconfirm
+  if ! run_log_only sudo pacman -Syy --noconfirm; then
+    echo "Erro: não foi possível sincronizar os bancos de dados do pacman após habilitar multilib." >&2
+    exit 1
+  fi
 }
 
 detect_aur_helper() {
@@ -529,24 +550,33 @@ build_yay() {
 }
 
 refresh_official_repo_index() {
-  if [[ -n "$official_repo_index_file" && -f "$official_repo_index_file" ]]; then
-    return 0
+  if [[ "$official_repo_metadata_checked" == "1" ]]; then
+    [[ "$official_repo_metadata_ready" == "1" ]]
+    return
   fi
 
-  official_repo_index_file="$(mktemp)"
-  register_cleanup_path "$official_repo_index_file"
-
-  if ! pacman -Slq | sort -u >"$official_repo_index_file"; then
-    echo "Erro: não foi possível carregar a lista de pacotes oficiais do pacman." >&2
+  official_repo_metadata_checked=1
+  if ! pacman -Slq >/dev/null 2>&1; then
+    official_repo_metadata_ready=0
+    echo "Erro: não foi possível carregar os metadados dos repositórios oficiais do pacman." >&2
     return 1
   fi
+
+  official_repo_metadata_ready=1
 }
 
 package_exists_in_official_repos() {
   local package="$1"
 
-  refresh_official_repo_index
-  grep -qxF "$package" "$official_repo_index_file"
+  if ! refresh_official_repo_index; then
+    return 2
+  fi
+
+  if pacman -Si -- "$package" >/dev/null 2>&1; then
+    return 0
+  fi
+
+  return 1
 }
 
 install_yay() {
@@ -693,10 +723,14 @@ get_repo_branch() {
 
 install_packages_in_order() {
   local package
+  local package_origin_status
   local shown_pacman_step=0
   local shown_aur_step=0
 
-  refresh_official_repo_index
+  if ! refresh_official_repo_index; then
+    echo "Erro: não foi possível preparar o índice de pacotes oficiais antes da instalação." >&2
+    return 1
+  fi
 
   official_packages=()
   aur_packages=()
@@ -713,6 +747,12 @@ install_packages_in_order() {
     esac
 
     if package_exists_in_official_repos "$package"; then
+      package_origin_status=0
+    else
+      package_origin_status=$?
+    fi
+
+    if [[ "$package_origin_status" == "0" ]]; then
       official_packages+=("$package")
       if [[ "$shown_pacman_step" == "0" ]]; then
         announce_step "Instalando apps oficiais..."
@@ -725,6 +765,11 @@ install_packages_in_order() {
 
       official_failed+=("$package")
       continue
+    fi
+
+    if [[ "$package_origin_status" == "2" ]]; then
+      echo "Erro: não foi possível classificar o pacote '$package' entre repositório oficial e AUR." >&2
+      return 1
     fi
 
     aur_packages+=("$package")
@@ -750,13 +795,22 @@ print_summary() {
   local host_name
   local actual_branch
   local repo_path
+  local origin_status="indisponível"
   local requested_branch_note=""
   local completed_actions=()
+  local execution_mode="instalação"
+  local changes_applied="sim"
   local version_line
+
+  if [[ "$CHECK_ONLY" == "1" ]]; then
+    execution_mode="verificação"
+    changes_applied="não"
+  fi
 
   host_name="$(get_host_name)"
   actual_branch="$(get_repo_branch "$SCRIPT_DIR" 2>/dev/null || printf '%s\n' "$REPO_BRANCH")"
   repo_path="$SCRIPT_DIR"
+  origin_status="$(current_repo_origin_status "$SCRIPT_DIR")"
   if [[ "$actual_branch" != "$REPO_BRANCH" ]]; then
     requested_branch_note="$REPO_BRANCH"
   fi
@@ -774,16 +828,21 @@ print_summary() {
   if [[ "$STEP_OUTPUT_ONLY" == "1" ]]; then
     echo
     echo "Concluído."
+    echo "Modo: $execution_mode"
+    echo "Alterações aplicadas: $changes_applied"
     echo "Log: $LOG_FILE"
     echo "Resumo: $SUMMARY_FILE"
   else
     echo
     echo "Concluído."
+    echo "Modo: $execution_mode"
+    echo "Alterações aplicadas: $changes_applied"
     echo "Log: $LOG_FILE"
     echo "Resumo: $SUMMARY_FILE"
     echo "Hostname: $host_name"
     echo "Repositório: $repo_path"
     echo "Branch: $actual_branch"
+    echo "Origin: $origin_status"
     if [[ -n "$requested_branch_note" ]]; then
       echo "Branch solicitada: $requested_branch_note"
     fi
@@ -792,6 +851,8 @@ print_summary() {
     echo "Dependências de suporte tratadas: ${support_packages[*]:-nenhuma}"
     echo "Dependências do ambiente gráfico tratadas: ${environment_packages[*]:-nenhuma}"
     echo "Configurações explícitas: ${completed_actions[*]:-nenhuma}"
+    echo "GitHub SSH: $github_ssh_status"
+    echo "Integração desktop: $desktop_integration_status"
     echo "Helper AUR: ${aur_helper_status:-indisponível}"
     echo "Falhas pacman: ${official_failed[*]:-nenhuma}"
     echo "Falhas AUR: ${aur_failed[*]:-nenhuma}"
@@ -810,16 +871,21 @@ print_summary() {
   mkdir -p "$(dirname "$SUMMARY_FILE")"
   cat >"$SUMMARY_FILE" <<EOF
 Data: $(date '+%Y-%m-%d %H:%M:%S %z')
+Modo: $execution_mode
+Alterações aplicadas: $changes_applied
 Log: $LOG_FILE
 Hostname: $host_name
 Repositório: $repo_path
 Branch: $actual_branch
+Origin: $origin_status
 $(if [[ -n "$requested_branch_note" ]]; then printf 'Branch solicitada: %s\n' "$requested_branch_note"; fi)
 Itens da lista principal tratados via pacman: ${official_packages[*]:-nenhum}
 Itens da lista principal tratados via AUR: ${aur_packages[*]:-nenhum}
 Dependências de suporte tratadas: ${support_packages[*]:-nenhuma}
 Dependências do ambiente gráfico tratadas: ${environment_packages[*]:-nenhuma}
 Configurações explícitas: ${completed_actions[*]:-nenhuma}
+GitHub SSH: $github_ssh_status
+Integração desktop: $desktop_integration_status
 Helper AUR: ${aur_helper_status:-indisponível}
 Falhas pacman: ${official_failed[*]:-nenhuma}
 Falhas AUR: ${aur_failed[*]:-nenhuma}
@@ -836,6 +902,27 @@ EOF
   if [[ "$SCRIPT_DIR" != "$INSTALL_DIR" ]]; then
     printf 'Clone gerenciado: %s\n' "$INSTALL_DIR" >>"$SUMMARY_FILE"
   fi
+}
+
+current_repo_origin_status() {
+  local repo_dir="$1"
+  local current_origin_url=""
+
+  current_origin_url="$(git -C "$repo_dir" remote get-url origin 2>/dev/null || true)"
+  case "$current_origin_url" in
+    "$REPO_SSH_URL")
+      printf '%s\n' "ssh"
+      ;;
+    "$REPO_HTTPS_URL")
+      printf '%s\n' "https"
+      ;;
+    "")
+      printf '%s\n' "ausente"
+      ;;
+    *)
+      printf '%s\n' "personalizado"
+      ;;
+  esac
 }
 
 create_directories() {
@@ -1171,7 +1258,19 @@ run_bootstrap() {
     POSTINSTALL_LOG_INITIALIZED=1 \
     POSTINSTALL_LOCK_HELD=1 \
     POSTINSTALL_SYSTEM_UPDATED="$bootstrap_system_updated" \
+    POSTINSTALL_SUMMARY_FILE="$SUMMARY_FILE" \
+    POSTINSTALL_STATE_DIR="$STATE_DIR" \
+    POSTINSTALL_LOCK_DIR="$LOCK_DIR" \
+    SSH_KEY_PATH="$SSH_KEY_PATH" \
+    REPOSITORIES_DIR="$REPOSITORIES_DIR" \
+    YAY_REPO_DIR="$YAY_REPO_DIR" \
+    YAY_SNAPSHOT_URL="$YAY_SNAPSHOT_URL" \
+    CHECK_ONLY="$CHECK_ONLY" \
+    STEP_OUTPUT_ONLY="$STEP_OUTPUT_ONLY" \
+    GITHUB_SSH_KEY_TITLE="$GITHUB_SSH_KEY_TITLE" \
     REPLACE_GITHUB_SSH_KEYS="$REPLACE_GITHUB_SSH_KEYS" \
+    SKIP_GITHUB_SSH="$SKIP_GITHUB_SSH" \
+    SKIP_DESKTOP_INTEGRATION="$SKIP_DESKTOP_INTEGRATION" \
     bash "$INSTALL_DIR/install.sh" "$REPO_BRANCH"
   exit $?
 }
@@ -1179,6 +1278,12 @@ run_bootstrap() {
 setup_github_ssh() {
   local github_ssh_already_ready=0
   local missing_packages=()
+
+  if ! github_ssh_expected; then
+    github_ssh_status="ignorada por configuração"
+    announce_detail "A configuração do GitHub SSH foi desativada por SKIP_GITHUB_SSH=1."
+    return
+  fi
 
   announce_detail "Verificando estado atual do GitHub SSH..."
   if has_checkpoint "github_ssh"; then
@@ -1189,6 +1294,7 @@ setup_github_ssh() {
   fi
 
   if [[ "$github_ssh_already_ready" == "1" ]]; then
+    github_ssh_status="ignorada por já estar pronta"
     if ! ensure_repo_origin_remote "$SCRIPT_DIR"; then
       echo "Aviso: não foi possível ajustar o remoto do repositório para SSH." >&2
     fi
@@ -1203,6 +1309,7 @@ setup_github_ssh() {
   collect_missing_packages missing_packages github-cli openssh
   if ((${#missing_packages[@]} > 0)); then
     if ! retry_log_only sudo pacman -S --needed --noconfirm "${missing_packages[@]}"; then
+      github_ssh_status="ignorada por falha"
       echo "Aviso: não foi possível instalar github-cli/openssh. A configuração do GitHub será ignorada."
       return
     fi
@@ -1211,32 +1318,38 @@ setup_github_ssh() {
   fi
 
   if ! command -v gh >/dev/null 2>&1 || ! command -v ssh-keygen >/dev/null 2>&1; then
+    github_ssh_status="ignorada por falha"
     echo "Aviso: github-cli ou ssh-keygen está indisponível. A configuração do GitHub será ignorada."
     return
   fi
 
   if ! ensure_ssh_key; then
+    github_ssh_status="ignorada por falha"
     echo "Aviso: não foi possível preparar a chave SSH local. A configuração do GitHub será ignorada." >&2
     return
   fi
 
   if ! ensure_github_auth; then
     cleanup_temp_clipboard_utility || true
+    github_ssh_status="ignorada por falha"
     echo "Aviso: a autenticação do GitHub não foi concluída. O envio da chave SSH será ignorado."
     return
   fi
 
   if ! upload_ssh_key; then
     cleanup_temp_clipboard_utility || true
+    github_ssh_status="ignorada por falha"
     echo "Aviso: não foi possível enviar a chave SSH para o GitHub."
     return
   fi
 
   cleanup_temp_clipboard_utility || true
   if ! mark_checkpoint "github_ssh"; then
+    github_ssh_status="ignorada por falha"
     echo "Aviso: a chave SSH foi configurada, mas o checkpoint do GitHub SSH não pôde ser registrado." >&2
     return
   fi
+  github_ssh_status="concluída"
   if ! ensure_repo_origin_remote "$SCRIPT_DIR"; then
     echo "Aviso: a chave SSH foi configurada, mas não foi possível ajustar o remoto do repositório para SSH." >&2
   fi
@@ -1341,41 +1454,45 @@ verify_installation() {
     esac
   done
 
-  verify_command "github-cli" "gh"
-  verify_command "openssh" "ssh-keygen"
-
-  if command -v xdg-open >/dev/null 2>&1; then
-    mark_verified_item "xdg-utils"
-  elif command -v gio >/dev/null 2>&1; then
-    mark_verified_item "xdg-utils"
-  else
-    mark_missing_item "xdg-utils"
+  if github_ssh_expected; then
+    verify_command "github-cli" "gh"
+    verify_command "openssh" "ssh-keygen"
   fi
 
-  if command -v wl-copy >/dev/null 2>&1 && command -v wl-paste >/dev/null 2>&1; then
-    mark_verified_item "clipboard"
-  elif package_is_installed wl-clipboard; then
-    mark_missing_item "wl-clipboard"
-  fi
+  if desktop_integration_expected; then
+    if command -v xdg-open >/dev/null 2>&1; then
+      mark_verified_item "xdg-utils"
+    elif command -v gio >/dev/null 2>&1; then
+      mark_verified_item "xdg-utils"
+    else
+      mark_missing_item "xdg-utils"
+    fi
 
-  verify_command "pipewire" "pipewire"
-  verify_command "wireplumber" "wireplumber"
-  verify_package "xdg-desktop-portal" "xdg-desktop-portal"
-  verify_package "xdg-desktop-portal-gtk" "xdg-desktop-portal-gtk"
-  verify_package "xdg-desktop-portal-hyprland" "xdg-desktop-portal-hyprland"
+    if command -v wl-copy >/dev/null 2>&1 && command -v wl-paste >/dev/null 2>&1; then
+      mark_verified_item "clipboard"
+    elif package_is_installed wl-clipboard; then
+      mark_missing_item "wl-clipboard"
+    fi
 
-  verify_user_service "pipewire.service" "pipewire.service"
-  verify_user_service "wireplumber.service" "wireplumber.service"
-  verify_user_service "xdg-desktop-portal.service" "xdg-desktop-portal.service"
+    verify_command "pipewire" "pipewire"
+    verify_command "wireplumber" "wireplumber"
+    verify_package "xdg-desktop-portal" "xdg-desktop-portal"
+    verify_package "xdg-desktop-portal-gtk" "xdg-desktop-portal-gtk"
+    verify_package "xdg-desktop-portal-hyprland" "xdg-desktop-portal-hyprland"
 
-  if [[ \
-    " ${verified_commands[*]} " == *" pipewire.service "* && \
-    " ${verified_commands[*]} " == *" wireplumber.service "* && \
-    " ${verified_commands[*]} " == *" xdg-desktop-portal.service "* \
-  ]]; then
-    mark_verified_item "screen-sharing-stack"
-  else
-    mark_missing_item "screen-sharing-stack"
+    verify_user_service "pipewire.service" "pipewire.service"
+    verify_user_service "wireplumber.service" "wireplumber.service"
+    verify_user_service "xdg-desktop-portal.service" "xdg-desktop-portal.service"
+
+    if [[ \
+      " ${verified_commands[*]} " == *" pipewire.service "* && \
+      " ${verified_commands[*]} " == *" wireplumber.service "* && \
+      " ${verified_commands[*]} " == *" xdg-desktop-portal.service "* \
+    ]]; then
+      mark_verified_item "screen-sharing-stack"
+    else
+      mark_missing_item "screen-sharing-stack"
+    fi
   fi
 
   collect_version "node" node --version
@@ -1392,6 +1509,7 @@ attempt_final_repair_once() {
   local repair_aur_packages=()
   local pacman_missing_packages=()
   local aur_package
+  local package_origin_status
   local should_repair_codex=0
   local should_start_services=0
 
@@ -1413,8 +1531,18 @@ attempt_final_repair_once() {
         ;;
       *)
         if package_exists_in_official_repos "$item"; then
+          package_origin_status=0
+        else
+          package_origin_status=$?
+        fi
+
+        if [[ "$package_origin_status" == "0" ]]; then
           append_array_item repair_pacman_packages "$item"
         else
+          if [[ "$package_origin_status" == "2" ]]; then
+            echo "Erro: não foi possível classificar o item ausente '$item' para a correção automática." >&2
+            return 1
+          fi
           append_array_item repair_aur_packages "$item"
         fi
         ;;
@@ -1488,12 +1616,19 @@ run_install() {
   support_packages=()
   environment_packages=()
   aur_helper_status="não preparado"
+  github_ssh_status="pendente"
+  desktop_integration_status="pendente"
   announce_step "Carregando configuração..."
   load_packages
   if [[ "$CHECK_ONLY" == "1" ]]; then
     announce_step "Executando verificação sem alterações..."
     detect_aur_helper || true
-    if desktop_integration_ready; then
+    if desktop_integration_expected; then
+      if desktop_integration_ready; then
+        desktop_integration_status="ignorada por já estar pronta"
+      else
+        desktop_integration_status="pendente"
+      fi
       for package_name in \
         pipewire \
         wireplumber \
@@ -1503,10 +1638,22 @@ run_install() {
         xdg-desktop-portal-hyprland; do
         mark_environment_package "$package_name"
       done
+    else
+      desktop_integration_status="ignorada por configuração"
+    fi
+    if github_ssh_expected; then
+      if github_ssh_ready; then
+        github_ssh_status="ignorada por já estar pronta"
+      else
+        github_ssh_status="pendente"
+      fi
+    else
+      github_ssh_status="ignorada por configuração"
     fi
     verify_installation
     print_summary
     if ((${#missing_commands[@]} > 0)); then
+      echo "Erro: a verificação sem alterações encontrou itens ausentes." >&2
       exit 1
     fi
     return 0
@@ -1526,18 +1673,31 @@ run_install() {
     fi
   fi
 
-  ensure_aur_helper
-  install_packages_in_order
+  if ! ensure_aur_helper; then
+    echo "Erro: não foi possível preparar o helper AUR padrão para a instalação." >&2
+    print_summary
+    exit 1
+  fi
+
+  if ! install_packages_in_order; then
+    print_summary
+    exit 1
+  fi
 
   if ((${#official_failed[@]} > 0 || ${#aur_failed[@]} > 0)); then
     print_summary
     exit 1
   fi
   announce_step "Ajustando integração desktop..."
-  if ! ensure_desktop_integration; then
-    echo "Erro: a integração desktop falhou. A etapa do GitHub SSH não foi executada." >&2
-    print_summary
-    exit 1
+  if desktop_integration_expected; then
+    if ! ensure_desktop_integration; then
+      echo "Erro: a integração desktop falhou. A etapa do GitHub SSH não foi executada." >&2
+      print_summary
+      exit 1
+    fi
+  else
+    desktop_integration_status="ignorada por configuração"
+    announce_detail "A integração desktop foi desativada por SKIP_DESKTOP_INTEGRATION=1."
   fi
   announce_step "Configurando GitHub SSH..."
   setup_github_ssh

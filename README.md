@@ -40,8 +40,6 @@ Se a sessão atual não estiver nesse alvo, o script interromperá a execução 
 
 - `git`
   Necessário para bootstrap, sincronização do repositório e operações Git do script.
-- `shellcheck`
-  Ferramenta instalada como parte da lista principal.
 - `nodejs`
   Necessário para o ambiente do npm e para o Codex CLI.
 - `npm`
@@ -59,6 +57,8 @@ Se a sessão atual não estiver nesse alvo, o script interromperá a execução 
 <details>
 <summary>Apps e programas da lista principal</summary>
 
+- `shellcheck`
+  Ferramenta de validação incluída na lista principal padrão.
 - `zen-browser-bin` (AUR)
 - `google-chrome` (AUR)
 - `code`
@@ -174,6 +174,7 @@ O script também garante `pipewire`, `wireplumber`, `xdg-utils`, `xdg-desktop-po
 - Registra, no resumo, a branch realmente em uso, o caminho do repositório e as versões principais.
 - Registra também a branch solicitada, se ela for diferente da branch em uso.
 - Inclui no resumo o clone gerenciado separado, quando a execução tiver acontecido fora dele.
+- Registra, no resumo, o estado da etapa de GitHub SSH e do remoto `origin`.
 </details>
 
 ## O que exige interação
@@ -234,6 +235,8 @@ O script também garante `pipewire`, `wireplumber`, `xdg-utils`, `xdg-desktop-po
 <details>
 <summary><code>CHECK_ONLY=1</code>: valida o ambiente e gera o resumo sem instalar pacotes nem alterar a configuração do sistema</summary>
 
+O resumo final registra explicitamente `Modo: verificação` e `Alterações aplicadas: não`.
+
 `fish`
 
   ```fish
@@ -274,6 +277,52 @@ O script também garante `pipewire`, `wireplumber`, `xdg-utils`, `xdg-desktop-po
 
   ```zsh
   STEP_OUTPUT_ONLY=0 bash <(curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh)
+  ```
+</details>
+
+<details>
+<summary><code>SKIP_GITHUB_SSH=1</code>: pula a etapa de GitHub SSH e registra isso no resumo final</summary>
+
+`fish`
+
+  ```fish
+  set -x SKIP_GITHUB_SSH 1
+  curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh | bash
+  ```
+
+  `bash`
+
+  ```bash
+  SKIP_GITHUB_SSH=1 bash <(curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh)
+  ```
+
+  `zsh`
+
+  ```zsh
+  SKIP_GITHUB_SSH=1 bash <(curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh)
+  ```
+</details>
+
+<details>
+<summary><code>SKIP_DESKTOP_INTEGRATION=1</code>: pula a etapa de integração desktop e registra isso no resumo final</summary>
+
+`fish`
+
+  ```fish
+  set -x SKIP_DESKTOP_INTEGRATION 1
+  curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh | bash
+  ```
+
+  `bash`
+
+  ```bash
+  SKIP_DESKTOP_INTEGRATION=1 bash <(curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh)
+  ```
+
+  `zsh`
+
+  ```zsh
+  SKIP_DESKTOP_INTEGRATION=1 bash <(curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh)
   ```
 </details>
 
