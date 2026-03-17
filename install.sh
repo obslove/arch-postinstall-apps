@@ -1173,9 +1173,18 @@ run_bootstrap() {
 }
 
 setup_github_ssh() {
+  local github_ssh_already_ready=0
   local missing_packages=()
 
-  if has_checkpoint "github_ssh" && command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1 && github_has_expected_ssh_key_title; then
+  announce_detail "Verificando estado atual do GitHub SSH..."
+  if has_checkpoint "github_ssh"; then
+    announce_detail "Checkpoint do GitHub SSH encontrado. Conferindo autenticação e chave atual..."
+    if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1 && github_has_expected_ssh_key_title; then
+      github_ssh_already_ready=1
+    fi
+  fi
+
+  if [[ "$github_ssh_already_ready" == "1" ]]; then
     if ! ensure_repo_origin_remote "$SCRIPT_DIR"; then
       echo "Aviso: não foi possível ajustar o remoto do repositório para SSH." >&2
     fi
@@ -1183,8 +1192,10 @@ setup_github_ssh() {
     return
   fi
 
+  announce_detail "Registrando dependências da etapa de GitHub SSH..."
   mark_support_package "github-cli"
   mark_support_package "openssh"
+  announce_detail "Verificando dependências da etapa de GitHub SSH..."
   collect_missing_packages missing_packages github-cli openssh
   if ((${#missing_packages[@]} > 0)); then
     if ! retry_log_only sudo pacman -S --needed --noconfirm "${missing_packages[@]}"; then
