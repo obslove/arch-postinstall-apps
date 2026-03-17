@@ -1135,7 +1135,9 @@ setup_github_ssh() {
   local missing_packages=()
 
   if has_checkpoint "github_ssh" && command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1 && github_has_expected_ssh_key_title; then
-    ensure_repo_origin_remote "$SCRIPT_DIR"
+    if ! ensure_repo_origin_remote "$SCRIPT_DIR"; then
+      echo "Aviso: não foi possível ajustar o remoto do repositório para SSH." >&2
+    fi
     announce_detail "O GitHub SSH já está configurado. Etapa ignorada."
     return
   fi
@@ -1157,7 +1159,11 @@ setup_github_ssh() {
     return
   fi
 
-  ensure_ssh_key
+  if ! ensure_ssh_key; then
+    echo "Aviso: não foi possível preparar a chave SSH local. A configuração do GitHub será ignorada." >&2
+    return
+  fi
+
   if ! ensure_github_auth; then
     cleanup_temp_clipboard_utility || true
     echo "Aviso: a autenticação do GitHub não foi concluída. O envio da chave SSH será ignorado."
@@ -1172,7 +1178,9 @@ setup_github_ssh() {
 
   cleanup_temp_clipboard_utility || true
   mark_checkpoint "github_ssh"
-  ensure_repo_origin_remote "$SCRIPT_DIR"
+  if ! ensure_repo_origin_remote "$SCRIPT_DIR"; then
+    echo "Aviso: a chave SSH foi configurada, mas não foi possível ajustar o remoto do repositório para SSH." >&2
+  fi
 }
 
 verify_command() {
