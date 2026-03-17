@@ -378,8 +378,8 @@ ensure_desktop_integration() {
   done
 
   if desktop_integration_ready; then
-    if ! has_checkpoint "desktop_integration"; then
-      mark_checkpoint "desktop_integration"
+    if ! has_checkpoint "desktop_integration" && ! mark_checkpoint "desktop_integration"; then
+      echo "Aviso: não foi possível registrar o checkpoint da integração desktop." >&2
     fi
     announce_detail "A integração desktop já está preparada. Etapa ignorada."
     return 0
@@ -392,7 +392,10 @@ ensure_desktop_integration() {
     return 1
   fi
 
-  mark_checkpoint "desktop_integration"
+  if ! mark_checkpoint "desktop_integration"; then
+    echo "Erro: não foi possível registrar o checkpoint da integração desktop." >&2
+    return 1
+  fi
 }
 
 run_gh_auth_flow() {
@@ -919,7 +922,10 @@ end"
     return 1
   fi
 
-  mark_checkpoint "codex_cli"
+  if ! mark_checkpoint "codex_cli"; then
+    echo "Erro: não foi possível registrar o checkpoint do Codex CLI." >&2
+    return 1
+  fi
 }
 
 ensure_ssh_key() {
@@ -932,8 +938,16 @@ ensure_ssh_key() {
   chmod 700 "$ssh_dir"
 
   if [[ -f "$SSH_KEY_PATH" ]]; then
+    if [[ ! -f "${SSH_KEY_PATH}.pub" ]]; then
+      announce_detail "A chave pública SSH não foi encontrada. Recriando ${SSH_KEY_PATH}.pub..."
+      if ! ssh-keygen -y -f "$SSH_KEY_PATH" >"${SSH_KEY_PATH}.pub"; then
+        echo "Erro: não foi possível recriar a chave pública SSH." >&2
+        return 1
+      fi
+      chmod 644 "${SSH_KEY_PATH}.pub"
+    fi
     announce_detail "A chave SSH já existe em $SSH_KEY_PATH."
-    return
+    return 0
   fi
 
   key_comment="$(git config --global user.email 2>/dev/null || true)"
@@ -943,7 +957,12 @@ ensure_ssh_key() {
   fi
 
   announce_detail "Criando chave SSH em $SSH_KEY_PATH..."
-  ssh-keygen -t ed25519 -C "$key_comment" -f "$SSH_KEY_PATH" -N ""
+  if ! ssh-keygen -t ed25519 -C "$key_comment" -f "$SSH_KEY_PATH" -N ""; then
+    echo "Erro: não foi possível criar a chave SSH." >&2
+    return 1
+  fi
+
+  return 0
 }
 
 ensure_github_auth() {
@@ -967,7 +986,14 @@ upload_ssh_key() {
   local key_ids
   local key_title
 
-  current_key="$(current_public_ssh_key)"
+  if ! current_key="$(current_public_ssh_key)"; then
+    echo "Aviso: a chave pública SSH atual não está disponível." >&2
+    return 1
+  fi
+  if [[ -z "$current_key" ]]; then
+    echo "Aviso: a chave pública SSH atual está vazia ou inválida." >&2
+    return 1
+  fi
   key_title="$(build_ssh_key_title)"
   if ! existing_keys="$(gh api user/keys --jq '.[] | [.id, .title, .key] | @tsv' 2>/dev/null)"; then
     announce_detail "A permissão admin:public_key não está disponível no gh. A autenticação será renovada."
@@ -994,7 +1020,10 @@ upload_ssh_key() {
 
   if [[ -n "$current_key_id" && "$current_key_title" != "$key_title" ]]; then
     announce_detail "A chave SSH atual já existe no GitHub com outro título. Recriando com o nome correto..."
-    retry gh api --method DELETE "user/keys/$current_key_id"
+    if ! retry gh api --method DELETE "user/keys/$current_key_id"; then
+      echo "Aviso: não foi possível remover a chave SSH antiga com título incorreto." >&2
+      return 1
+    fi
     current_key_id=""
   fi
 
@@ -1005,7 +1034,14 @@ upload_ssh_key() {
 
   if [[ -z "$current_key_id" ]]; then
     announce_detail "Enviando a chave SSH ao GitHub..."
-    current_key_id="$(retry gh api user/keys --method POST -f "title=$key_title" -f "key=$current_key" --jq '.id')"
+    if ! current_key_id="$(retry gh api user/keys --method POST -f "title=$key_title" -f "key=$current_key" --jq '.id')"; then
+      echo "Aviso: não foi possível enviar a chave SSH atual ao GitHub." >&2
+      return 1
+    fi
+    if [[ -z "$current_key_id" || ! "$current_key_id" =~ ^[0-9]+$ ]]; then
+      echo "Aviso: o GitHub não retornou um identificador válido para a chave SSH enviada." >&2
+      return 1
+    fi
   else
     announce_detail "A chave SSH atual já existe no GitHub."
   fi
@@ -1020,7 +1056,9 @@ upload_ssh_key() {
     [[ -n "$key_id" ]] || continue
     [[ "$key_id" =~ ^[0-9]+$ ]] || continue
     [[ "$key_id" == "$current_key_id" ]] && continue
-    retry gh api --method DELETE "user/keys/$key_id"
+    if ! retry gh api --method DELETE "user/keys/$key_id"; then
+      echo "Aviso: não foi possível remover a chave SSH antiga de ID $key_id." >&2
+    fi
   done <<<"$key_ids"
 
   if ! github_has_expected_ssh_key_title; then
@@ -1177,7 +1215,10 @@ setup_github_ssh() {
   fi
 
   cleanup_temp_clipboard_utility || true
-  mark_checkpoint "github_ssh"
+  if ! mark_checkpoint "github_ssh"; then
+    echo "Aviso: a chave SSH foi configurada, mas o checkpoint do GitHub SSH não pôde ser registrado." >&2
+    return
+  fi
   if ! ensure_repo_origin_remote "$SCRIPT_DIR"; then
     echo "Aviso: a chave SSH foi configurada, mas não foi possível ajustar o remoto do repositório para SSH." >&2
   fi
@@ -1399,8 +1440,8 @@ attempt_final_repair_once() {
     start_desktop_user_services || true
   fi
 
-  if desktop_integration_ready && ! has_checkpoint "desktop_integration"; then
-    mark_checkpoint "desktop_integration"
+  if desktop_integration_ready && ! has_checkpoint "desktop_integration" && ! mark_checkpoint "desktop_integration"; then
+    echo "Aviso: não foi possível registrar o checkpoint da integração desktop após a correção automática." >&2
   fi
 
   verify_installation
