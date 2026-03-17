@@ -343,10 +343,6 @@ ensure_desktop_integration() {
     xdg-desktop-portal-hyprland
   )
 
-  if ! is_hyprland_session; then
-    return 0
-  fi
-
   environment_packages=()
   for package_name in "${required_packages[@]}"; do
     mark_environment_package "$package_name"
@@ -743,10 +739,10 @@ print_summary() {
     if [[ -n "$requested_branch_note" ]]; then
       echo "Branch solicitada: $requested_branch_note"
     fi
-    echo "Pacotes da lista principal via pacman: ${official_packages[*]:-nenhum}"
-    echo "Pacotes da lista principal via AUR: ${aur_packages[*]:-nenhum}"
-    echo "Dependências de suporte: ${support_packages[*]:-nenhuma}"
-    echo "Dependências do ambiente gráfico: ${environment_packages[*]:-nenhuma}"
+    echo "Itens da lista principal tratados via pacman: ${official_packages[*]:-nenhum}"
+    echo "Itens da lista principal tratados via AUR: ${aur_packages[*]:-nenhum}"
+    echo "Dependências de suporte tratadas: ${support_packages[*]:-nenhuma}"
+    echo "Dependências do ambiente gráfico tratadas: ${environment_packages[*]:-nenhuma}"
     echo "Configurações explícitas: ${completed_actions[*]:-nenhuma}"
     echo "Helper AUR: ${aur_helper_status:-indisponível}"
     echo "Falhas pacman: ${official_failed[*]:-nenhuma}"
@@ -771,10 +767,10 @@ Hostname: $host_name
 Repositório: $repo_path
 Branch: $actual_branch
 $(if [[ -n "$requested_branch_note" ]]; then printf 'Branch solicitada: %s\n' "$requested_branch_note"; fi)
-Pacotes da lista principal via pacman: ${official_packages[*]:-nenhum}
-Pacotes da lista principal via AUR: ${aur_packages[*]:-nenhum}
-Dependências de suporte: ${support_packages[*]:-nenhuma}
-Dependências do ambiente gráfico: ${environment_packages[*]:-nenhuma}
+Itens da lista principal tratados via pacman: ${official_packages[*]:-nenhum}
+Itens da lista principal tratados via AUR: ${aur_packages[*]:-nenhum}
+Dependências de suporte tratadas: ${support_packages[*]:-nenhuma}
+Dependências do ambiente gráfico tratadas: ${environment_packages[*]:-nenhuma}
 Configurações explícitas: ${completed_actions[*]:-nenhuma}
 Helper AUR: ${aur_helper_status:-indisponível}
 Falhas pacman: ${official_failed[*]:-nenhuma}
@@ -1207,36 +1203,30 @@ verify_installation() {
     missing_commands+=("xdg-open")
   fi
 
-  if is_wayland_session; then
-    if command -v wl-copy >/dev/null 2>&1 && command -v wl-paste >/dev/null 2>&1; then
-      verified_commands+=("clipboard")
-    else
-      missing_commands+=("clipboard")
-    fi
+  if command -v wl-copy >/dev/null 2>&1 && command -v wl-paste >/dev/null 2>&1; then
+    verified_commands+=("clipboard")
+  else
+    missing_commands+=("clipboard")
   fi
 
-  if is_hyprland_session; then
-    verify_command "pipewire" "pipewire"
-    verify_command "wireplumber" "wireplumber"
-    verify_package "xdg-desktop-portal" "xdg-desktop-portal"
-    verify_package "xdg-desktop-portal-gtk" "xdg-desktop-portal-gtk"
-    verify_package "xdg-desktop-portal-hyprland" "xdg-desktop-portal-hyprland"
-  fi
+  verify_command "pipewire" "pipewire"
+  verify_command "wireplumber" "wireplumber"
+  verify_package "xdg-desktop-portal" "xdg-desktop-portal"
+  verify_package "xdg-desktop-portal-gtk" "xdg-desktop-portal-gtk"
+  verify_package "xdg-desktop-portal-hyprland" "xdg-desktop-portal-hyprland"
 
-  if is_wayland_session; then
-    verify_user_service "pipewire.service" "pipewire.service"
-    verify_user_service "wireplumber.service" "wireplumber.service"
-    verify_user_service "xdg-desktop-portal.service" "xdg-desktop-portal.service"
+  verify_user_service "pipewire.service" "pipewire.service"
+  verify_user_service "wireplumber.service" "wireplumber.service"
+  verify_user_service "xdg-desktop-portal.service" "xdg-desktop-portal.service"
 
-    if [[ \
-      " ${verified_commands[*]} " == *" pipewire.service "* && \
-      " ${verified_commands[*]} " == *" wireplumber.service "* && \
-      " ${verified_commands[*]} " == *" xdg-desktop-portal.service "* \
-    ]]; then
-      verified_commands+=("screen-sharing-stack")
-    else
-      missing_commands+=("screen-sharing-stack")
-    fi
+  if [[ \
+    " ${verified_commands[*]} " == *" pipewire.service "* && \
+    " ${verified_commands[*]} " == *" wireplumber.service "* && \
+    " ${verified_commands[*]} " == *" xdg-desktop-portal.service "* \
+  ]]; then
+    verified_commands+=("screen-sharing-stack")
+  else
+    missing_commands+=("screen-sharing-stack")
   fi
 
   collect_version "node" node --version
@@ -1255,24 +1245,21 @@ run_install() {
   support_packages=()
   environment_packages=()
   aur_helper_status="não preparado"
-  create_directories
   announce_step "Carregando configuração..."
   load_packages
   if [[ "$CHECK_ONLY" == "1" ]]; then
     announce_step "Executando verificação sem alterações..."
     detect_aur_helper || true
-    if is_supported_session; then
-      if desktop_integration_ready; then
-        for package_name in \
-          pipewire \
-          wireplumber \
-          xdg-utils \
-          xdg-desktop-portal \
-          xdg-desktop-portal-gtk \
-          xdg-desktop-portal-hyprland; do
-          mark_environment_package "$package_name"
-        done
-      fi
+    if desktop_integration_ready; then
+      for package_name in \
+        pipewire \
+        wireplumber \
+        xdg-utils \
+        xdg-desktop-portal \
+        xdg-desktop-portal-gtk \
+        xdg-desktop-portal-hyprland; do
+        mark_environment_package "$package_name"
+      done
     fi
     verify_installation
     print_summary
@@ -1281,6 +1268,8 @@ run_install() {
     fi
     return 0
   fi
+
+  create_directories
   ensure_multilib
 
   if [[ "$SYSTEM_UPDATED" == "1" ]]; then

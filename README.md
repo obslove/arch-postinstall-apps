@@ -31,10 +31,12 @@ Quando executado dentro de um clone local, ele usa o repositório atual e não f
 Esse comando pressupõe que `curl` esteja disponível na instalação padrão do Arch.
 Execute-o como usuário comum, e não com `sudo bash`.
 O fluxo atual do script foi ajustado para uso em Wayland com Hyprland.
+Se a sessão atual não estiver nesse alvo, o script interromperá a execução com erro claro.
 
 ## Pacotes
 
-### Dependências instaladas sempre
+<details>
+<summary>Dependências instaladas sempre</summary>
 
 - `git`
   Necessário para bootstrap, sincronização do repositório e operações Git do script.
@@ -52,8 +54,10 @@ O fluxo atual do script foi ajustado para uso em Wayland com Hyprland.
   Necessário para autenticação no GitHub e gerenciamento da chave SSH.
 - `openssh`
   Necessário para `ssh-keygen` e autenticação SSH com o GitHub.
+</details>
 
-### Apps e programas da lista principal
+<details>
+<summary>Apps e programas da lista principal</summary>
 
 - `zen-browser-bin` (AUR)
 - `google-chrome` (AUR)
@@ -63,8 +67,10 @@ O fluxo atual do script foi ajustado para uso em Wayland com Hyprland.
 - `steam`
 - `codex`
   Item especial da lista: não instala um pacote do sistema, e sim o `@openai/codex` via npm em `~/Codex`.
+</details>
 
-### Dependências do ambiente gráfico
+<details>
+<summary>Dependências do ambiente gráfico</summary>
 
 - `pipewire`
   Necessário para áudio e compartilhamento de tela.
@@ -78,16 +84,21 @@ O fluxo atual do script foi ajustado para uso em Wayland com Hyprland.
   Necessário como backend complementar de portal.
 - `xdg-desktop-portal-hyprland`
   Necessário como backend principal de portal.
+</details>
 
-### Pacotes opcionais da lista extra
+<details>
+<summary>Pacotes opcionais da lista extra</summary>
 
 - Pacotes de `config/packages-extra.txt`
   Instalados somente se esse arquivo existir.
+</details>
 
-### Dependência temporária
+<details>
+<summary>Dependência temporária</summary>
 
 - `wl-clipboard`
   Instalado temporariamente quando o fluxo do `gh` precisa copiar o código de autenticação para a área de transferência.
+</details>
 
 Edite `config/packages.txt` para alterar a lista principal.
 Se existir `config/packages-extra.txt`, esse arquivo também será carregado.
@@ -102,13 +113,14 @@ O script também garante `pipewire`, `wireplumber`, `xdg-utils`, `xdg-desktop-po
 
 ## O que acontece
 
-### Ordem geral
+<details>
+<summary>Ordem geral</summary>
 
 1. O script valida o ambiente, exige `sudo`, cria o arquivo de bloqueio e inicia o log em `~/Backups/arch-postinstall.log`.
 2. Se for executado fora do repositório, instala `git`, clona ou atualiza `~/Repositories/arch-postinstall-apps` e reinicia a execução a partir desse clone.
 3. Se for executado dentro de um clone local, usa o repositório atual normalmente.
-4. Cria `~/Backups`, `~/Codex`, `~/Dots`, `~/Pictures/Wallpapers`, `~/Pictures/Screenshots`, `~/Projects`, `~/Repositories` e `~/Videos`.
-5. Carrega `config/packages.txt` e, se existir, `config/packages-extra.txt`.
+4. Carrega `config/packages.txt` e, se existir, `config/packages-extra.txt`.
+5. Cria `~/Backups`, `~/Codex`, `~/Dots`, `~/Pictures/Wallpapers`, `~/Pictures/Screenshots`, `~/Projects`, `~/Repositories` e `~/Videos`.
 6. Habilita `multilib`, se necessário.
 7. Atualiza o sistema com `pacman -Syu`.
 8. Prepara o `yay` por padrão.
@@ -116,8 +128,10 @@ O script também garante `pipewire`, `wireplumber`, `xdg-utils`, `xdg-desktop-po
 10. Garante a integração desktop do ambiente.
 11. Configura GitHub SSH.
 12. Valida a instalação, grava o resumo final em `~/Backups/arch-postinstall-summary.txt` e remove arquivos temporários.
+</details>
 
-### Detalhes do bootstrap
+<details>
+<summary>Detalhes do bootstrap</summary>
 
 - Evita duas execuções simultâneas por meio de um arquivo de bloqueio.
 - Recupera automaticamente um lock órfão quando a execução anterior termina sem limpeza adequada.
@@ -125,8 +139,10 @@ O script também garante `pipewire`, `wireplumber`, `xdg-utils`, `xdg-desktop-po
 - Mantém clones auxiliares, como `yay`, dentro de `~/Repositories`.
 - Preserva a branch escolhida entre o bootstrap e a segunda etapa.
 - Interrompe o bootstrap se o clone gerenciado estiver com alterações locais em outra branch, em vez de executar código da branch incorreta.
+</details>
 
-### Detalhes da instalação
+<details>
+<summary>Detalhes da instalação</summary>
 
 - Usa `yay` como helper AUR preferencial.
 - Configura o Codex CLI com prefixo em `~/Codex`.
@@ -152,10 +168,11 @@ O script também garante `pipewire`, `wireplumber`, `xdg-utils`, `xdg-desktop-po
 - Verifica, ao final, se os binários principais realmente ficaram disponíveis.
 - Verifica a área de transferência, os pacotes de portal e serviços de usuário como `pipewire.service`, `wireplumber.service` e `xdg-desktop-portal.service`.
 - Registra `Hostname` no resumo final.
-- Separa no resumo o que foi instalado explicitamente do que foi apenas verificado.
+- Separa no resumo o que o script tratou explicitamente do que foi apenas verificado.
 - Registra, no resumo, a branch realmente em uso, o caminho do repositório e as versões principais.
 - Registra também a branch solicitada, se ela for diferente da branch em uso.
 - Inclui no resumo o clone gerenciado separado, quando a execução tiver acontecido fora dele.
+</details>
 
 ## O que exige interação
 
@@ -166,8 +183,10 @@ O script também garante `pipewire`, `wireplumber`, `xdg-utils`, `xdg-desktop-po
 
 ## Opcionais
 
-- `REPLACE_GITHUB_SSH_KEYS=0`: preserva as chaves SSH atuais do GitHub.
-  `fish`
+<details>
+<summary><code>REPLACE_GITHUB_SSH_KEYS=0</code>: preserva as chaves SSH atuais do GitHub</summary>
+
+`fish`
 
   ```fish
   set -x REPLACE_GITHUB_SSH_KEYS 0
@@ -185,9 +204,12 @@ O script também garante `pipewire`, `wireplumber`, `xdg-utils`, `xdg-desktop-po
   ```zsh
   REPLACE_GITHUB_SSH_KEYS=0 bash <(curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh)
   ```
+</details>
 
-- `GITHUB_SSH_KEY_TITLE="meu-dispositivo"`: define o título da chave SSH enviada ao GitHub.
-  `fish`
+<details>
+<summary><code>GITHUB_SSH_KEY_TITLE="meu-dispositivo"</code>: define o título da chave SSH enviada ao GitHub</summary>
+
+`fish`
 
   ```fish
   set -x GITHUB_SSH_KEY_TITLE "meu-dispositivo"
@@ -205,9 +227,12 @@ O script também garante `pipewire`, `wireplumber`, `xdg-utils`, `xdg-desktop-po
   ```zsh
   GITHUB_SSH_KEY_TITLE="meu-dispositivo" bash <(curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh)
   ```
+</details>
 
-- `CHECK_ONLY=1`: valida o ambiente e gera o resumo sem instalar pacotes nem alterar a configuração.
-  `fish`
+<details>
+<summary><code>CHECK_ONLY=1</code>: valida o ambiente e gera o resumo sem instalar pacotes nem alterar a configuração do sistema</summary>
+
+`fish`
 
   ```fish
   set -x CHECK_ONLY 1
@@ -225,9 +250,12 @@ O script também garante `pipewire`, `wireplumber`, `xdg-utils`, `xdg-desktop-po
   ```zsh
   CHECK_ONLY=1 bash <(curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh)
   ```
+</details>
 
-- `STEP_OUTPUT_ONLY=0`: desativa o modo resumido e restaura a saída completa no terminal.
-  `fish`
+<details>
+<summary><code>STEP_OUTPUT_ONLY=0</code>: desativa o modo resumido e restaura a saída completa no terminal</summary>
+
+`fish`
 
   ```fish
   set -x STEP_OUTPUT_ONLY 0
@@ -245,9 +273,13 @@ O script também garante `pipewire`, `wireplumber`, `xdg-utils`, `xdg-desktop-po
   ```zsh
   STEP_OUTPUT_ONLY=0 bash <(curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh)
   ```
+</details>
 
 ## Uso local
 
+<details>
+<summary>Comandos para executar o script em um clone local</summary>
+
 `fish`
 
 ```fish
@@ -265,9 +297,14 @@ bash install.sh
 ```zsh
 bash install.sh
 ```
+
+</details>
 
 ## Validação local
 
+<details>
+<summary>Comandos para validação estática local</summary>
+
 `fish`
 
 ```fish
@@ -289,10 +326,17 @@ bash -n install.sh
 shellcheck install.sh
 ```
 
+</details>
+
 ## Estrutura
+
+<details>
+<summary>Arquivos principais do repositório</summary>
 
 ```text
 config/packages-extra.txt.example
 config/packages.txt
 install.sh
 ```
+
+</details>
