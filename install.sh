@@ -1093,7 +1093,10 @@ sync_repo() {
       return
     fi
 
-    ensure_repo_origin_remote "$INSTALL_DIR"
+    if ! ensure_repo_origin_remote "$INSTALL_DIR"; then
+      echo "Erro: não foi possível ajustar o remoto origin do clone gerenciado." >&2
+      exit 1
+    fi
 
     if retry_log_only git -C "$INSTALL_DIR" fetch origin; then
       fetched_origin=1
@@ -1501,7 +1504,11 @@ run_install() {
     announce_detail "O sistema já foi atualizado no bootstrap. A nova atualização completa será ignorada."
   else
     announce_step "Atualizando o sistema..."
-    retry_log_only sudo pacman -Syu --noconfirm
+    if ! retry_log_only sudo pacman -Syu --noconfirm; then
+      echo "Erro: não foi possível concluir a atualização completa do sistema." >&2
+      print_summary
+      exit 1
+    fi
   fi
 
   ensure_aur_helper

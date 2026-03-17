@@ -36,7 +36,7 @@ Se a sessão atual não estiver nesse alvo, o script interromperá a execução 
 ## Pacotes
 
 <details>
-<summary>Dependências instaladas sempre</summary>
+<summary>Dependências garantidas pelo script</summary>
 
 - `git`
   Necessário para bootstrap, sincronização do repositório e operações Git do script.
