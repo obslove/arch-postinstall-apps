@@ -1140,7 +1140,6 @@ setup_github_ssh() {
     return
   fi
 
-  announce_step "Configurando GitHub SSH..."
   mark_support_package "github-cli"
   mark_support_package "openssh"
   collect_missing_packages missing_packages github-cli openssh
@@ -1464,7 +1463,12 @@ run_install() {
     exit 1
   fi
   announce_step "Ajustando integração desktop..."
-  ensure_desktop_integration
+  if ! ensure_desktop_integration; then
+    echo "Erro: a integração desktop falhou. A etapa do GitHub SSH não foi executada." >&2
+    print_summary
+    exit 1
+  fi
+  announce_step "Configurando GitHub SSH..."
   setup_github_ssh
   announce_step "Validando instalação..."
   verify_installation
