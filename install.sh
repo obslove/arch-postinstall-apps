@@ -110,12 +110,14 @@ append_array_item() {
   local array_name="$1"
   local value="$2"
   local existing
+  # shellcheck disable=SC2178
+  declare -n target_array="$array_name"
 
-  eval "for existing in \"\${${array_name}[@]}\"; do
-    [[ \"\$existing\" == \"$value\" ]] && return 0
-  done"
+  for existing in "${target_array[@]}"; do
+    [[ "$existing" == "$value" ]] && return 0
+  done
 
-  eval "${array_name}+=(\"$value\")"
+  target_array+=("$value")
 }
 
 mark_support_package() {
@@ -142,11 +144,13 @@ collect_missing_packages() {
   local array_name="$1"
   shift
   local package_name
+  # shellcheck disable=SC2178
+  declare -n target_array="$array_name"
 
-  eval "$array_name=()"
+  target_array=()
   for package_name in "$@"; do
     if ! package_is_installed "$package_name"; then
-      eval "$array_name+=(\"$package_name\")"
+      target_array+=("$package_name")
     fi
   done
 }
