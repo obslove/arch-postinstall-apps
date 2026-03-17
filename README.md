@@ -51,8 +51,8 @@ Se ele não existir, o script registrará essa ausência no log e continuará no
 
 O instalador respeita a ordem definida em `config/packages.txt`.
 Os repositórios usados pelo script ficam em `~/Repositories`.
-Se não houver helper AUR instalado, o script instalará `yay` antes do primeiro pacote AUR.
-Se `paru` ou `yay` já existirem, o helper encontrado será reutilizado.
+O script instala `yay` por padrão e o usa como helper AUR principal.
+Se a instalação do `yay` falhar, mas já houver outro helper AUR disponível, o script usará esse helper como fallback.
 O item `codex` não é um pacote do sistema: ele executa uma configuração especial do Codex CLI.
 Em sessões Hyprland, o script também garante `pipewire`, `wireplumber`, `xdg-utils`, `xdg-desktop-portal`, `xdg-desktop-portal-gtk` e `xdg-desktop-portal-hyprland`.
 
@@ -73,10 +73,10 @@ Em sessões Hyprland, o script também garante `pipewire`, `wireplumber`, `xdg-u
 - Carrega `config/packages.txt` e, se existir, `config/packages-extra.txt`.
 - Habilita `multilib`, se necessário.
 - Atualiza o sistema com `pacman -Syu`.
+- Prepara o `yay` por padrão, antes da instalação da lista principal.
 - Segue a ordem definida em `config/packages.txt`.
 - Instala cada item com `pacman`, `yay` ou configuração especial, conforme o tipo.
-- Instala `yay` automaticamente antes do primeiro pacote AUR, se necessário.
-- Informa quando não houver pacotes AUR na lista.
+- Usa `yay` como helper AUR preferencial.
 - Repete automaticamente etapas mais frágeis quando a primeira tentativa falha.
 - Configura o Codex CLI com prefixo em `~/Codex`.
 - Adiciona `~/Codex/bin` ao `PATH` do `bash`, `zsh` e `fish`.
@@ -87,7 +87,9 @@ Em sessões Hyprland, o script também garante `pipewire`, `wireplumber`, `xdg-u
 - Instala `wl-clipboard` temporariamente em sessões Wayland quando faltar um utilitário de área de transferência compatível.
 - Remove o utilitário temporário de área de transferência ao fim da etapa do GitHub, se ele tiver sido instalado pelo script.
 - Renova o escopo `admin:public_key`, se necessário, para gerenciar chaves SSH.
-- Envia a chave SSH ao GitHub com o título fixo `vampire love`.
+- Envia a chave SSH ao GitHub com o título definido em `GITHUB_SSH_KEY_TITLE`.
+- Usa o login atual do GitHub como título padrão quando essa variável não for definida.
+- Se o login atual do GitHub não puder ser obtido, usa o nome do usuário local como fallback.
 - Recria a chave atual no GitHub se ela já existir com outro título.
 - Confirma, ao fim da etapa, se a chave atual realmente ficou registrada com o título esperado.
 - Mantém a chave atual antes de remover as antigas, se `REPLACE_GITHUB_SSH_KEYS=1`.
@@ -113,6 +115,7 @@ Em sessões Hyprland, o script também garante `pipewire`, `wireplumber`, `xdg-u
 ## Opcionais
 
 - `REPLACE_GITHUB_SSH_KEYS=0`: preserva as chaves SSH atuais do GitHub.
+- `GITHUB_SSH_KEY_TITLE="meu-dispositivo"`: define o título da chave SSH enviada ao GitHub.
 - `STEP_OUTPUT_ONLY=0`: desativa o modo resumido e restaura a saída completa no terminal.
 
 Se quiser usar essas opções no bootstrap, exporte-as antes da execução:

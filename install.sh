@@ -16,6 +16,7 @@ INSTALL_DIR="${BOOTSTRAP_DIR:-$REPOSITORIES_DIR/arch-postinstall-apps}"
 YAY_REPO_DIR="${YAY_REPO_DIR:-$REPOSITORIES_DIR/yay}"
 YAY_SNAPSHOT_URL="${YAY_SNAPSHOT_URL:-https://aur.archlinux.org/cgit/aur.git/snapshot/yay.tar.gz}"
 SSH_KEY_PATH="${SSH_KEY_PATH:-$HOME/.ssh/id_ed25519}"
+GITHUB_SSH_KEY_TITLE="${GITHUB_SSH_KEY_TITLE:-}"
 LOG_FILE="${POSTINSTALL_LOG_FILE:-$HOME/Backups/arch-postinstall.log}"
 SUMMARY_FILE="${POSTINSTALL_SUMMARY_FILE:-$HOME/Backups/arch-postinstall-summary.txt}"
 REPLACE_GITHUB_SSH_KEYS="${REPLACE_GITHUB_SSH_KEYS:-1}"
@@ -211,7 +212,22 @@ get_host_name() {
 }
 
 build_ssh_key_title() {
-  printf 'vampire love\n'
+  local github_login=""
+
+  if [[ -n "$GITHUB_SSH_KEY_TITLE" ]]; then
+    printf '%s\n' "$GITHUB_SSH_KEY_TITLE"
+    return
+  fi
+
+  if command -v gh >/dev/null 2>&1; then
+    github_login="$(gh api user --jq '.login' 2>/dev/null || true)"
+    if [[ -n "$github_login" ]]; then
+      printf '%s\n' "$github_login"
+      return
+    fi
+  fi
+
+  printf '%s\n' "$USER"
 }
 
 is_wayland_session() {
@@ -398,13 +414,13 @@ ensure_multilib() {
 }
 
 detect_aur_helper() {
-  if command -v paru >/dev/null 2>&1; then
-    aur_helper="paru"
+  if command -v yay >/dev/null 2>&1; then
+    aur_helper="yay"
     return 0
   fi
 
-  if command -v yay >/dev/null 2>&1; then
-    aur_helper="yay"
+  if command -v paru >/dev/null 2>&1; then
+    aur_helper="paru"
     return 0
   fi
 
@@ -482,16 +498,24 @@ install_yay() {
 }
 
 ensure_aur_helper() {
-  if detect_aur_helper; then
+  if command -v yay >/dev/null 2>&1; then
+    aur_helper="yay"
     announce_detail "Usando helper AUR: $aur_helper"
-    return
+    return 0
   fi
 
-  announce_detail "Nenhum helper AUR foi encontrado. O script instalará o yay..."
+  announce_detail "O yay será instalado e usado como helper AUR padrão."
   if ! install_yay; then
+    if detect_aur_helper; then
+      echo "Aviso: não foi possível instalar o yay. O script usará o helper AUR disponível: $aur_helper."
+      return 0
+    fi
+
     echo "Erro: não foi possível preparar um helper AUR (yay)." >&2
     return 1
   fi
+
+  aur_helper="yay"
   announce_detail "Usando helper AUR: $aur_helper"
 }
 
@@ -500,7 +524,7 @@ github_ssh_ready() {
   command -v gh >/dev/null 2>&1 || return 1
   gh auth status >/dev/null 2>&1 || return 1
   has_checkpoint "github_ssh" || return 1
-  github_has_current_ssh_key
+  github_has_expected_ssh_key_title
 }
 
 github_has_current_ssh_key() {
@@ -508,7 +532,7 @@ github_has_current_ssh_key() {
   local existing_keys
 
   [[ -f "${SSH_KEY_PATH}.pub" ]] || return 1
-  current_key="$(<"${SSH_KEY_PATH}.pub")"
+  current_key="$(current_public_ssh_key)"
   existing_keys="$(gh api user/keys --jq '.[].key' 2>/dev/null || true)"
   [[ -n "$existing_keys" ]] || return 1
   grep -qxF "$current_key" <<<"$existing_keys"
@@ -567,7 +591,6 @@ get_repo_branch() {
 
 install_packages_in_order() {
   local package
-  local announced_aur_absence=0
   local shown_pacman_step=0
   local shown_aur_step=0
 
@@ -600,11 +623,6 @@ install_packages_in_order() {
       continue
     fi
 
-    if [[ "$announced_aur_absence" == "0" && ${#aur_packages[@]} == 0 ]]; then
-      announce_detail "O primeiro pacote AUR foi encontrado na lista."
-      announced_aur_absence=1
-    fi
-
     aur_packages+=("$package")
     if ! ensure_aur_helper; then
       aur_failed+=("$package")
@@ -622,10 +640,6 @@ install_packages_in_order() {
 
     aur_failed+=("$package")
   done
-
-  if ((${#aur_packages[@]} == 0)); then
-    announce_detail "Nenhum pacote AUR foi encontrado na lista. A etapa do AUR será ignorada."
-  fi
 }
 
 print_summary() {
@@ -1164,6 +1178,7 @@ run_install() {
     retry_log_only sudo pacman -Syu --noconfirm
   fi
 
+  ensure_aur_helper
   install_packages_in_order
 
   if ((${#official_failed[@]} > 0 || ${#aur_failed[@]} > 0)); then
