@@ -127,7 +127,7 @@ O script também garante `pipewire`, `wireplumber`, `xdg-utils`, `xdg-desktop-po
 9. Instala os itens da lista principal na ordem definida em `config/packages.txt`, usando `pacman`, `yay` ou configuração especial.
 10. Garante a integração desktop do ambiente.
 11. Configura GitHub SSH.
-12. Valida a instalação, grava o resumo final em `~/Backups/arch-postinstall-summary.txt` e remove arquivos temporários.
+12. Valida a instalação com base na lista real de pacotes carregada, tenta uma correção automática única para itens ausentes, grava o resumo final em `~/Backups/arch-postinstall-summary.txt` e interrompe a execução com erro se ainda houver pendências.
 </details>
 
 <details>
@@ -165,8 +165,9 @@ O script também garante `pipewire`, `wireplumber`, `xdg-utils`, `xdg-desktop-po
 - Garante a pilha de integração desktop e compartilhamento de tela com `pipewire`, `wireplumber` e `xdg-desktop-portal`.
 - Marca um checkpoint para a integração desktop e reaproveita a etapa quando a base já estiver pronta.
 - Interrompe a execução se a integração desktop não puder ser preparada.
-- Verifica, ao final, se os binários principais realmente ficaram disponíveis.
+- Verifica, ao final, se os itens esperados pela lista carregada e pelas dependências do fluxo realmente ficaram disponíveis.
 - Verifica a área de transferência, os pacotes de portal e serviços de usuário como `pipewire.service`, `wireplumber.service` e `xdg-desktop-portal.service`.
+- Tenta uma correção automática única para os itens ausentes antes de encerrar com erro.
 - Registra `Hostname` no resumo final.
 - Separa no resumo o que o script tratou explicitamente do que foi apenas verificado.
 - Registra, no resumo, a branch realmente em uso, o caminho do repositório e as versões principais.

@@ -21,8 +21,8 @@ LOG_FILE="${POSTINSTALL_LOG_FILE:-$HOME/Backups/arch-postinstall.log}"
 SUMMARY_FILE="${POSTINSTALL_SUMMARY_FILE:-$HOME/Backups/arch-postinstall-summary.txt}"
 REPLACE_GITHUB_SSH_KEYS="${REPLACE_GITHUB_SSH_KEYS:-1}"
 CHECK_ONLY="${CHECK_ONLY:-0}"
-RETRY_ATTEMPTS="${RETRY_ATTEMPTS:-3}"
-RETRY_DELAY_SECONDS="${RETRY_DELAY_SECONDS:-5}"
+RETRY_ATTEMPTS=1
+RETRY_DELAY_SECONDS=0
 STEP_OUTPUT_ONLY="${STEP_OUTPUT_ONLY:-1}"
 STATE_DIR="${POSTINSTALL_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/arch-postinstall-apps}"
 LOCK_DIR="${POSTINSTALL_LOCK_DIR:-$STATE_DIR/lock}"
@@ -124,6 +124,31 @@ mark_support_package() {
 
 mark_environment_package() {
   append_array_item environment_packages "$1"
+}
+
+mark_verified_item() {
+  append_array_item verified_commands "$1"
+}
+
+mark_missing_item() {
+  append_array_item missing_commands "$1"
+}
+
+package_is_installed() {
+  pacman -Q "$1" >/dev/null 2>&1
+}
+
+collect_missing_packages() {
+  local array_name="$1"
+  shift
+  local package_name
+
+  eval "$array_name=()"
+  for package_name in "$@"; do
+    if ! package_is_installed "$package_name"; then
+      eval "$array_name+=(\"$package_name\")"
+    fi
+  done
 }
 
 cleanup() {
@@ -283,16 +308,19 @@ ensure_supported_session() {
 }
 
 ensure_temp_clipboard_utility() {
+  local missing_packages=()
+
   if command -v wl-copy >/dev/null 2>&1; then
     return 0
   fi
 
-  if pacman -Q wl-clipboard >/dev/null 2>&1; then
+  collect_missing_packages missing_packages wl-clipboard
+  if ((${#missing_packages[@]} == 0)); then
     return 0
   fi
 
   announce_detail "Instalando wl-clipboard temporariamente para copiar o código do GitHub..."
-  if ! retry_log_only sudo pacman -S --needed --noconfirm wl-clipboard; then
+  if ! retry_log_only sudo pacman -S --needed --noconfirm "${missing_packages[@]}"; then
     echo "Aviso: não foi possível instalar wl-clipboard. Continuando sem cópia automática."
     return 1
   fi
@@ -342,19 +370,24 @@ ensure_desktop_integration() {
     xdg-desktop-portal-gtk
     xdg-desktop-portal-hyprland
   )
+  local missing_packages=()
 
   environment_packages=()
   for package_name in "${required_packages[@]}"; do
     mark_environment_package "$package_name"
   done
 
-  if has_checkpoint "desktop_integration" && desktop_integration_ready; then
+  if desktop_integration_ready; then
+    if ! has_checkpoint "desktop_integration"; then
+      mark_checkpoint "desktop_integration"
+    fi
     announce_detail "A integração desktop já está preparada. Etapa ignorada."
     return 0
   fi
 
+  collect_missing_packages missing_packages "${required_packages[@]}"
   announce_detail "Garantindo integração desktop..."
-  if ! retry_log_only sudo pacman -S --needed --noconfirm "${required_packages[@]}"; then
+  if ! retry_log_only sudo pacman -S --needed --noconfirm "${missing_packages[@]}"; then
     echo "Erro: não foi possível instalar a integração desktop." >&2
     return 1
   fi
@@ -511,13 +544,19 @@ package_exists_in_official_repos() {
 
 install_yay() {
   local archive_file
+  local missing_packages=()
   local status=0
 
   announce_step "Preparando helper AUR..."
   mark_support_package "base-devel"
   mark_support_package "yay"
   mkdir -p "$REPOSITORIES_DIR"
-  retry_log_only sudo pacman -S --needed --noconfirm base-devel
+  collect_missing_packages missing_packages base-devel
+  if ((${#missing_packages[@]} > 0)); then
+    if ! retry_log_only sudo pacman -S --needed --noconfirm "${missing_packages[@]}"; then
+      return 1
+    fi
+  fi
   require_command curl
   require_command tar
 
@@ -658,8 +697,10 @@ install_packages_in_order() {
   for package in "${packages[@]}"; do
     case "$package" in
       codex)
-      announce_step "Configurando Codex CLI..."
-        setup_codex_cli
+        announce_step "Configurando Codex CLI..."
+        if ! setup_codex_cli; then
+          official_failed+=("codex")
+        fi
         continue
         ;;
     esac
@@ -840,7 +881,10 @@ end"
   require_command npm
 
   announce_detail "Configurando o prefixo do npm em $HOME/Codex..."
-  run_log_only npm config set prefix "$HOME/Codex"
+  if ! run_log_only npm config set prefix "$HOME/Codex"; then
+    echo "Erro: não foi possível configurar o prefixo do npm para o Codex CLI." >&2
+    return 1
+  fi
 
   if [[ ! -f "$BASHRC_FILE" ]]; then
     touch "$BASHRC_FILE"
@@ -870,7 +914,11 @@ end"
   export PATH="$HOME/Codex/bin:$PATH"
 
   announce_detail "Instalando Codex CLI em $HOME/Codex..."
-  retry_log_only npm install -g @openai/codex
+  if ! retry_log_only npm install -g @openai/codex; then
+    echo "Erro: não foi possível instalar o Codex CLI." >&2
+    return 1
+  fi
+
   mark_checkpoint "codex_cli"
 }
 
@@ -1052,8 +1100,20 @@ sync_repo() {
 }
 
 run_bootstrap() {
+  local bootstrap_system_updated=0
+  local missing_packages=()
+
   announce_step "Instalando dependências iniciais..."
-  retry_log_only sudo pacman -Syu --needed --noconfirm git
+  collect_missing_packages missing_packages git
+  if ((${#missing_packages[@]} > 0)); then
+    if ! retry_log_only sudo pacman -Syu --needed --noconfirm "${missing_packages[@]}"; then
+      echo "Erro: não foi possível instalar as dependências iniciais." >&2
+      exit 1
+    fi
+    bootstrap_system_updated=1
+  else
+    announce_detail "As dependências iniciais já estão disponíveis. Etapa ignorada."
+  fi
 
   require_command git
   sync_repo
@@ -1064,15 +1124,15 @@ run_bootstrap() {
     POSTINSTALL_LOG_FILE="$LOG_FILE" \
     POSTINSTALL_LOG_INITIALIZED=1 \
     POSTINSTALL_LOCK_HELD=1 \
-    POSTINSTALL_SYSTEM_UPDATED=1 \
+    POSTINSTALL_SYSTEM_UPDATED="$bootstrap_system_updated" \
     REPLACE_GITHUB_SSH_KEYS="$REPLACE_GITHUB_SSH_KEYS" \
-    RETRY_ATTEMPTS="$RETRY_ATTEMPTS" \
-    RETRY_DELAY_SECONDS="$RETRY_DELAY_SECONDS" \
     bash "$INSTALL_DIR/install.sh" "$REPO_BRANCH"
   exit $?
 }
 
 setup_github_ssh() {
+  local missing_packages=()
+
   if has_checkpoint "github_ssh" && command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1 && github_has_expected_ssh_key_title; then
     ensure_repo_origin_remote "$SCRIPT_DIR"
     announce_detail "O GitHub SSH já está configurado. Etapa ignorada."
@@ -1082,9 +1142,14 @@ setup_github_ssh() {
   announce_step "Configurando GitHub SSH..."
   mark_support_package "github-cli"
   mark_support_package "openssh"
-  if ! retry_log_only sudo pacman -S --needed --noconfirm github-cli openssh; then
-    echo "Aviso: não foi possível instalar github-cli/openssh. A configuração do GitHub será ignorada."
-    return
+  collect_missing_packages missing_packages github-cli openssh
+  if ((${#missing_packages[@]} > 0)); then
+    if ! retry_log_only sudo pacman -S --needed --noconfirm "${missing_packages[@]}"; then
+      echo "Aviso: não foi possível instalar github-cli/openssh. A configuração do GitHub será ignorada."
+      return
+    fi
+  else
+    announce_detail "As dependências do GitHub SSH já estão disponíveis."
   fi
 
   if ! command -v gh >/dev/null 2>&1 || ! command -v ssh-keygen >/dev/null 2>&1; then
@@ -1115,11 +1180,11 @@ verify_command() {
   local command_name="$2"
 
   if command -v "$command_name" >/dev/null 2>&1; then
-    verified_commands+=("$label")
+    mark_verified_item "$label"
     return
   fi
 
-  missing_commands+=("$label")
+  mark_missing_item "$label"
 }
 
 verify_package() {
@@ -1127,11 +1192,11 @@ verify_package() {
   local package_name="$2"
 
   if pacman -Q "$package_name" >/dev/null 2>&1; then
-    verified_commands+=("$label")
+    mark_verified_item "$label"
     return
   fi
 
-  missing_commands+=("$label")
+  mark_missing_item "$label"
 }
 
 user_service_exists() {
@@ -1145,21 +1210,30 @@ verify_user_service() {
   local service_name="$2"
 
   if ! command -v systemctl >/dev/null 2>&1; then
-    missing_commands+=("$label")
+    mark_missing_item "$label"
     return
   fi
 
   if ! user_service_exists "$service_name"; then
-    missing_commands+=("$label")
+    mark_missing_item "$label"
     return
   fi
 
   if systemctl --user --quiet is-active "$service_name"; then
-    verified_commands+=("$label")
+    mark_verified_item "$label"
     return
   fi
 
-  missing_commands+=("$label")
+  mark_missing_item "$label"
+}
+
+start_desktop_user_services() {
+  if ! command -v systemctl >/dev/null 2>&1; then
+    return 1
+  fi
+
+  run_log_only systemctl --user daemon-reload || true
+  run_log_only systemctl --user start pipewire.service wireplumber.service xdg-desktop-portal.service
 }
 
 collect_version() {
@@ -1180,33 +1254,41 @@ collect_version() {
 }
 
 verify_installation() {
+  local package_name
+
   verified_commands=()
   missing_commands=()
   version_info=()
 
-  verify_command "code" "code"
-  verify_command "discord" "discord"
-  verify_command "gh" "gh"
-  verify_command "google-chrome-stable" "google-chrome-stable"
-  verify_command "node" "node"
-  verify_command "npm" "npm"
-  verify_command "codex" "codex"
-  verify_command "ssh-keygen" "ssh-keygen"
-  verify_command "steam" "steam"
-  verify_command "zen-browser" "zen-browser"
+  for package_name in "${packages[@]}"; do
+    case "$package_name" in
+      codex)
+        verify_command "codex" "codex"
+        ;;
+      nodejs)
+        verify_command "nodejs" "node"
+        ;;
+      *)
+        verify_package "$package_name" "$package_name"
+        ;;
+    esac
+  done
+
+  verify_command "github-cli" "gh"
+  verify_command "openssh" "ssh-keygen"
 
   if command -v xdg-open >/dev/null 2>&1; then
-    verified_commands+=("xdg-open")
+    mark_verified_item "xdg-utils"
   elif command -v gio >/dev/null 2>&1; then
-    verified_commands+=("gio-open")
+    mark_verified_item "xdg-utils"
   else
-    missing_commands+=("xdg-open")
+    mark_missing_item "xdg-utils"
   fi
 
   if command -v wl-copy >/dev/null 2>&1 && command -v wl-paste >/dev/null 2>&1; then
-    verified_commands+=("clipboard")
-  else
-    missing_commands+=("clipboard")
+    mark_verified_item "clipboard"
+  elif package_is_installed wl-clipboard; then
+    mark_missing_item "wl-clipboard"
   fi
 
   verify_command "pipewire" "pipewire"
@@ -1224,9 +1306,9 @@ verify_installation() {
     " ${verified_commands[*]} " == *" wireplumber.service "* && \
     " ${verified_commands[*]} " == *" xdg-desktop-portal.service "* \
   ]]; then
-    verified_commands+=("screen-sharing-stack")
+    mark_verified_item "screen-sharing-stack"
   else
-    missing_commands+=("screen-sharing-stack")
+    mark_missing_item "screen-sharing-stack"
   fi
 
   collect_version "node" node --version
@@ -1235,6 +1317,100 @@ verify_installation() {
   collect_version "codex" codex --version
   collect_version "zen-browser" zen-browser --version
   collect_version "google-chrome-stable" google-chrome-stable --version
+}
+
+attempt_final_repair_once() {
+  local item
+  local repair_pacman_packages=()
+  local repair_aur_packages=()
+  local pacman_missing_packages=()
+  local aur_package
+  local should_repair_codex=0
+  local should_start_services=0
+
+  if ((${#missing_commands[@]} == 0)); then
+    return 0
+  fi
+
+  announce_step "Tentando corrigir itens ausentes..."
+  for item in "${missing_commands[@]}"; do
+    case "$item" in
+      codex)
+        should_repair_codex=1
+        ;;
+      github-cli|openssh|xdg-utils|wl-clipboard|pipewire|wireplumber|xdg-desktop-portal|xdg-desktop-portal-gtk|xdg-desktop-portal-hyprland)
+        append_array_item repair_pacman_packages "$item"
+        ;;
+      pipewire.service|wireplumber.service|xdg-desktop-portal.service|screen-sharing-stack)
+        should_start_services=1
+        ;;
+      *)
+        if package_exists_in_official_repos "$item"; then
+          append_array_item repair_pacman_packages "$item"
+        else
+          append_array_item repair_aur_packages "$item"
+        fi
+        ;;
+    esac
+  done
+
+  collect_missing_packages pacman_missing_packages "${repair_pacman_packages[@]}"
+  if ((${#pacman_missing_packages[@]} > 0)); then
+    announce_detail "Reinstalando itens via pacman..."
+    if ! retry_log_only sudo pacman -S --needed --noconfirm "${pacman_missing_packages[@]}"; then
+      return 1
+    fi
+  fi
+
+  if ((${#repair_aur_packages[@]} > 0)); then
+    if ! ensure_aur_helper; then
+      return 1
+    fi
+
+    for aur_package in "${repair_aur_packages[@]}"; do
+      if package_is_installed "$aur_package"; then
+        continue
+      fi
+
+      announce_detail "Reinstalando item via AUR: $aur_package"
+      if ! retry_log_only "$aur_helper" -S --needed --noconfirm "$aur_package"; then
+        return 1
+      fi
+    done
+  fi
+
+  if (( should_repair_codex == 1 )); then
+    announce_detail "Reconfigurando o Codex CLI..."
+    if ! setup_codex_cli; then
+      return 1
+    fi
+  fi
+
+  if (( should_start_services == 1 )) || ((${#pacman_missing_packages[@]} > 0)); then
+    announce_detail "Tentando iniciar os serviços de usuário necessários..."
+    start_desktop_user_services || true
+  fi
+
+  if desktop_integration_ready && ! has_checkpoint "desktop_integration"; then
+    mark_checkpoint "desktop_integration"
+  fi
+
+  verify_installation
+  ((${#missing_commands[@]} == 0))
+}
+
+ensure_final_verification_passed() {
+  if ((${#missing_commands[@]} == 0)); then
+    return 0
+  fi
+
+  if attempt_final_repair_once; then
+    return 0
+  fi
+
+  echo "Erro: a verificação final encontrou itens ausentes após a instalação." >&2
+  echo "Itens ausentes: ${missing_commands[*]}" >&2
+  return 1
 }
 
 run_install() {
@@ -1291,6 +1467,10 @@ run_install() {
   setup_github_ssh
   announce_step "Validando instalação..."
   verify_installation
+  if ! ensure_final_verification_passed; then
+    print_summary
+    exit 1
+  fi
   print_summary
 }
 
