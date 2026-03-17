@@ -30,10 +30,11 @@ Quando executado fora do repositório, o script instala `git`, clona ou atualiza
 Quando executado dentro de um clone local, ele usa o repositório atual e não força a migração para `~/Repositories/arch-postinstall-apps`.
 Esse comando pressupõe que `curl` esteja disponível na instalação padrão do Arch.
 Execute-o como usuário comum, e não com `sudo bash`.
+O fluxo atual do script foi ajustado para uso em Wayland com Hyprland.
 
 ## Pacotes
 
-### Dependências técnicas instaladas explicitamente
+### Dependências instaladas sempre
 
 - `git`
   Necessário para bootstrap, sincronização do repositório e operações Git do script.
@@ -63,27 +64,30 @@ Execute-o como usuário comum, e não com `sudo bash`.
 - `codex`
   Item especial da lista: não instala um pacote do sistema, e sim o `@openai/codex` via npm em `~/Codex`.
 
-### Dependências condicionais
+### Dependências do ambiente gráfico
 
 - `pipewire`
-  Garantido em sessões Hyprland para áudio e compartilhamento de tela.
+  Necessário para áudio e compartilhamento de tela.
 - `wireplumber`
-  Garantido em sessões Hyprland como gerenciador de sessão do PipeWire.
+  Necessário como gerenciador de sessão do PipeWire.
 - `xdg-utils`
-  Garantido em sessões Hyprland para integração desktop básica.
+  Necessário para integração desktop básica.
 - `xdg-desktop-portal`
-  Garantido em sessões Hyprland para a pilha de portais desktop.
+  Necessário para a pilha de portais desktop.
 - `xdg-desktop-portal-gtk`
-  Garantido em sessões Hyprland como backend complementar de portal.
+  Necessário como backend complementar de portal.
 - `xdg-desktop-portal-hyprland`
-  Garantido em sessões Hyprland como backend principal de portal.
+  Necessário como backend principal de portal.
+
+### Pacotes opcionais da lista extra
+
 - Pacotes de `config/packages-extra.txt`
   Instalados somente se esse arquivo existir.
 
 ### Dependência temporária
 
 - `wl-clipboard`
-  Instalado temporariamente em sessões Wayland quando o fluxo do `gh` precisa copiar o código de autenticação para a área de transferência.
+  Instalado temporariamente quando o fluxo do `gh` precisa copiar o código de autenticação para a área de transferência.
 
 Edite `config/packages.txt` para alterar a lista principal.
 Se existir `config/packages-extra.txt`, esse arquivo também será carregado.
@@ -94,7 +98,7 @@ Os repositórios usados pelo script ficam em `~/Repositories`.
 O script instala `yay` por padrão e o usa como helper AUR principal.
 Se a instalação do `yay` falhar, mas já houver outro helper AUR disponível, o script usará esse helper como fallback.
 O item `codex` não é um pacote do sistema: ele executa uma configuração especial do Codex CLI.
-Em sessões Hyprland, o script também garante `pipewire`, `wireplumber`, `xdg-utils`, `xdg-desktop-portal`, `xdg-desktop-portal-gtk` e `xdg-desktop-portal-hyprland`.
+O script também garante `pipewire`, `wireplumber`, `xdg-utils`, `xdg-desktop-portal`, `xdg-desktop-portal-gtk` e `xdg-desktop-portal-hyprland`.
 
 ## O que acontece
 
@@ -109,7 +113,7 @@ Em sessões Hyprland, o script também garante `pipewire`, `wireplumber`, `xdg-u
 7. Atualiza o sistema com `pacman -Syu`.
 8. Prepara o `yay` por padrão.
 9. Instala os itens da lista principal na ordem definida em `config/packages.txt`, usando `pacman`, `yay` ou configuração especial.
-10. Ajusta a integração desktop do Hyprland quando a sessão atual for Hyprland.
+10. Garante a integração desktop do ambiente.
 11. Configura GitHub SSH.
 12. Valida a instalação, grava o resumo final em `~/Backups/arch-postinstall-summary.txt` e remove arquivos temporários.
 
@@ -130,8 +134,8 @@ Em sessões Hyprland, o script também garante `pipewire`, `wireplumber`, `xdg-u
 - Instala `github-cli` e `openssh`.
 - Cria a chave SSH, se ela não existir.
 - Autentica no GitHub com `gh`, usando o fluxo web por código de dispositivo.
-- Copia automaticamente o código do fluxo de autenticação para a área de transferência quando houver um utilitário compatível com a sessão atual.
-- Instala `wl-clipboard` temporariamente em sessões Wayland quando faltar um utilitário de área de transferência compatível.
+- Copia automaticamente o código do fluxo de autenticação para a área de transferência quando houver um utilitário compatível.
+- Instala `wl-clipboard` temporariamente quando faltar um utilitário de área de transferência compatível.
 - Remove o utilitário temporário de área de transferência ao fim da etapa do GitHub, se ele tiver sido instalado pelo script.
 - Renova o escopo `admin:public_key`, se necessário, para gerenciar chaves SSH.
 - Envia a chave SSH ao GitHub com o título definido em `GITHUB_SSH_KEY_TITLE`.
@@ -142,10 +146,13 @@ Em sessões Hyprland, o script também garante `pipewire`, `wireplumber`, `xdg-u
 - Mantém a chave atual antes de remover as antigas, se `REPLACE_GITHUB_SSH_KEYS=1`.
 - Ignora a etapa do GitHub se a autenticação falhar.
 - Valida, em reruns, se a chave SSH atual ainda existe na conta do GitHub antes de confiar no checkpoint.
-- Em sessões Hyprland, garante a pilha de integração desktop e compartilhamento de tela com `pipewire`, `wireplumber` e `xdg-desktop-portal`.
+- Garante a pilha de integração desktop e compartilhamento de tela com `pipewire`, `wireplumber` e `xdg-desktop-portal`.
+- Marca um checkpoint para a integração desktop e reaproveita a etapa quando a base já estiver pronta.
+- Interrompe a execução se a integração desktop não puder ser preparada.
 - Verifica, ao final, se os binários principais realmente ficaram disponíveis.
-- Em Wayland, verifica a área de transferência, os pacotes de portal e serviços de usuário como `pipewire.service`, `wireplumber.service` e `xdg-desktop-portal.service`.
+- Verifica a área de transferência, os pacotes de portal e serviços de usuário como `pipewire.service`, `wireplumber.service` e `xdg-desktop-portal.service`.
 - Registra `Hostname` no resumo final.
+- Separa no resumo o que foi instalado explicitamente do que foi apenas verificado.
 - Registra, no resumo, a branch realmente em uso, o caminho do repositório e as versões principais.
 - Registra também a branch solicitada, se ela for diferente da branch em uso.
 - Inclui no resumo o clone gerenciado separado, quando a execução tiver acontecido fora dele.
@@ -161,6 +168,7 @@ Em sessões Hyprland, o script também garante `pipewire`, `wireplumber`, `xdg-u
 
 - `REPLACE_GITHUB_SSH_KEYS=0`: preserva as chaves SSH atuais do GitHub.
 - `GITHUB_SSH_KEY_TITLE="meu-dispositivo"`: define o título da chave SSH enviada ao GitHub.
+- `CHECK_ONLY=1`: valida o ambiente e gera o resumo sem instalar pacotes nem alterar a configuração.
 - `STEP_OUTPUT_ONLY=0`: desativa o modo resumido e restaura a saída completa no terminal.
 
 Se quiser usar essas opções no bootstrap, exporte-as antes da execução:

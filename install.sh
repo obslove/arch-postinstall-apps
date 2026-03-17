@@ -20,6 +20,7 @@ GITHUB_SSH_KEY_TITLE="${GITHUB_SSH_KEY_TITLE:-}"
 LOG_FILE="${POSTINSTALL_LOG_FILE:-$HOME/Backups/arch-postinstall.log}"
 SUMMARY_FILE="${POSTINSTALL_SUMMARY_FILE:-$HOME/Backups/arch-postinstall-summary.txt}"
 REPLACE_GITHUB_SSH_KEYS="${REPLACE_GITHUB_SSH_KEYS:-1}"
+CHECK_ONLY="${CHECK_ONLY:-0}"
 RETRY_ATTEMPTS="${RETRY_ATTEMPTS:-3}"
 RETRY_DELAY_SECONDS="${RETRY_DELAY_SECONDS:-5}"
 STEP_OUTPUT_ONLY="${STEP_OUTPUT_ONLY:-1}"
@@ -32,8 +33,11 @@ official_packages=()
 aur_packages=()
 official_failed=()
 aur_failed=()
+support_packages=()
+environment_packages=()
 packages=()
 aur_helper=""
+aur_helper_status="não preparado"
 cleanup_paths=()
 verified_commands=()
 missing_commands=()
@@ -100,6 +104,26 @@ acquire_lock() {
 
 register_cleanup_path() {
   cleanup_paths+=("$1")
+}
+
+append_array_item() {
+  local array_name="$1"
+  local value="$2"
+  local existing
+
+  eval "for existing in \"\${${array_name}[@]}\"; do
+    [[ \"\$existing\" == \"$value\" ]] && return 0
+  done"
+
+  eval "${array_name}+=(\"$value\")"
+}
+
+mark_support_package() {
+  append_array_item support_packages "$1"
+}
+
+mark_environment_package() {
+  append_array_item environment_packages "$1"
 }
 
 cleanup() {
@@ -244,45 +268,36 @@ is_hyprland_session() {
     [[ "${DESKTOP_SESSION:-}" == "hyprland" ]]
 }
 
-has_clipboard_utility() {
-  command -v wl-copy >/dev/null 2>&1 || \
-    command -v termux-clipboard-set >/dev/null 2>&1
+is_supported_session() {
+  is_wayland_session && is_hyprland_session
 }
 
-has_session_clipboard_utility() {
-  if is_wayland_session; then
-    command -v wl-copy >/dev/null 2>&1 && return 0
-    command -v termux-clipboard-set >/dev/null 2>&1 && return 0
-    return 1
+ensure_supported_session() {
+  if is_supported_session; then
+    return 0
   fi
 
-  has_clipboard_utility
+  echo "Erro: este script foi ajustado para Wayland com Hyprland." >&2
+  echo "Sessão atual: XDG_SESSION_TYPE='${XDG_SESSION_TYPE:-}', XDG_CURRENT_DESKTOP='${XDG_CURRENT_DESKTOP:-}', DESKTOP_SESSION='${DESKTOP_SESSION:-}'" >&2
+  exit 1
 }
 
 ensure_temp_clipboard_utility() {
-  local clipboard_package=""
-
-  if has_session_clipboard_utility; then
+  if command -v wl-copy >/dev/null 2>&1; then
     return 0
   fi
 
-  if is_wayland_session; then
-    clipboard_package="wl-clipboard"
-  else
-    return 1
-  fi
-
-  if pacman -Q "$clipboard_package" >/dev/null 2>&1; then
+  if pacman -Q wl-clipboard >/dev/null 2>&1; then
     return 0
   fi
 
-  announce_detail "Instalando $clipboard_package temporariamente para copiar o código do GitHub..."
-  if ! retry_log_only sudo pacman -S --needed --noconfirm "$clipboard_package"; then
-    echo "Aviso: não foi possível instalar $clipboard_package. Continuando sem cópia automática."
+  announce_detail "Instalando wl-clipboard temporariamente para copiar o código do GitHub..."
+  if ! retry_log_only sudo pacman -S --needed --noconfirm wl-clipboard; then
+    echo "Aviso: não foi possível instalar wl-clipboard. Continuando sem cópia automática."
     return 1
   fi
 
-  temp_clipboard_package="$clipboard_package"
+  temp_clipboard_package="wl-clipboard"
   return 0
 }
 
@@ -300,22 +315,55 @@ cleanup_temp_clipboard_utility() {
   temp_clipboard_package=""
 }
 
-ensure_hyprland_desktop_integration() {
-  if ! is_hyprland_session; then
-    return 0
-  fi
+desktop_integration_ready() {
+  local package_name
 
-  announce_detail "Garantindo integração desktop para Hyprland..."
-  if ! retry_log_only sudo pacman -S --needed --noconfirm \
+  for package_name in \
     pipewire \
     wireplumber \
     xdg-utils \
     xdg-desktop-portal \
     xdg-desktop-portal-gtk \
-    xdg-desktop-portal-hyprland; then
-    echo "Aviso: não foi possível instalar a integração desktop do Hyprland."
+    xdg-desktop-portal-hyprland; do
+    if ! pacman -Q "$package_name" >/dev/null 2>&1; then
+      return 1
+    fi
+  done
+
+  return 0
+}
+
+ensure_desktop_integration() {
+  local required_packages=(
+    pipewire
+    wireplumber
+    xdg-utils
+    xdg-desktop-portal
+    xdg-desktop-portal-gtk
+    xdg-desktop-portal-hyprland
+  )
+
+  if ! is_hyprland_session; then
+    return 0
+  fi
+
+  environment_packages=()
+  for package_name in "${required_packages[@]}"; do
+    mark_environment_package "$package_name"
+  done
+
+  if has_checkpoint "desktop_integration" && desktop_integration_ready; then
+    announce_detail "A integração desktop já está preparada. Etapa ignorada."
+    return 0
+  fi
+
+  announce_detail "Garantindo integração desktop..."
+  if ! retry_log_only sudo pacman -S --needed --noconfirm "${required_packages[@]}"; then
+    echo "Erro: não foi possível instalar a integração desktop." >&2
     return 1
   fi
+
+  mark_checkpoint "desktop_integration"
 }
 
 run_gh_auth_flow() {
@@ -420,15 +468,18 @@ ensure_multilib() {
 detect_aur_helper() {
   if command -v yay >/dev/null 2>&1; then
     aur_helper="yay"
+    aur_helper_status="yay (reutilizado)"
     return 0
   fi
 
   if command -v paru >/dev/null 2>&1; then
     aur_helper="paru"
+    aur_helper_status="paru (fallback)"
     return 0
   fi
 
   aur_helper=""
+  aur_helper_status="indisponível"
   return 1
 }
 
@@ -467,6 +518,8 @@ install_yay() {
   local status=0
 
   announce_step "Preparando helper AUR..."
+  mark_support_package "base-devel"
+  mark_support_package "yay"
   mkdir -p "$REPOSITORIES_DIR"
   retry_log_only sudo pacman -S --needed --noconfirm base-devel
   require_command curl
@@ -493,6 +546,7 @@ install_yay() {
   if (( status == 0 )); then
     if retry_log_only build_yay "$YAY_REPO_DIR"; then
       aur_helper="yay"
+      aur_helper_status="yay (instalado nesta execução)"
     else
       status=$?
     fi
@@ -504,6 +558,7 @@ install_yay() {
 ensure_aur_helper() {
   if command -v yay >/dev/null 2>&1; then
     aur_helper="yay"
+    aur_helper_status="yay (reutilizado)"
     announce_detail "Usando helper AUR: $aur_helper"
     return 0
   fi
@@ -520,6 +575,7 @@ ensure_aur_helper() {
   fi
 
   aur_helper="yay"
+  aur_helper_status="yay (instalado nesta execução)"
   announce_detail "Usando helper AUR: $aur_helper"
 }
 
@@ -651,6 +707,7 @@ print_summary() {
   local actual_branch
   local repo_path
   local requested_branch_note=""
+  local completed_actions=()
   local version_line
 
   host_name="$(get_host_name)"
@@ -658,6 +715,16 @@ print_summary() {
   repo_path="$SCRIPT_DIR"
   if [[ "$actual_branch" != "$REPO_BRANCH" ]]; then
     requested_branch_note="$REPO_BRANCH"
+  fi
+
+  if has_checkpoint "codex_cli"; then
+    completed_actions+=("codex_cli")
+  fi
+  if has_checkpoint "desktop_integration"; then
+    completed_actions+=("desktop_integration")
+  fi
+  if has_checkpoint "github_ssh"; then
+    completed_actions+=("github_ssh")
   fi
 
   if [[ "$STEP_OUTPUT_ONLY" == "1" ]]; then
@@ -676,8 +743,12 @@ print_summary() {
     if [[ -n "$requested_branch_note" ]]; then
       echo "Branch solicitada: $requested_branch_note"
     fi
-    echo "Pacman: ${official_packages[*]:-nenhum}"
-    echo "AUR: ${aur_packages[*]:-nenhum}"
+    echo "Pacotes da lista principal via pacman: ${official_packages[*]:-nenhum}"
+    echo "Pacotes da lista principal via AUR: ${aur_packages[*]:-nenhum}"
+    echo "Dependências de suporte: ${support_packages[*]:-nenhuma}"
+    echo "Dependências do ambiente gráfico: ${environment_packages[*]:-nenhuma}"
+    echo "Configurações explícitas: ${completed_actions[*]:-nenhuma}"
+    echo "Helper AUR: ${aur_helper_status:-indisponível}"
     echo "Falhas pacman: ${official_failed[*]:-nenhuma}"
     echo "Falhas AUR: ${aur_failed[*]:-nenhuma}"
     echo "Verificados: ${verified_commands[*]:-nenhum}"
@@ -700,8 +771,12 @@ Hostname: $host_name
 Repositório: $repo_path
 Branch: $actual_branch
 $(if [[ -n "$requested_branch_note" ]]; then printf 'Branch solicitada: %s\n' "$requested_branch_note"; fi)
-Pacman: ${official_packages[*]:-nenhum}
-AUR: ${aur_packages[*]:-nenhum}
+Pacotes da lista principal via pacman: ${official_packages[*]:-nenhum}
+Pacotes da lista principal via AUR: ${aur_packages[*]:-nenhum}
+Dependências de suporte: ${support_packages[*]:-nenhuma}
+Dependências do ambiente gráfico: ${environment_packages[*]:-nenhuma}
+Configurações explícitas: ${completed_actions[*]:-nenhuma}
+Helper AUR: ${aur_helper_status:-indisponível}
 Falhas pacman: ${official_failed[*]:-nenhuma}
 Falhas AUR: ${aur_failed[*]:-nenhuma}
 Verificados: ${verified_commands[*]:-nenhum}
@@ -710,6 +785,7 @@ Versões:
 $(if ((${#version_info[@]} == 0)); then echo "- nenhuma"; else printf '%s\n' "${version_info[@]/#/- }"; fi)
 Checkpoints:
 - codex_cli: $(if has_checkpoint "codex_cli"; then echo concluido; else echo pendente; fi)
+- desktop_integration: $(if has_checkpoint "desktop_integration"; then echo concluido; else echo pendente; fi)
 - github_ssh: $(if has_checkpoint "github_ssh"; then echo concluido; else echo pendente; fi)
 EOF
 
@@ -1008,6 +1084,8 @@ setup_github_ssh() {
   fi
 
   announce_step "Configurando GitHub SSH..."
+  mark_support_package "github-cli"
+  mark_support_package "openssh"
   if ! retry_log_only sudo pacman -S --needed --noconfirm github-cli openssh; then
     echo "Aviso: não foi possível instalar github-cli/openssh. A configuração do GitHub será ignorada."
     return
@@ -1131,9 +1209,9 @@ verify_installation() {
 
   if is_wayland_session; then
     if command -v wl-copy >/dev/null 2>&1 && command -v wl-paste >/dev/null 2>&1; then
-      verified_commands+=("wayland-clipboard")
+      verified_commands+=("clipboard")
     else
-      missing_commands+=("wayland-clipboard")
+      missing_commands+=("clipboard")
     fi
   fi
 
@@ -1155,9 +1233,9 @@ verify_installation() {
       " ${verified_commands[*]} " == *" wireplumber.service "* && \
       " ${verified_commands[*]} " == *" xdg-desktop-portal.service "* \
     ]]; then
-      verified_commands+=("wayland-screen-sharing-stack")
+      verified_commands+=("screen-sharing-stack")
     else
-      missing_commands+=("wayland-screen-sharing-stack")
+      missing_commands+=("screen-sharing-stack")
     fi
   fi
 
@@ -1170,9 +1248,39 @@ verify_installation() {
 }
 
 run_install() {
+  official_packages=()
+  aur_packages=()
+  official_failed=()
+  aur_failed=()
+  support_packages=()
+  environment_packages=()
+  aur_helper_status="não preparado"
   create_directories
   announce_step "Carregando configuração..."
   load_packages
+  if [[ "$CHECK_ONLY" == "1" ]]; then
+    announce_step "Executando verificação sem alterações..."
+    detect_aur_helper || true
+    if is_supported_session; then
+      if desktop_integration_ready; then
+        for package_name in \
+          pipewire \
+          wireplumber \
+          xdg-utils \
+          xdg-desktop-portal \
+          xdg-desktop-portal-gtk \
+          xdg-desktop-portal-hyprland; do
+          mark_environment_package "$package_name"
+        done
+      fi
+    fi
+    verify_installation
+    print_summary
+    if ((${#missing_commands[@]} > 0)); then
+      exit 1
+    fi
+    return 0
+  fi
   ensure_multilib
 
   if [[ "$SYSTEM_UPDATED" == "1" ]]; then
@@ -1190,7 +1298,7 @@ run_install() {
     exit 1
   fi
   announce_step "Ajustando integração desktop..."
-  ensure_hyprland_desktop_integration || true
+  ensure_desktop_integration
   setup_github_ssh
   announce_step "Validando instalação..."
   verify_installation
@@ -1204,6 +1312,7 @@ main() {
   init_logging
   announce_step "Validando ambiente..."
   ensure_arch
+  ensure_supported_session
   require_command pacman
   require_command sudo
   echo "Autenticando sudo..."
