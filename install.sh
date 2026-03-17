@@ -298,31 +298,10 @@ ensure_hyprland_desktop_integration() {
   fi
 }
 
-open_url_in_background() {
-  local url="$1"
-
-  if ! is_wayland_session; then
-    return 1
-  fi
-
-  if command -v xdg-open >/dev/null 2>&1; then
-    nohup xdg-open "$url" >/dev/null 2>&1 &
-    return 0
-  fi
-
-  if command -v gio >/dev/null 2>&1; then
-    nohup gio open "$url" >/dev/null 2>&1 &
-    return 0
-  fi
-
-  return 1
-}
-
 run_gh_auth_flow() {
   local clipboard_args=()
 
-  echo "Abrindo o navegador padrão para autenticação do GitHub..."
-  open_url_in_background "https://github.com/login/device" || true
+  echo "Iniciando a autenticação do GitHub..."
   if ensure_temp_clipboard_utility; then
     clipboard_args+=(--clipboard)
     echo "O código de dispositivo será copiado automaticamente para a área de transferência."

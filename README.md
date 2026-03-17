@@ -82,7 +82,6 @@ Em sessões Hyprland, o script também garante `pipewire`, `wireplumber`, `xdg-u
 - Adiciona `~/Codex/bin` ao `PATH` do `bash`, `zsh` e `fish`.
 - Instala `github-cli` e `openssh`.
 - Cria a chave SSH, se ela não existir.
-- Tenta abrir automaticamente `https://github.com/login/device` no navegador padrão.
 - Autentica no GitHub com `gh`, usando o fluxo web por código de dispositivo.
 - Copia automaticamente o código do fluxo de autenticação para a área de transferência quando houver um utilitário compatível com a sessão atual.
 - Instala `wl-clipboard` temporariamente em sessões Wayland quando faltar um utilitário de área de transferência compatível.
