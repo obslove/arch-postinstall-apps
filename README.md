@@ -33,17 +33,57 @@ Execute-o como usuário comum, e não com `sudo bash`.
 
 ## Pacotes
 
+### Dependências técnicas instaladas explicitamente
+
+- `git`
+  Necessário para bootstrap, sincronização do repositório e operações Git do script.
+- `shellcheck`
+  Ferramenta instalada como parte da lista principal.
+- `nodejs`
+  Necessário para o ambiente do npm e para o Codex CLI.
+- `npm`
+  Necessário para configurar o prefixo local e instalar `@openai/codex`.
+- `base-devel`
+  Necessário para compilar e instalar o `yay`.
+- `yay`
+  Helper AUR preparado por padrão e usado preferencialmente pelo script.
+- `github-cli`
+  Necessário para autenticação no GitHub e gerenciamento da chave SSH.
+- `openssh`
+  Necessário para `ssh-keygen` e autenticação SSH com o GitHub.
+
+### Apps e programas da lista principal
+
 - `zen-browser-bin` (AUR)
 - `google-chrome` (AUR)
-- `git`
-- `shellcheck`
-- `nodejs`
-- `npm`
-- `codex` (configuração especial)
 - `code`
 - `discord`
 - `spotify-launcher`
 - `steam`
+- `codex`
+  Item especial da lista: não instala um pacote do sistema, e sim o `@openai/codex` via npm em `~/Codex`.
+
+### Dependências condicionais
+
+- `pipewire`
+  Garantido em sessões Hyprland para áudio e compartilhamento de tela.
+- `wireplumber`
+  Garantido em sessões Hyprland como gerenciador de sessão do PipeWire.
+- `xdg-utils`
+  Garantido em sessões Hyprland para integração desktop básica.
+- `xdg-desktop-portal`
+  Garantido em sessões Hyprland para a pilha de portais desktop.
+- `xdg-desktop-portal-gtk`
+  Garantido em sessões Hyprland como backend complementar de portal.
+- `xdg-desktop-portal-hyprland`
+  Garantido em sessões Hyprland como backend principal de portal.
+- Pacotes de `config/packages-extra.txt`
+  Instalados somente se esse arquivo existir.
+
+### Dependência temporária
+
+- `wl-clipboard`
+  Instalado temporariamente em sessões Wayland quando o fluxo do `gh` precisa copiar o código de autenticação para a área de transferência.
 
 Edite `config/packages.txt` para alterar a lista principal.
 Se existir `config/packages-extra.txt`, esse arquivo também será carregado.
@@ -58,26 +98,33 @@ Em sessões Hyprland, o script também garante `pipewire`, `wireplumber`, `xdg-u
 
 ## O que acontece
 
+### Ordem geral
+
+1. O script valida o ambiente, exige `sudo`, cria o arquivo de bloqueio e inicia o log em `~/Backups/arch-postinstall.log`.
+2. Se for executado fora do repositório, instala `git`, clona ou atualiza `~/Repositories/arch-postinstall-apps` e reinicia a execução a partir desse clone.
+3. Se for executado dentro de um clone local, usa o repositório atual normalmente.
+4. Cria `~/Backups`, `~/Codex`, `~/Dots`, `~/Pictures/Wallpapers`, `~/Pictures/Screenshots`, `~/Projects`, `~/Repositories` e `~/Videos`.
+5. Carrega `config/packages.txt` e, se existir, `config/packages-extra.txt`.
+6. Habilita `multilib`, se necessário.
+7. Atualiza o sistema com `pacman -Syu`.
+8. Prepara o `yay` por padrão.
+9. Instala os itens da lista principal na ordem definida em `config/packages.txt`, usando `pacman`, `yay` ou configuração especial.
+10. Ajusta a integração desktop do Hyprland quando a sessão atual for Hyprland.
+11. Configura GitHub SSH.
+12. Valida a instalação, grava o resumo final em `~/Backups/arch-postinstall-summary.txt` e remove arquivos temporários.
+
+### Detalhes do bootstrap
+
 - Evita duas execuções simultâneas por meio de um arquivo de bloqueio.
 - Recupera automaticamente um lock órfão quando a execução anterior termina sem limpeza adequada.
-- Grava o log em `~/Backups/arch-postinstall.log`.
-- Exibe, por padrão, um modo resumido por etapas no terminal.
-- Mantém os detalhes completos no arquivo de log.
-- Instala `git`.
-- Clona ou atualiza `~/Repositories/arch-postinstall-apps` quando executado fora do repositório.
+- Exibe, por padrão, um modo resumido por etapas no terminal e mantém os detalhes completos no arquivo de log.
 - Mantém clones auxiliares, como `yay`, dentro de `~/Repositories`.
 - Preserva a branch escolhida entre o bootstrap e a segunda etapa.
-- Usa o clone atual normalmente quando você executa `bash install.sh` dentro de um repositório já existente.
 - Interrompe o bootstrap se o clone gerenciado estiver com alterações locais em outra branch, em vez de executar código da branch incorreta.
-- Cria `~/Backups`, `~/Codex`, `~/Dots`, `~/Pictures/Wallpapers`, `~/Pictures/Screenshots`, `~/Projects`, `~/Repositories` e `~/Videos`.
-- Carrega `config/packages.txt` e, se existir, `config/packages-extra.txt`.
-- Habilita `multilib`, se necessário.
-- Atualiza o sistema com `pacman -Syu`.
-- Prepara o `yay` por padrão, antes da instalação da lista principal.
-- Segue a ordem definida em `config/packages.txt`.
-- Instala cada item com `pacman`, `yay` ou configuração especial, conforme o tipo.
+
+### Detalhes da instalação
+
 - Usa `yay` como helper AUR preferencial.
-- Repete automaticamente etapas mais frágeis quando a primeira tentativa falha.
 - Configura o Codex CLI com prefixo em `~/Codex`.
 - Adiciona `~/Codex/bin` ao `PATH` do `bash`, `zsh` e `fish`.
 - Instala `github-cli` e `openssh`.
@@ -98,12 +145,10 @@ Em sessões Hyprland, o script também garante `pipewire`, `wireplumber`, `xdg-u
 - Em sessões Hyprland, garante a pilha de integração desktop e compartilhamento de tela com `pipewire`, `wireplumber` e `xdg-desktop-portal`.
 - Verifica, ao final, se os binários principais realmente ficaram disponíveis.
 - Em Wayland, verifica a área de transferência, os pacotes de portal e serviços de usuário como `pipewire.service`, `wireplumber.service` e `xdg-desktop-portal.service`.
-- Grava o resumo em `~/Backups/arch-postinstall-summary.txt`.
 - Registra `Hostname` no resumo final.
 - Registra, no resumo, a branch realmente em uso, o caminho do repositório e as versões principais.
 - Registra também a branch solicitada, se ela for diferente da branch em uso.
 - Inclui no resumo o clone gerenciado separado, quando a execução tiver acontecido fora dele.
-- Remove arquivos temporários mesmo se o script for interrompido.
 
 ## O que exige interação
 

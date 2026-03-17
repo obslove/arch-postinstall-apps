@@ -211,6 +211,10 @@ get_host_name() {
   uname -n
 }
 
+sanitize_label() {
+  printf '%s' "$1" | tr -cs '[:alnum:].@_-' '-'
+}
+
 build_ssh_key_title() {
   local github_login=""
 
@@ -1166,9 +1170,9 @@ verify_installation() {
 }
 
 run_install() {
+  create_directories
   announce_step "Carregando configuração..."
   load_packages
-  create_directories
   ensure_multilib
 
   if [[ "$SYSTEM_UPDATED" == "1" ]]; then

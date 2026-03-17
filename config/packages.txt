@@ -1,7 +1,7 @@
 # Uma linha por item. Linhas vazias e linhas iniciadas com `#` são ignoradas.
 # A ordem é respeitada pelo instalador.
 # `codex` é um item especial: ele executa a configuração do Codex CLI.
-# `yay` não entra na lista: ele é instalado automaticamente antes do primeiro pacote AUR, se necessário.
+# `yay` não entra na lista: ele é preparado automaticamente pelo script e usado como helper AUR preferencial.
 
 zen-browser-bin
 google-chrome
