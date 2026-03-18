@@ -92,10 +92,10 @@ curl -fsSL https://obslove.dev | bash -s -- -g
 curl -fsSL https://obslove.dev | bash -s -- -d
 curl -fsSL https://obslove.dev | bash -s -- -k
 curl -fsSL https://obslove.dev | bash -s -- -q
-curl -fsSL https://obslove.dev | bash -s -- -t meu-dispositivo
+curl -fsSL https://obslove.dev | bash -s -- -t "meu-dispositivo"
 curl -fsSL https://obslove.dev | bash -s -- -v
 curl -fsSL https://obslove.dev | bash -s -- --version
-curl -fsSL https://obslove.dev | bash -s -- -c -g -t meu-dispositivo
+curl -fsSL https://obslove.dev | bash -s -- -c -g -t "meu-dispositivo"
 ```
 
 As variáveis de ambiente antigas continuam funcionando por compatibilidade.
