@@ -49,10 +49,30 @@ official_repo_metadata_checked=0
 official_repo_metadata_ready=0
 github_ssh_status="pendente"
 desktop_integration_status="pendente"
+step_counter=0
+step_open=0
+step_total=0
+style_reset=""
+style_step=""
+style_detail=""
+style_success=""
+style_warning=""
+style_error=""
+style_muted=""
+
+if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
+  style_reset=$'\033[0m'
+  style_step=$'\033[1;36m'
+  style_detail=$'\033[0;37m'
+  style_success=$'\033[1;32m'
+  style_warning=$'\033[1;33m'
+  style_error=$'\033[1;31m'
+  style_muted=$'\033[0;90m'
+fi
 
 ensure_not_root() {
   if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
-    echo "Erro: execute este script como usuário comum, e não como root." >&2
+    announce_error "Execute este script como usuário comum, e não como root."
     exit 1
   fi
 }
@@ -90,7 +110,7 @@ acquire_lock() {
   fi
 
   if [[ -z "$existing_pid" ]] || ! kill -0 "$existing_pid" 2>/dev/null; then
-    echo "Aviso: foi detectado um lock órfão. Limpando a execução anterior."
+    announce_warning "Foi detectado um lock órfão. Limpando a execução anterior."
     rm -rf "$LOCK_DIR"
     if mkdir "$LOCK_DIR" 2>/dev/null; then
       printf '%s\n' "$$" >"$LOCK_DIR/pid"
@@ -100,9 +120,9 @@ acquire_lock() {
     fi
   fi
 
-  echo "Erro: já existe outra execução do script em andamento." >&2
+  announce_error "Já existe outra execução do script em andamento."
   if [[ -f "$LOCK_DIR/pid" ]]; then
-    echo "PID atual do lock: $(<"$LOCK_DIR/pid")" >&2
+    announce_error "PID atual do lock: $(<"$LOCK_DIR/pid")"
   fi
   exit 1
 }
@@ -191,22 +211,107 @@ init_logging() {
   exec > >(tee -a "$LOG_FILE") 2>&1
 }
 
+style_text() {
+  local style="$1"
+  local text="$2"
+
+  if [[ -z "$style" ]]; then
+    printf '%s' "$text"
+    return 0
+  fi
+
+  printf '%s%s%s' "$style" "$text" "$style_reset"
+}
+
+emit_notice() {
+  local symbol="$1"
+  local style="$2"
+  local message="$3"
+  local line_prefix=""
+
+  if [[ "$step_open" == "1" ]]; then
+    line_prefix="│  "
+  fi
+
+  printf '%s%s %s\n' "$line_prefix" "$(style_text "$style" "$symbol")" "$message"
+}
+
+set_step_total() {
+  step_total="$1"
+}
+
 announce_step() {
+  local title="$1"
+  local header=""
+
+  close_step_block
+  step_counter=$((step_counter + 1))
+  if (( step_total > 0 )); then
+    header=$(printf 'Etapa %02d/%02d • %s' "$step_counter" "$step_total" "$title")
+  else
+    header=$(printf 'Etapa %02d • %s' "$step_counter" "$title")
+  fi
   echo
-  echo "$1"
+  printf '%s %s\n' "$(style_text "$style_step" "╭─")" "$(style_text "$style_step" "$header")"
+  step_open=1
 }
 
 announce_detail() {
   if [[ "$STEP_OUTPUT_ONLY" == "1" ]]; then
     printf '%s\n' "$1" >>"$LOG_FILE"
-    return
+    if [[ "$1" == *"Etapa ignorada."* || "$1" == Instalando\ via\ pacman:* || "$1" == Instalando\ via\ AUR:* ]]; then
+      return 0
+    fi
+    printf '│  %s %s\n' "$(style_text "$style_detail" "•")" "$1"
+    return 0
   fi
 
-  echo "$1"
+  printf '│  %s %s\n' "$(style_text "$style_detail" "•")" "$1"
+}
+
+announce_warning() {
+  printf '%s\n' "$1" >>"$LOG_FILE"
+  emit_notice "!" "$style_warning" "$1"
+}
+
+announce_error() {
+  printf '%s\n' "$1" >>"$LOG_FILE"
+  emit_notice "x" "$style_error" "$1"
+}
+
+announce_prompt() {
+  printf '%s\n' "$1" >>"$LOG_FILE"
+  emit_notice "?" "$style_step" "$1"
 }
 
 run_log_only() {
-  "$@" >>"$LOG_FILE" 2>&1
+  if [[ "$STEP_OUTPUT_ONLY" == "1" ]]; then
+    "$@" >>"$LOG_FILE" 2>&1
+    return
+  fi
+
+  "$@" 2>&1 | tee -a "$LOG_FILE" | sed 's/^/│    /'
+  return "${PIPESTATUS[0]}"
+}
+
+print_summary_section() {
+  local title="$1"
+  echo "│"
+  printf '│  %s\n' "$(style_text "$style_step" "$title")"
+}
+
+print_summary_item() {
+  printf '│  %s %-22s %s\n' "$(style_text "$style_detail" "•")" "$1" "$2"
+}
+
+close_step_block() {
+  if [[ "$step_open" != "1" ]]; then
+    return 0
+  fi
+
+  style_text "$style_muted" "╰─"
+  printf '\n'
+  step_open=0
 }
 
 retry() {
@@ -253,7 +358,7 @@ retry_log_only() {
 
 require_command() {
   if ! command -v "$1" >/dev/null 2>&1; then
-    echo "Erro: comando obrigatório não encontrado: $1" >&2
+    announce_error "Comando obrigatório não encontrado: $1"
     exit 1
   fi
 }
@@ -319,8 +424,8 @@ ensure_supported_session() {
     return 0
   fi
 
-  echo "Erro: este script foi ajustado para Wayland com Hyprland." >&2
-  echo "Sessão atual: XDG_SESSION_TYPE='${XDG_SESSION_TYPE:-}', XDG_CURRENT_DESKTOP='${XDG_CURRENT_DESKTOP:-}', DESKTOP_SESSION='${DESKTOP_SESSION:-}'" >&2
+  announce_error "Este script foi ajustado para Wayland com Hyprland."
+  announce_error "Sessão atual: XDG_SESSION_TYPE='${XDG_SESSION_TYPE:-}', XDG_CURRENT_DESKTOP='${XDG_CURRENT_DESKTOP:-}', DESKTOP_SESSION='${DESKTOP_SESSION:-}'"
   exit 1
 }
 
@@ -338,7 +443,7 @@ ensure_temp_clipboard_utility() {
 
   announce_detail "Instalando wl-clipboard temporariamente para copiar o código do GitHub..."
   if ! retry_log_only sudo pacman -S --needed --noconfirm "${missing_packages[@]}"; then
-    echo "Aviso: não foi possível instalar wl-clipboard. Continuando sem cópia automática."
+    announce_warning "Não foi possível instalar wl-clipboard. Continuando sem cópia automática."
     return 1
   fi
 
@@ -353,7 +458,7 @@ cleanup_temp_clipboard_utility() {
 
   announce_detail "Removendo $temp_clipboard_package instalado temporariamente..."
   if ! retry_log_only sudo pacman -Rns --noconfirm "$temp_clipboard_package"; then
-    echo "Aviso: não foi possível remover $temp_clipboard_package automaticamente."
+    announce_warning "Não foi possível remover $temp_clipboard_package automaticamente."
     return 1
   fi
 
@@ -397,7 +502,7 @@ ensure_desktop_integration() {
   if desktop_integration_ready; then
     desktop_integration_status="ignorada por já estar pronta"
     if ! has_checkpoint "desktop_integration" && ! mark_checkpoint "desktop_integration"; then
-      echo "Aviso: não foi possível registrar o checkpoint da integração desktop." >&2
+      announce_warning "Não foi possível registrar o checkpoint da integração desktop."
     fi
     announce_detail "A integração desktop já está preparada. Etapa ignorada."
     return 0
@@ -407,13 +512,13 @@ ensure_desktop_integration() {
   announce_detail "Garantindo integração desktop..."
   if ! retry_log_only sudo pacman -S --needed --noconfirm "${missing_packages[@]}"; then
     desktop_integration_status="falhou"
-    echo "Erro: não foi possível instalar a integração desktop." >&2
+    announce_error "Não foi possível instalar a integração desktop."
     return 1
   fi
 
   if ! mark_checkpoint "desktop_integration"; then
     desktop_integration_status="falhou"
-    echo "Erro: não foi possível registrar o checkpoint da integração desktop." >&2
+    announce_error "Não foi possível registrar o checkpoint da integração desktop."
     return 1
   fi
 
@@ -423,12 +528,12 @@ ensure_desktop_integration() {
 run_gh_auth_flow() {
   local clipboard_args=()
 
-  echo "Iniciando a autenticação do GitHub..."
+  announce_prompt "Iniciando a autenticação do GitHub..."
   if ensure_temp_clipboard_utility; then
     clipboard_args+=(--clipboard)
-    echo "O código de dispositivo será copiado automaticamente para a área de transferência."
+    announce_detail "O código de dispositivo será copiado automaticamente para a área de transferência."
   else
-    echo "Área de transferência indisponível. Copie o código manualmente no terminal."
+    announce_warning "Área de transferência indisponível. Copie o código manualmente no terminal."
   fi
 
   if [[ -t 0 ]]; then
@@ -474,14 +579,14 @@ load_package_file() {
 
 ensure_arch() {
   if [[ ! -f /etc/arch-release ]]; then
-    echo "Erro: este script foi feito para Arch Linux." >&2
+    announce_error "Este script foi feito para Arch Linux."
     exit 1
   fi
 }
 
 load_packages() {
   [[ -f "$PACKAGE_FILE" ]] || {
-    echo "Erro: lista de pacotes não encontrada em $PACKAGE_FILE" >&2
+    announce_error "Lista de pacotes não encontrada em $PACKAGE_FILE"
     exit 1
   }
 
@@ -512,12 +617,12 @@ ensure_multilib() {
     /etc/pacman.conf
 
   if ! multilib_enabled; then
-    echo "Erro: não foi possível habilitar multilib automaticamente." >&2
+    announce_error "Não foi possível habilitar multilib automaticamente."
     exit 1
   fi
 
   if ! run_log_only sudo pacman -Syy --noconfirm; then
-    echo "Erro: não foi possível sincronizar os bancos de dados do pacman após habilitar multilib." >&2
+    announce_error "Não foi possível sincronizar os bancos de dados do pacman após habilitar multilib."
     exit 1
   fi
 }
@@ -558,7 +663,7 @@ refresh_official_repo_index() {
   official_repo_metadata_checked=1
   if ! pacman -Slq >/dev/null 2>&1; then
     official_repo_metadata_ready=0
-    echo "Erro: não foi possível carregar os metadados dos repositórios oficiais do pacman." >&2
+    announce_error "Não foi possível carregar os metadados dos repositórios oficiais do pacman."
     return 1
   fi
 
@@ -584,7 +689,6 @@ install_yay() {
   local missing_packages=()
   local status=0
 
-  announce_step "Preparando helper AUR..."
   mark_support_package "base-devel"
   mark_support_package "yay"
   mkdir -p "$REPOSITORIES_DIR"
@@ -638,11 +742,11 @@ ensure_aur_helper() {
   announce_detail "O yay será instalado e usado como helper AUR padrão."
   if ! install_yay; then
     if detect_aur_helper; then
-      echo "Aviso: não foi possível instalar o yay. O script usará o helper AUR disponível: $aur_helper."
+      announce_warning "Não foi possível instalar o yay. O script usará o helper AUR disponível: $aur_helper."
       return 0
     fi
 
-    echo "Erro: não foi possível preparar um helper AUR (yay)." >&2
+    announce_error "Não foi possível preparar um helper AUR (yay)."
     return 1
   fi
 
@@ -726,14 +830,32 @@ install_packages_in_order() {
   local package_origin_status
   local shown_pacman_step=0
   local shown_aur_step=0
+  local official_target_count=0
+  local aur_target_count=0
 
   if ! refresh_official_repo_index; then
-    echo "Erro: não foi possível preparar o índice de pacotes oficiais antes da instalação." >&2
+    announce_error "Não foi possível preparar o índice de pacotes oficiais antes da instalação."
     return 1
   fi
 
   official_packages=()
   aur_packages=()
+
+  if [[ "$STEP_OUTPUT_ONLY" == "1" ]]; then
+    for package in "${packages[@]}"; do
+      [[ "$package" == "codex" ]] && continue
+      if package_exists_in_official_repos "$package"; then
+        official_target_count=$((official_target_count + 1))
+      else
+        package_origin_status=$?
+        if [[ "$package_origin_status" == "2" ]]; then
+          announce_error "Não foi possível classificar o pacote '$package' entre repositório oficial e AUR."
+          return 1
+        fi
+        aur_target_count=$((aur_target_count + 1))
+      fi
+    done
+  fi
 
   for package in "${packages[@]}"; do
     case "$package" in
@@ -756,6 +878,9 @@ install_packages_in_order() {
       official_packages+=("$package")
       if [[ "$shown_pacman_step" == "0" ]]; then
         announce_step "Instalando apps oficiais..."
+        if (( official_target_count > 0 )); then
+          announce_detail "$official_target_count item(ns) previsto(s) na lista principal oficial."
+        fi
         shown_pacman_step=1
       fi
       announce_detail "Instalando via pacman: $package"
@@ -768,7 +893,7 @@ install_packages_in_order() {
     fi
 
     if [[ "$package_origin_status" == "2" ]]; then
-      echo "Erro: não foi possível classificar o pacote '$package' entre repositório oficial e AUR." >&2
+      announce_error "Não foi possível classificar o pacote '$package' entre repositório oficial e AUR."
       return 1
     fi
 
@@ -780,6 +905,9 @@ install_packages_in_order() {
 
     if [[ "$shown_aur_step" == "0" ]]; then
       announce_step "Instalando apps AUR..."
+      if (( aur_target_count > 0 )); then
+        announce_detail "$aur_target_count item(ns) previsto(s) na lista principal AUR."
+      fi
       shown_aur_step=1
     fi
     announce_detail "Instalando via AUR: $package"
@@ -825,48 +953,62 @@ print_summary() {
     completed_actions+=("github_ssh")
   fi
 
+  close_step_block
+
   if [[ "$STEP_OUTPUT_ONLY" == "1" ]]; then
     echo
-    echo "Concluído."
-    echo "Modo: $execution_mode"
-    echo "Alterações aplicadas: $changes_applied"
-    echo "Log: $LOG_FILE"
-    echo "Resumo: $SUMMARY_FILE"
+    printf '%s %s\n' "$(style_text "$style_success" "╭─")" "$(style_text "$style_success" "Concluído")"
+    print_summary_section "Arquivos"
+    print_summary_item "Log:" "$LOG_FILE"
+    print_summary_item "Resumo:" "$SUMMARY_FILE"
+    print_summary_section "Estado"
+    print_summary_item "Modo:" "$execution_mode"
+    print_summary_item "Alterações aplicadas:" "$changes_applied"
+    echo "│"
+    style_text "$style_muted" "╰─ Fim"
+    printf '\n'
   else
     echo
-    echo "Concluído."
-    echo "Modo: $execution_mode"
-    echo "Alterações aplicadas: $changes_applied"
-    echo "Log: $LOG_FILE"
-    echo "Resumo: $SUMMARY_FILE"
-    echo "Hostname: $host_name"
-    echo "Repositório: $repo_path"
-    echo "Branch: $actual_branch"
-    echo "Origin: $origin_status"
+    printf '%s %s\n' "$(style_text "$style_success" "╭─")" "$(style_text "$style_success" "Concluído")"
+    print_summary_section "Arquivos"
+    print_summary_item "Log:" "$LOG_FILE"
+    print_summary_item "Resumo:" "$SUMMARY_FILE"
+    print_summary_section "Estado"
+    print_summary_item "Modo:" "$execution_mode"
+    print_summary_item "Alterações aplicadas:" "$changes_applied"
+    print_summary_item "Hostname:" "$host_name"
+    print_summary_item "Repositório:" "$repo_path"
+    print_summary_item "Branch:" "$actual_branch"
+    print_summary_item "Origin:" "$origin_status"
     if [[ -n "$requested_branch_note" ]]; then
-      echo "Branch solicitada: $requested_branch_note"
+      print_summary_item "Branch solicitada:" "$requested_branch_note"
     fi
-    echo "Itens da lista principal tratados via pacman: ${official_packages[*]:-nenhum}"
-    echo "Itens da lista principal tratados via AUR: ${aur_packages[*]:-nenhum}"
-    echo "Dependências de suporte tratadas: ${support_packages[*]:-nenhuma}"
-    echo "Dependências do ambiente gráfico tratadas: ${environment_packages[*]:-nenhuma}"
-    echo "Configurações explícitas: ${completed_actions[*]:-nenhuma}"
-    echo "GitHub SSH esperado: $(if github_ssh_expected; then echo sim; else echo não; fi)"
-    echo "GitHub SSH: $github_ssh_status"
-    echo "Integração desktop: $desktop_integration_status"
-    echo "Helper AUR: ${aur_helper_status:-indisponível}"
-    echo "Falhas pacman: ${official_failed[*]:-nenhuma}"
-    echo "Falhas AUR: ${aur_failed[*]:-nenhuma}"
-    echo "Verificados: ${verified_commands[*]:-nenhum}"
-    echo "Ausentes: ${missing_commands[*]:-nenhum}"
+    print_summary_section "Pacotes e configuração"
+    print_summary_item "Lista principal via pacman:" "${official_packages[*]:-nenhum}"
+    print_summary_item "Lista principal via AUR:" "${aur_packages[*]:-nenhum}"
+    print_summary_item "Dependências de suporte:" "${support_packages[*]:-nenhuma}"
+    print_summary_item "Ambiente gráfico:" "${environment_packages[*]:-nenhuma}"
+    print_summary_item "Configurações explícitas:" "${completed_actions[*]:-nenhuma}"
+    print_summary_item "GitHub SSH esperado:" "$(if github_ssh_expected; then echo sim; else echo não; fi)"
+    print_summary_item "GitHub SSH:" "$github_ssh_status"
+    print_summary_item "Integração desktop:" "$desktop_integration_status"
+    print_summary_item "Helper AUR:" "${aur_helper_status:-indisponível}"
+    print_summary_section "Verificação"
+    print_summary_item "Falhas pacman:" "${official_failed[*]:-nenhuma}"
+    print_summary_item "Falhas AUR:" "${aur_failed[*]:-nenhuma}"
+    print_summary_item "Verificados:" "${verified_commands[*]:-nenhum}"
+    print_summary_item "Ausentes:" "${missing_commands[*]:-nenhum}"
     if ((${#version_info[@]} == 0)); then
-      echo "Versões: nenhuma"
+      print_summary_item "Versões:" "nenhuma"
     else
-      echo "Versões:"
+      print_summary_section "Versões"
       for version_line in "${version_info[@]}"; do
-        echo "- $version_line"
+        echo "│    $(style_text "$style_detail" "•") $version_line"
       done
     fi
+    echo "│"
+    style_text "$style_muted" "╰─ Fim"
+    printf '\n'
   fi
 
   mkdir -p "$(dirname "$SUMMARY_FILE")"
@@ -978,7 +1120,7 @@ end"
 
   announce_detail "Configurando o prefixo do npm em $HOME/Codex..."
   if ! run_log_only npm config set prefix "$HOME/Codex"; then
-    echo "Erro: não foi possível configurar o prefixo do npm para o Codex CLI." >&2
+    announce_error "Não foi possível configurar o prefixo do npm para o Codex CLI."
     return 1
   fi
 
@@ -1011,12 +1153,12 @@ end"
 
   announce_detail "Instalando Codex CLI em $HOME/Codex..."
   if ! retry_log_only npm install -g @openai/codex; then
-    echo "Erro: não foi possível instalar o Codex CLI." >&2
+    announce_error "Não foi possível instalar o Codex CLI."
     return 1
   fi
 
   if ! mark_checkpoint "codex_cli"; then
-    echo "Erro: não foi possível registrar o checkpoint do Codex CLI." >&2
+    announce_error "Não foi possível registrar o checkpoint do Codex CLI."
     return 1
   fi
 }
@@ -1034,7 +1176,7 @@ ensure_ssh_key() {
     if [[ ! -f "${SSH_KEY_PATH}.pub" ]]; then
       announce_detail "A chave pública SSH não foi encontrada. Recriando ${SSH_KEY_PATH}.pub..."
       if ! ssh-keygen -y -f "$SSH_KEY_PATH" >"${SSH_KEY_PATH}.pub"; then
-        echo "Erro: não foi possível recriar a chave pública SSH." >&2
+        announce_error "Não foi possível recriar a chave pública SSH."
         return 1
       fi
       chmod 644 "${SSH_KEY_PATH}.pub"
@@ -1051,7 +1193,7 @@ ensure_ssh_key() {
 
   announce_detail "Criando chave SSH em $SSH_KEY_PATH..."
   if ! ssh-keygen -t ed25519 -C "$key_comment" -f "$SSH_KEY_PATH" -N ""; then
-    echo "Erro: não foi possível criar a chave SSH." >&2
+    announce_error "Não foi possível criar a chave SSH."
     return 1
   fi
 
@@ -1064,7 +1206,7 @@ ensure_github_auth() {
     return
   fi
 
-  echo "Autenticando no GitHub com gh..."
+  announce_prompt "Autenticando no GitHub com gh..."
   run_gh_auth_flow auth login --web --git-protocol ssh --scopes admin:public_key
 }
 
@@ -1080,23 +1222,23 @@ upload_ssh_key() {
   local key_title
 
   if ! current_key="$(current_public_ssh_key)"; then
-    echo "Aviso: a chave pública SSH atual não está disponível." >&2
+    announce_warning "A chave pública SSH atual não está disponível."
     return 1
   fi
   if [[ -z "$current_key" ]]; then
-    echo "Aviso: a chave pública SSH atual está vazia ou inválida." >&2
+    announce_warning "A chave pública SSH atual está vazia ou inválida."
     return 1
   fi
   key_title="$(build_ssh_key_title)"
   if ! existing_keys="$(gh api user/keys --jq '.[] | [.id, .title, .key] | @tsv' 2>/dev/null)"; then
     announce_detail "A permissão admin:public_key não está disponível no gh. A autenticação será renovada."
     if ! run_gh_auth_flow auth refresh -h github.com -s admin:public_key; then
-      echo "Aviso: não foi possível renovar o escopo admin:public_key no gh."
+      announce_warning "Não foi possível renovar o escopo admin:public_key no gh."
       return 1
     fi
 
     if ! existing_keys="$(gh api user/keys --jq '.[] | [.id, .title, .key] | @tsv' 2>/dev/null)"; then
-      echo "Aviso: o gh continua sem acesso para gerenciar chaves SSH no GitHub."
+      announce_warning "O gh continua sem acesso para gerenciar chaves SSH no GitHub."
       return 1
     fi
   fi
@@ -1114,7 +1256,7 @@ upload_ssh_key() {
   if [[ -n "$current_key_id" && "$current_key_title" != "$key_title" ]]; then
     announce_detail "A chave SSH atual já existe no GitHub com outro título. Recriando com o nome correto..."
     if ! retry gh api --method DELETE "user/keys/$current_key_id"; then
-      echo "Aviso: não foi possível remover a chave SSH antiga com título incorreto." >&2
+      announce_warning "Não foi possível remover a chave SSH antiga com título incorreto."
       return 1
     fi
     current_key_id=""
@@ -1128,11 +1270,11 @@ upload_ssh_key() {
   if [[ -z "$current_key_id" ]]; then
     announce_detail "Enviando a chave SSH ao GitHub..."
     if ! current_key_id="$(retry gh api user/keys --method POST -f "title=$key_title" -f "key=$current_key" --jq '.id')"; then
-      echo "Aviso: não foi possível enviar a chave SSH atual ao GitHub." >&2
+      announce_warning "Não foi possível enviar a chave SSH atual ao GitHub."
       return 1
     fi
     if [[ -z "$current_key_id" || ! "$current_key_id" =~ ^[0-9]+$ ]]; then
-      echo "Aviso: o GitHub não retornou um identificador válido para a chave SSH enviada." >&2
+      announce_warning "O GitHub não retornou um identificador válido para a chave SSH enviada."
       return 1
     fi
   else
@@ -1150,12 +1292,12 @@ upload_ssh_key() {
     [[ "$key_id" =~ ^[0-9]+$ ]] || continue
     [[ "$key_id" == "$current_key_id" ]] && continue
     if ! retry gh api --method DELETE "user/keys/$key_id"; then
-      echo "Aviso: não foi possível remover a chave SSH antiga de ID $key_id." >&2
+      announce_warning "Não foi possível remover a chave SSH antiga de ID $key_id."
     fi
   done <<<"$key_ids"
 
   if ! github_has_expected_ssh_key_title; then
-    echo "Aviso: a chave SSH foi enviada, mas o título esperado no GitHub não pôde ser confirmado."
+    announce_warning "A chave SSH foi enviada, mas o título esperado no GitHub não pôde ser confirmado."
     return 1
   fi
 }
@@ -1177,24 +1319,24 @@ sync_repo() {
     if repo_is_dirty; then
       current_branch="$(get_repo_branch "$INSTALL_DIR" 2>/dev/null || true)"
       if [[ -n "$current_branch" && "$current_branch" != "$REPO_BRANCH" ]]; then
-        echo "Erro: o clone gerenciado está com mudanças locais na branch '$current_branch'." >&2
-        echo "Não dá para executar com segurança a branch solicitada '$REPO_BRANCH' sem limpar ou mover essas mudanças." >&2
+        announce_error "O clone gerenciado está com mudanças locais na branch '$current_branch'."
+        announce_error "Não dá para executar com segurança a branch solicitada '$REPO_BRANCH' sem limpar ou mover essas mudanças."
         exit 1
       fi
 
-      echo "Aviso: o repositório local tem alterações. A atualização automática será ignorada."
+      announce_warning "O repositório local tem alterações. A atualização automática será ignorada."
       return
     fi
 
     if ! ensure_repo_origin_remote "$INSTALL_DIR"; then
-      echo "Erro: não foi possível ajustar o remoto origin do clone gerenciado." >&2
+      announce_error "Não foi possível ajustar o remoto origin do clone gerenciado."
       exit 1
     fi
 
     if retry_log_only git -C "$INSTALL_DIR" fetch origin; then
       fetched_origin=1
     else
-      echo "Aviso: falha ao buscar atualizações de origin. O script tentará usar a cópia local."
+      announce_warning "Falha ao buscar atualizações de origin. O script tentará usar a cópia local."
     fi
 
     if git -C "$INSTALL_DIR" show-ref --verify --quiet "refs/heads/$REPO_BRANCH"; then
@@ -1202,32 +1344,32 @@ sync_repo() {
     elif git -C "$INSTALL_DIR" show-ref --verify --quiet "refs/remotes/origin/$REPO_BRANCH"; then
       git -C "$INSTALL_DIR" checkout -b "$REPO_BRANCH" "origin/$REPO_BRANCH"
     elif [[ "$fetched_origin" == "0" ]]; then
-      echo "Erro: não foi possível atualizar origin e a branch '$REPO_BRANCH' não existe localmente." >&2
-      echo "Verifique acesso ao GitHub ou rode uma branch já presente no clone local." >&2
+      announce_error "Não foi possível atualizar origin e a branch '$REPO_BRANCH' não existe localmente."
+      announce_error "Verifique acesso ao GitHub ou rode uma branch já presente no clone local."
       exit 1
     else
-      echo "Erro: branch '$REPO_BRANCH' não encontrada no repositório local nem em origin." >&2
+      announce_error "Branch '$REPO_BRANCH' não encontrada no repositório local nem em origin."
       exit 1
     fi
 
     if [[ "$fetched_origin" == "0" ]]; then
-      echo "Aviso: o 'git pull' será ignorado porque o fetch de origin falhou. O script continuará com a branch local."
+      announce_warning "O 'git pull' será ignorado porque o fetch de origin falhou. O script continuará com a branch local."
       return
     fi
 
     if ! retry_log_only git -C "$INSTALL_DIR" pull --ff-only origin "$REPO_BRANCH"; then
-      echo "Aviso: falha ao atualizar '$REPO_BRANCH' com 'git pull --ff-only'. O script continuará com a cópia atual."
+      announce_warning "Falha ao atualizar '$REPO_BRANCH' com 'git pull --ff-only'. O script continuará com a cópia atual."
     fi
   else
     if [[ -e "$INSTALL_DIR" ]]; then
-      echo "Erro: $INSTALL_DIR já existe e não é um repositório git." >&2
+      announce_error "$INSTALL_DIR já existe e não é um repositório git."
       exit 1
     fi
 
     announce_step "Clonando repositório..."
     if ! retry_log_only git clone --branch "$REPO_BRANCH" --single-branch "$REPO_HTTPS_URL" "$INSTALL_DIR"; then
-      echo "Erro: falha ao clonar '$REPO_BRANCH' de $REPO_HTTPS_URL." >&2
-      echo "Verifique acesso ao GitHub e se a branch existe no remoto." >&2
+      announce_error "Falha ao clonar '$REPO_BRANCH' de $REPO_HTTPS_URL."
+      announce_error "Verifique acesso ao GitHub e se a branch existe no remoto."
       exit 1
     fi
   fi
@@ -1248,7 +1390,7 @@ run_bootstrap() {
   if ((${#missing_packages[@]} > 0)); then
     announce_step "Instalando dependências iniciais..."
     if ! retry_log_only sudo pacman -Syu --needed --noconfirm "${missing_packages[@]}"; then
-      echo "Erro: não foi possível instalar as dependências iniciais." >&2
+      announce_error "Não foi possível instalar as dependências iniciais."
       exit 1
     fi
     bootstrap_system_updated=1
@@ -1306,7 +1448,7 @@ setup_github_ssh() {
   if [[ "$github_ssh_already_ready" == "1" ]]; then
     github_ssh_status="ignorada por já estar pronta"
     if ! ensure_repo_origin_remote "$SCRIPT_DIR"; then
-      echo "Aviso: não foi possível ajustar o remoto do repositório para SSH." >&2
+      announce_warning "Não foi possível ajustar o remoto do repositório para SSH."
     fi
     announce_detail "O GitHub SSH já está configurado. Etapa ignorada."
     return
@@ -1320,7 +1462,7 @@ setup_github_ssh() {
   if ((${#missing_packages[@]} > 0)); then
     if ! retry_log_only sudo pacman -S --needed --noconfirm "${missing_packages[@]}"; then
       github_ssh_status="ignorada por falha"
-      echo "Aviso: não foi possível instalar github-cli/openssh. A configuração do GitHub será ignorada."
+      announce_warning "Não foi possível instalar github-cli/openssh. A configuração do GitHub será ignorada."
       return
     fi
   else
@@ -1329,39 +1471,39 @@ setup_github_ssh() {
 
   if ! command -v gh >/dev/null 2>&1 || ! command -v ssh-keygen >/dev/null 2>&1; then
     github_ssh_status="ignorada por falha"
-    echo "Aviso: github-cli ou ssh-keygen está indisponível. A configuração do GitHub será ignorada."
+    announce_warning "github-cli ou ssh-keygen está indisponível. A configuração do GitHub será ignorada."
     return
   fi
 
   if ! ensure_ssh_key; then
     github_ssh_status="ignorada por falha"
-    echo "Aviso: não foi possível preparar a chave SSH local. A configuração do GitHub será ignorada." >&2
+    announce_warning "Não foi possível preparar a chave SSH local. A configuração do GitHub será ignorada."
     return
   fi
 
   if ! ensure_github_auth; then
     cleanup_temp_clipboard_utility || true
     github_ssh_status="ignorada por falha"
-    echo "Aviso: a autenticação do GitHub não foi concluída. O envio da chave SSH será ignorado."
+    announce_warning "A autenticação do GitHub não foi concluída. O envio da chave SSH será ignorado."
     return
   fi
 
   if ! upload_ssh_key; then
     cleanup_temp_clipboard_utility || true
     github_ssh_status="ignorada por falha"
-    echo "Aviso: não foi possível enviar a chave SSH para o GitHub."
+    announce_warning "Não foi possível enviar a chave SSH para o GitHub."
     return
   fi
 
   cleanup_temp_clipboard_utility || true
   if ! mark_checkpoint "github_ssh"; then
     github_ssh_status="ignorada por falha"
-    echo "Aviso: a chave SSH foi configurada, mas o checkpoint do GitHub SSH não pôde ser registrado." >&2
+    announce_warning "A chave SSH foi configurada, mas o checkpoint do GitHub SSH não pôde ser registrado."
     return
   fi
   github_ssh_status="concluída"
   if ! ensure_repo_origin_remote "$SCRIPT_DIR"; then
-    echo "Aviso: a chave SSH foi configurada, mas não foi possível ajustar o remoto do repositório para SSH." >&2
+    announce_warning "A chave SSH foi configurada, mas não foi possível ajustar o remoto do repositório para SSH."
   fi
 }
 
@@ -1550,7 +1692,7 @@ attempt_final_repair_once() {
           append_array_item repair_pacman_packages "$item"
         else
           if [[ "$package_origin_status" == "2" ]]; then
-            echo "Erro: não foi possível classificar o item ausente '$item' para a correção automática." >&2
+            announce_error "Não foi possível classificar o item ausente '$item' para a correção automática."
             return 1
           fi
           append_array_item repair_aur_packages "$item"
@@ -1597,7 +1739,7 @@ attempt_final_repair_once() {
   fi
 
   if desktop_integration_ready && ! has_checkpoint "desktop_integration" && ! mark_checkpoint "desktop_integration"; then
-    echo "Aviso: não foi possível registrar o checkpoint da integração desktop após a correção automática." >&2
+    announce_warning "Não foi possível registrar o checkpoint da integração desktop após a correção automática."
   fi
 
   verify_installation
@@ -1613,8 +1755,8 @@ ensure_final_verification_passed() {
     return 0
   fi
 
-  echo "Erro: a verificação final encontrou itens ausentes após a instalação." >&2
-  echo "Itens ausentes: ${missing_commands[*]}" >&2
+  announce_error "A verificação final encontrou itens ausentes após a instalação."
+  announce_error "Itens ausentes: ${missing_commands[*]}"
   return 1
 }
 
@@ -1663,7 +1805,7 @@ run_install() {
     verify_installation
     print_summary
     if ((${#missing_commands[@]} > 0)); then
-      echo "Erro: a verificação sem alterações encontrou itens ausentes." >&2
+      announce_error "A verificação sem alterações encontrou itens ausentes."
       exit 1
     fi
     return 0
@@ -1677,14 +1819,15 @@ run_install() {
   else
     announce_step "Atualizando o sistema..."
     if ! retry_log_only sudo pacman -Syu --noconfirm; then
-      echo "Erro: não foi possível concluir a atualização completa do sistema." >&2
+      announce_error "Não foi possível concluir a atualização completa do sistema."
       print_summary
       exit 1
     fi
   fi
 
+  announce_step "Preparando helper AUR..."
   if ! ensure_aur_helper; then
-    echo "Erro: não foi possível preparar o helper AUR padrão para a instalação." >&2
+    announce_error "Não foi possível preparar o helper AUR padrão para a instalação."
     print_summary
     exit 1
   fi
@@ -1701,7 +1844,7 @@ run_install() {
   announce_step "Ajustando integração desktop..."
   if desktop_integration_expected; then
     if ! ensure_desktop_integration; then
-      echo "Erro: a integração desktop falhou. A etapa do GitHub SSH não foi executada." >&2
+      announce_error "A integração desktop falhou. A etapa do GitHub SSH não foi executada."
       print_summary
       exit 1
     fi
@@ -1725,12 +1868,21 @@ main() {
   ensure_not_root
   acquire_lock
   init_logging
+  if [[ -f "$PACKAGE_FILE" ]]; then
+    if [[ "$CHECK_ONLY" == "1" ]]; then
+      set_step_total 3
+    else
+      set_step_total 11
+    fi
+  else
+    set_step_total 4
+  fi
   announce_step "Validando ambiente..."
   ensure_arch
   ensure_supported_session
   require_command pacman
   require_command sudo
-  echo "Autenticando sudo..."
+  announce_prompt "Autenticando sudo..."
   sudo -v
 
   if [[ -f "$PACKAGE_FILE" ]]; then
