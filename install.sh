@@ -21,11 +21,13 @@ LOG_FILE="${POSTINSTALL_LOG_FILE:-$HOME/Backups/arch-postinstall.log}"
 SUMMARY_FILE="${POSTINSTALL_SUMMARY_FILE:-$HOME/Backups/arch-postinstall-summary.txt}"
 REPLACE_GITHUB_SSH_KEYS="${REPLACE_GITHUB_SSH_KEYS:-1}"
 CHECK_ONLY="${CHECK_ONLY:-0}"
+DRY_RUN="${DRY_RUN:-0}"
 SKIP_GITHUB_SSH="${SKIP_GITHUB_SSH:-0}"
 SKIP_DESKTOP_INTEGRATION="${SKIP_DESKTOP_INTEGRATION:-0}"
 RETRY_ATTEMPTS=1
 RETRY_DELAY_SECONDS=0
 STEP_OUTPUT_ONLY="${STEP_OUTPUT_ONLY:-1}"
+QUIET_MODE="${QUIET_MODE:-0}"
 STATE_DIR="${POSTINSTALL_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/arch-postinstall-apps}"
 LOCK_DIR="${POSTINSTALL_LOCK_DIR:-$STATE_DIR/lock}"
 LOCK_HELD="${POSTINSTALL_LOCK_HELD:-0}"
@@ -85,9 +87,11 @@ Uso:
 Opções:
   -b, --branch NOME       Define a branch a executar.
   -c, --check             Valida o ambiente sem instalar nem alterar o sistema.
+  -n, --dry-run           Mostra o que seria feito sem instalar nem alterar o sistema.
   -d, --no-desktop        Pula a etapa de integração desktop.
   -g, --no-gh             Pula a etapa de GitHub SSH.
   -k, --keep-gh-keys      Mantém as chaves SSH já cadastradas no GitHub.
+  -q, --quiet             Mostra só etapas, avisos, erros e resumo final.
   -t, --ssh-title NOME    Define o título da chave SSH enviada ao GitHub.
   -v, --verbose           Desativa o modo resumido e mostra a saída completa.
   -h, --help              Exibe esta ajuda.
@@ -115,6 +119,10 @@ parse_cli_args() {
         CHECK_ONLY=1
         shift
         ;;
+      -n|--dry-run)
+        DRY_RUN=1
+        shift
+        ;;
       -d|--no-desktop)
         SKIP_DESKTOP_INTEGRATION=1
         shift
@@ -125,6 +133,11 @@ parse_cli_args() {
         ;;
       -k|--keep-gh-keys)
         REPLACE_GITHUB_SSH_KEYS=0
+        shift
+        ;;
+      -q|--quiet)
+        QUIET_MODE=1
+        STEP_OUTPUT_ONLY=1
         shift
         ;;
       -t|--ssh-title)
@@ -366,6 +379,9 @@ announce_step() {
 announce_detail() {
   if [[ "$STEP_OUTPUT_ONLY" == "1" ]]; then
     printf '%s\n' "$1" >>"$LOG_FILE"
+    if [[ "$QUIET_MODE" == "1" ]]; then
+      return 0
+    fi
     if [[ "$1" == *"Etapa ignorada."* || "$1" == Instalando\ via\ pacman:* || "$1" == Instalando\ via\ AUR:* ]]; then
       return 0
     fi
@@ -388,6 +404,9 @@ announce_error() {
 
 announce_prompt() {
   printf '%s\n' "$1" >>"$LOG_FILE"
+  if [[ "$QUIET_MODE" == "1" && "$STEP_OUTPUT_ONLY" == "1" ]]; then
+    return 0
+  fi
   emit_notice "?" "$style_step" "$1"
 }
 
@@ -1040,9 +1059,69 @@ install_packages_in_order() {
   done
 }
 
+plan_installation() {
+  local package
+  local package_name
+  local package_origin_status
+
+  official_packages=()
+  aur_packages=()
+  official_failed=()
+  aur_failed=()
+  support_packages=()
+  environment_packages=()
+
+  mark_support_package "base-devel"
+  mark_support_package "yay"
+
+  if github_ssh_expected; then
+    mark_support_package "github-cli"
+    mark_support_package "openssh"
+  fi
+
+  if desktop_integration_expected; then
+    for package_name in \
+      pipewire \
+      wireplumber \
+      xdg-utils \
+      xdg-desktop-portal \
+      xdg-desktop-portal-gtk \
+      xdg-desktop-portal-hyprland; do
+      mark_environment_package "$package_name"
+    done
+  fi
+
+  if ! refresh_official_repo_index; then
+    announce_error "Não foi possível preparar o índice de pacotes oficiais para a simulação."
+    return 1
+  fi
+
+  for package in "${packages[@]}"; do
+    case "$package" in
+      codex)
+        continue
+        ;;
+    esac
+
+    if package_exists_in_official_repos "$package"; then
+      official_packages+=("$package")
+      continue
+    fi
+
+    package_origin_status=$?
+    if [[ "$package_origin_status" == "2" ]]; then
+      announce_error "Não foi possível classificar o pacote '$package' entre repositório oficial e AUR."
+      return 1
+    fi
+
+    aur_packages+=("$package")
+  done
+}
+
 print_summary() {
   local host_name
   local actual_branch
+  local actual_commit
   local repo_path
   local origin_status="indisponível"
   local requested_branch_note=""
@@ -1054,10 +1133,14 @@ print_summary() {
   if [[ "$CHECK_ONLY" == "1" ]]; then
     execution_mode="verificação"
     changes_applied="não"
+  elif [[ "$DRY_RUN" == "1" ]]; then
+    execution_mode="simulação"
+    changes_applied="não"
   fi
 
   host_name="$(get_host_name)"
   actual_branch="$(get_repo_branch "$SCRIPT_DIR" 2>/dev/null || printf '%s\n' "$REPO_BRANCH")"
+  actual_commit="$(current_repo_commit_short "$SCRIPT_DIR")"
   repo_path="$SCRIPT_DIR"
   origin_status="$(current_repo_origin_status "$SCRIPT_DIR")"
   if [[ "$actual_branch" != "$REPO_BRANCH" ]]; then
@@ -1085,6 +1168,8 @@ print_summary() {
     print_summary_section "Estado"
     print_summary_item "Modo:" "$execution_mode"
     print_summary_item "Alterações aplicadas:" "$changes_applied"
+    print_summary_item "Branch:" "$actual_branch"
+    print_summary_item "Commit:" "$actual_commit"
     echo "│"
     style_text "$style_muted" "╰─ Fim"
     printf '\n'
@@ -1100,6 +1185,7 @@ print_summary() {
     print_summary_item "Hostname:" "$host_name"
     print_summary_item "Repositório:" "$repo_path"
     print_summary_item "Branch:" "$actual_branch"
+    print_summary_item "Commit:" "$actual_commit"
     print_summary_item "Origin:" "$origin_status"
     if [[ -n "$requested_branch_note" ]]; then
       print_summary_item "Branch solicitada:" "$requested_branch_note"
@@ -1141,6 +1227,7 @@ Log: $LOG_FILE
 Hostname: $host_name
 Repositório: $repo_path
 Branch: $actual_branch
+Commit: $actual_commit
 Origin: $origin_status
 $(if [[ -n "$requested_branch_note" ]]; then printf 'Branch solicitada: %s\n' "$requested_branch_note"; fi)
 Itens da lista principal tratados via pacman: ${official_packages[*]:-nenhum}
@@ -1188,6 +1275,19 @@ current_repo_origin_status() {
       printf '%s\n' "personalizado"
       ;;
   esac
+}
+
+current_repo_commit_short() {
+  local repo_dir="$1"
+  local commit_hash=""
+
+  commit_hash="$(git -C "$repo_dir" rev-parse --short HEAD 2>/dev/null || true)"
+  [[ -n "$commit_hash" ]] || {
+    printf '%s\n' "indisponível"
+    return 0
+  }
+
+  printf '%s\n' "$commit_hash"
 }
 
 create_directories() {
@@ -1932,6 +2032,22 @@ run_install() {
     return 0
   fi
 
+  if [[ "$DRY_RUN" == "1" ]]; then
+    announce_step "Executando simulação sem alterações..."
+    github_ssh_status="$(if github_ssh_expected; then echo "simulada"; else echo "ignorada por configuração"; fi)"
+    desktop_integration_status="$(if desktop_integration_expected; then echo "simulada"; else echo "ignorada por configuração"; fi)"
+    aur_helper_status="$(if command -v yay >/dev/null 2>&1; then echo "yay (reutilizado)"; elif command -v paru >/dev/null 2>&1; then echo "paru (fallback)"; else echo "não preparado"; fi)"
+    if ! plan_installation; then
+      print_summary
+      exit 1
+    fi
+    verified_commands=("não aplicável")
+    missing_commands=("não aplicável")
+    version_info=()
+    print_summary
+    return 0
+  fi
+
   create_directories
   ensure_multilib
 
@@ -1992,6 +2108,8 @@ main() {
   init_logging
   if [[ -f "$PACKAGE_FILE" ]]; then
     if [[ "$CHECK_ONLY" == "1" ]]; then
+      set_step_total 3
+    elif [[ "$DRY_RUN" == "1" ]]; then
       set_step_total 3
     else
       set_step_total 11
