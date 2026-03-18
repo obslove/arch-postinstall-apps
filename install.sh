@@ -10,13 +10,12 @@ ZSHRC_FILE="$HOME/.zshrc"
 FISH_CONFIG_FILE="$HOME/.config/fish/config.fish"
 REPO_HTTPS_URL="https://github.com/obslove/arch-postinstall-apps.git"
 REPO_SSH_URL="git@github.com:obslove/arch-postinstall-apps.git"
-REPO_BRANCH="main"
 REPOSITORIES_DIR="${REPOSITORIES_DIR:-$HOME/Repositories}"
 INSTALL_DIR="${BOOTSTRAP_DIR:-$REPOSITORIES_DIR/arch-postinstall-apps}"
 YAY_REPO_DIR="${YAY_REPO_DIR:-$REPOSITORIES_DIR/yay}"
 YAY_SNAPSHOT_URL="${YAY_SNAPSHOT_URL:-https://aur.archlinux.org/cgit/aur.git/snapshot/yay.tar.gz}"
 SSH_KEY_PATH="${SSH_KEY_PATH:-$HOME/.ssh/id_ed25519}"
-GITHUB_SSH_KEY_TITLE=""
+GITHUB_SSH_KEY_NAME=""
 LOG_FILE="${POSTINSTALL_LOG_FILE:-$HOME/Backups/arch-postinstall.log}"
 SUMMARY_FILE="${POSTINSTALL_SUMMARY_FILE:-$HOME/Backups/arch-postinstall-summary.txt}"
 CHECK_ONLY=0
@@ -82,8 +81,8 @@ Uso:
 
 Opções:
   -c, --check             Valida o ambiente sem instalar nem alterar o sistema.
-  -g, --no-gh             Pula a etapa de GitHub SSH.
-  -t, --ssh-title NOME    Define o título da chave SSH enviada ao GitHub.
+  -n, --no-gh             Pula a etapa de GitHub SSH.
+  -s, --ssh-name NOME     Define o nome da chave SSH enviada ao GitHub.
   -v, --verbose           Desativa o modo resumido e mostra a saída completa.
   -h, --help              Exibe esta ajuda.
 EOF
@@ -96,20 +95,20 @@ parse_cli_args() {
         CHECK_ONLY=1
         shift
         ;;
-      -g|--no-gh)
+      -n|--no-gh)
         SKIP_GITHUB_SSH=1
         shift
         ;;
-      -t|--ssh-title)
+      -s|--ssh-name)
         [[ $# -ge 2 ]] || {
           printf 'Erro: faltou informar o valor de %s.\n' "$1" >&2
           exit 1
         }
-        GITHUB_SSH_KEY_TITLE="$2"
+        GITHUB_SSH_KEY_NAME="$2"
         shift 2
         ;;
-      --ssh-title=*)
-        GITHUB_SSH_KEY_TITLE="${1#*=}"
+      --ssh-name=*)
+        GITHUB_SSH_KEY_NAME="${1#*=}"
         shift
         ;;
       -v|--verbose)
@@ -468,11 +467,11 @@ sanitize_label() {
   printf '%s' "$1" | tr -cs '[:alnum:].@_-' '-'
 }
 
-build_ssh_key_title() {
+build_ssh_key_name() {
   local github_login=""
 
-  if [[ -n "$GITHUB_SSH_KEY_TITLE" ]]; then
-    printf '%s\n' "$GITHUB_SSH_KEY_TITLE"
+  if [[ -n "$GITHUB_SSH_KEY_NAME" ]]; then
+    printf '%s\n' "$GITHUB_SSH_KEY_NAME"
     return
   fi
 
@@ -842,7 +841,7 @@ github_ssh_ready() {
   command -v gh >/dev/null 2>&1 || return 1
   gh auth status >/dev/null 2>&1 || return 1
   has_checkpoint "github_ssh" || return 1
-  github_has_expected_ssh_key_title
+  github_has_expected_ssh_key_name
 }
 
 github_has_current_ssh_key() {
@@ -1018,7 +1017,7 @@ print_summary() {
   fi
 
   host_name="$(get_host_name)"
-  actual_branch="$(get_repo_branch "$SCRIPT_DIR" 2>/dev/null || printf '%s\n' "$REPO_BRANCH")"
+  actual_branch="$(get_repo_branch "$SCRIPT_DIR" 2>/dev/null || printf '%s\n' "main")"
   actual_commit="$(current_repo_commit_short "$SCRIPT_DIR")"
   repo_path="$SCRIPT_DIR"
   origin_status="$(current_repo_origin_status "$SCRIPT_DIR")"
@@ -1161,8 +1160,8 @@ build_bootstrap_args() {
   if [[ "$STEP_OUTPUT_ONLY" == "0" ]]; then
     forwarded_args+=("--verbose")
   fi
-  if [[ -n "$GITHUB_SSH_KEY_TITLE" ]]; then
-    forwarded_args+=("--ssh-title" "$GITHUB_SSH_KEY_TITLE")
+  if [[ -n "$GITHUB_SSH_KEY_NAME" ]]; then
+    forwarded_args+=("--ssh-name" "$GITHUB_SSH_KEY_NAME")
   fi
 
   if ((${#forwarded_args[@]} > 0)); then
@@ -1208,14 +1207,14 @@ find_current_github_ssh_key() {
   gh api user/keys --jq ".[] | select(.key == \"$current_key\") | [.id, .title] | @tsv"
 }
 
-github_has_expected_ssh_key_title() {
+github_has_expected_ssh_key_name() {
   local key_data
-  local current_key_title=""
+  local current_key_name=""
 
   key_data="$(find_current_github_ssh_key 2>/dev/null || true)"
   [[ -n "$key_data" ]] || return 1
-  IFS=$'\t' read -r _ current_key_title <<<"$key_data"
-  [[ "$current_key_title" == "$(build_ssh_key_title)" ]]
+  IFS=$'\t' read -r _ current_key_name <<<"$key_data"
+  [[ "$current_key_name" == "$(build_ssh_key_name)" ]]
 }
 
 setup_codex_cli() {
@@ -1327,12 +1326,12 @@ ensure_github_auth() {
 upload_ssh_key() {
   local current_key
   local current_key_id=""
-  local current_key_title=""
+  local current_key_name=""
   local existing_keys
   local key_id
-  local key_title_from_api
+  local key_name_from_api
   local key_value
-  local key_title
+  local key_name
 
   if ! current_key="$(current_public_ssh_key)"; then
     announce_warning "A chave pública SSH atual não está disponível."
@@ -1342,7 +1341,7 @@ upload_ssh_key() {
     announce_warning "A chave pública SSH atual está vazia ou inválida."
     return 1
   fi
-  key_title="$(build_ssh_key_title)"
+  key_name="$(build_ssh_key_name)"
   if ! existing_keys="$(gh api user/keys --jq '.[] | [.id, .title, .key] | @tsv' 2>/dev/null)"; then
     announce_detail "A permissão admin:public_key não está disponível no gh. A autenticação será renovada."
     if ! run_gh_auth_flow auth refresh -h github.com -s admin:public_key; then
@@ -1356,17 +1355,17 @@ upload_ssh_key() {
     fi
   fi
 
-  while IFS=$'\t' read -r key_id key_title_from_api key_value; do
+  while IFS=$'\t' read -r key_id key_name_from_api key_value; do
     [[ -n "$key_id" ]] || continue
     [[ -n "${key_value:-}" ]] || continue
     if [[ "$key_value" == "$current_key" ]]; then
       current_key_id="$key_id"
-      current_key_title="$key_title_from_api"
+      current_key_name="$key_name_from_api"
       break
     fi
   done <<<"$existing_keys"
 
-  if [[ -n "$current_key_id" && "$current_key_title" != "$key_title" ]]; then
+  if [[ -n "$current_key_id" && "$current_key_name" != "$key_name" ]]; then
     announce_detail "A chave SSH atual já existe no GitHub com outro título. Recriando com o nome correto..."
     if ! retry gh api --method DELETE "user/keys/$current_key_id"; then
       announce_warning "Não foi possível remover a chave SSH antiga com título incorreto."
@@ -1377,7 +1376,7 @@ upload_ssh_key() {
 
   if [[ -z "$current_key_id" ]]; then
     announce_detail "Enviando a chave SSH ao GitHub..."
-    if ! current_key_id="$(retry gh api user/keys --method POST -f "title=$key_title" -f "key=$current_key" --jq '.id')"; then
+    if ! current_key_id="$(retry gh api user/keys --method POST -f "title=$key_name" -f "key=$current_key" --jq '.id')"; then
       announce_warning "Não foi possível enviar a chave SSH atual ao GitHub."
       return 1
     fi
@@ -1389,7 +1388,7 @@ upload_ssh_key() {
     announce_detail "A chave SSH atual já existe no GitHub."
   fi
 
-  if ! github_has_expected_ssh_key_title; then
+  if ! github_has_expected_ssh_key_name; then
     announce_warning "A chave SSH foi enviada, mas o título esperado no GitHub não pôde ser confirmado."
     return 1
   fi
@@ -1411,9 +1410,9 @@ sync_repo() {
     announce_step "Atualizando repositório..."
     if repo_is_dirty; then
       current_branch="$(get_repo_branch "$INSTALL_DIR" 2>/dev/null || true)"
-      if [[ -n "$current_branch" && "$current_branch" != "$REPO_BRANCH" ]]; then
+      if [[ -n "$current_branch" && "$current_branch" != "main" ]]; then
         announce_error "O clone gerenciado está com mudanças locais na branch '$current_branch'."
-        announce_error "Não dá para executar com segurança a branch solicitada '$REPO_BRANCH' sem limpar ou mover essas mudanças."
+        announce_error "Não dá para executar com segurança a branch 'main' sem limpar ou mover essas mudanças."
         exit 1
       fi
 
@@ -1432,22 +1431,22 @@ sync_repo() {
       announce_warning "Falha ao buscar atualizações de origin. O script tentará usar a cópia local."
     fi
 
-    if git -C "$INSTALL_DIR" show-ref --verify --quiet "refs/heads/$REPO_BRANCH"; then
-      if ! run_log_only git -C "$INSTALL_DIR" checkout "$REPO_BRANCH"; then
-        announce_error "Não foi possível trocar para a branch local '$REPO_BRANCH'."
+    if git -C "$INSTALL_DIR" show-ref --verify --quiet "refs/heads/main"; then
+      if ! run_log_only git -C "$INSTALL_DIR" checkout main; then
+        announce_error "Não foi possível trocar para a branch local 'main'."
         exit 1
       fi
-    elif git -C "$INSTALL_DIR" show-ref --verify --quiet "refs/remotes/origin/$REPO_BRANCH"; then
-      if ! run_log_only git -C "$INSTALL_DIR" checkout -b "$REPO_BRANCH" "origin/$REPO_BRANCH"; then
-        announce_error "Não foi possível criar a branch local '$REPO_BRANCH' a partir de origin."
+    elif git -C "$INSTALL_DIR" show-ref --verify --quiet "refs/remotes/origin/main"; then
+      if ! run_log_only git -C "$INSTALL_DIR" checkout -b main origin/main; then
+        announce_error "Não foi possível criar a branch local 'main' a partir de origin."
         exit 1
       fi
     elif [[ "$fetched_origin" == "0" ]]; then
-      announce_error "Não foi possível atualizar origin e a branch '$REPO_BRANCH' não existe localmente."
-      announce_error "Verifique acesso ao GitHub ou rode uma branch já presente no clone local."
+      announce_error "Não foi possível atualizar origin e a branch 'main' não existe localmente."
+      announce_error "Verifique acesso ao GitHub ou recupere um clone local válido."
       exit 1
     else
-      announce_error "Branch '$REPO_BRANCH' não encontrada no repositório local nem em origin."
+      announce_error "Branch 'main' não encontrada no repositório local nem em origin."
       exit 1
     fi
 
@@ -1456,8 +1455,8 @@ sync_repo() {
       return
     fi
 
-    if ! retry_log_only git -C "$INSTALL_DIR" pull --ff-only origin "$REPO_BRANCH"; then
-      announce_warning "Falha ao atualizar '$REPO_BRANCH' com 'git pull --ff-only'. O script continuará com a cópia atual."
+    if ! retry_log_only git -C "$INSTALL_DIR" pull --ff-only origin main; then
+      announce_warning "Falha ao atualizar 'main' com 'git pull --ff-only'. O script continuará com a cópia atual."
     fi
   else
     if [[ -e "$INSTALL_DIR" ]]; then
@@ -1466,8 +1465,8 @@ sync_repo() {
     fi
 
     announce_step "Clonando repositório..."
-    if ! retry_log_only git clone --branch "$REPO_BRANCH" --single-branch "$REPO_HTTPS_URL" "$INSTALL_DIR"; then
-      announce_error "Falha ao clonar '$REPO_BRANCH' de $REPO_HTTPS_URL."
+    if ! retry_log_only git clone --branch main --single-branch "$REPO_HTTPS_URL" "$INSTALL_DIR"; then
+      announce_error "Falha ao clonar 'main' de $REPO_HTTPS_URL."
       announce_error "Verifique acesso ao GitHub e se a branch existe no remoto."
       exit 1
     fi
@@ -1528,7 +1527,7 @@ setup_github_ssh() {
   announce_detail "Verificando estado atual do GitHub SSH..."
   if has_checkpoint "github_ssh"; then
     announce_detail "Checkpoint do GitHub SSH encontrado. Conferindo autenticação e chave atual..."
-    if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1 && github_has_expected_ssh_key_title; then
+    if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1 && github_has_expected_ssh_key_name; then
       github_ssh_already_ready=1
     fi
   fi

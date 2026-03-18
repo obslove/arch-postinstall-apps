@@ -11,7 +11,7 @@ curl -fsSL https://obslove.dev | bash
 Com flags:
 
 ```bash
-curl -fsSL https://obslove.dev | bash -s -- -t "meu-dispositivo"
+curl -fsSL https://obslove.dev | bash -s -- -s "meu-dispositivo"
 ```
 
 Execute como usuário comum. Não use `sudo bash`.
@@ -43,9 +43,10 @@ Se o script for executado fora do repositório, ele verifica dependências inici
 <details>
 <summary>Pacotes e dependências</summary>
 
-- Dependências de suporte: `git`, `nodejs`, `npm`, `base-devel`, `yay`, `github-cli`, `openssh`
-- Apps da lista principal padrão: `shellcheck`, `zen-browser-bin`, `google-chrome`, `code`, `discord`, `spotify-launcher`, `steam`, `codex`
-- Dependências do ambiente: `pipewire`, `wireplumber`, `xdg-utils`, `xdg-desktop-portal`, `xdg-desktop-portal-gtk`, `xdg-desktop-portal-hyprland`
+- Dependências de suporte do script: `git`, `base-devel`, `yay`, `github-cli`, `openssh`
+- Apps principais da lista padrão: `shellcheck`, `zen-browser-bin`, `google-chrome`, `code`, `discord`, `spotify-launcher`, `steam`
+- Componentes usados para instalar e executar o Codex CLI: `nodejs`, `npm`, `codex`
+- Dependências do ambiente gráfico: `pipewire`, `wireplumber`, `xdg-utils`, `xdg-desktop-portal`, `xdg-desktop-portal-gtk`, `xdg-desktop-portal-hyprland`
 - Dependência temporária, quando necessária: `wl-clipboard`
 
 Edite [config/packages.txt](/home/ven/arch-postinstall-apps/config/packages.txt) para alterar a lista principal. Se existir [config/packages-extra.txt](/home/ven/arch-postinstall-apps/config/packages-extra.txt), ele também será carregado.
@@ -72,8 +73,8 @@ curl -fsSL https://obslove.dev | bash -s --
 Flags disponíveis:
 
 - `-c`, `--check`: valida o ambiente sem instalar nem alterar o sistema
-- `-g`, `--no-gh`: pula a etapa de GitHub SSH
-- `-t`, `--ssh-title NOME`: define o título da chave SSH enviada ao GitHub
+- `-n`, `--no-gh`: pula a etapa de GitHub SSH
+- `-s`, `--ssh-name NOME`: define o nome da chave SSH enviada ao GitHub
 - `-v`, `--verbose`: desativa o modo resumido
 - `-h`, `--help`: mostra a ajuda
 
@@ -81,10 +82,10 @@ Exemplos:
 
 ```bash
 curl -fsSL https://obslove.dev | bash -s -- -c
-curl -fsSL https://obslove.dev | bash -s -- -g
-curl -fsSL https://obslove.dev | bash -s -- -t "meu-dispositivo"
+curl -fsSL https://obslove.dev | bash -s -- -n
+curl -fsSL https://obslove.dev | bash -s -- -s "meu-dispositivo"
 curl -fsSL https://obslove.dev | bash -s -- -v
-curl -fsSL https://obslove.dev | bash -s -- -c -g -t "meu-dispositivo"
+curl -fsSL https://obslove.dev | bash -s -- -c -n -s "meu-dispositivo"
 ```
 </details>
 
