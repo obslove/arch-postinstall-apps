@@ -93,6 +93,50 @@ curl -fsSL https://obslove.dev | bash -s -- -c -g -t meu-dispositivo
 ```
 
 As variáveis de ambiente antigas continuam funcionando por compatibilidade.
+
+Equivalências:
+
+- `CHECK_ONLY=1`
+
+  ```bash
+  CHECK_ONLY=1 bash <(curl -fsSL https://obslove.dev)
+  ```
+
+- `SKIP_DESKTOP_INTEGRATION=1`
+
+  ```bash
+  SKIP_DESKTOP_INTEGRATION=1 bash <(curl -fsSL https://obslove.dev)
+  ```
+
+- `SKIP_GITHUB_SSH=1`
+
+  ```bash
+  SKIP_GITHUB_SSH=1 bash <(curl -fsSL https://obslove.dev)
+  ```
+
+- `REPLACE_GITHUB_SSH_KEYS=0`
+
+  ```bash
+  REPLACE_GITHUB_SSH_KEYS=0 bash <(curl -fsSL https://obslove.dev)
+  ```
+
+- `GITHUB_SSH_KEY_TITLE="meu-dispositivo"`
+
+  ```bash
+  GITHUB_SSH_KEY_TITLE="meu-dispositivo" bash <(curl -fsSL https://obslove.dev)
+  ```
+
+- `STEP_OUTPUT_ONLY=0`
+
+  ```bash
+  STEP_OUTPUT_ONLY=0 bash <(curl -fsSL https://obslove.dev)
+  ```
+
+- `BOOTSTRAP_BRANCH=main`
+
+  ```bash
+  BOOTSTRAP_BRANCH=main bash <(curl -fsSL https://obslove.dev)
+  ```
 </details>
 
 <details>
