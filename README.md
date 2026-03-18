@@ -11,7 +11,7 @@ curl -fsSL https://obslove.dev | bash
 Com flags:
 
 ```bash
-curl -fsSL https://obslove.dev | bash -s -- -
+curl -fsSL https://obslove.dev | bash -s -- -t "meu-dispositivo"
 ```
 
 Execute como usuário comum. Não use `sudo bash`.
@@ -72,95 +72,20 @@ curl -fsSL https://obslove.dev | bash -s --
 Flags disponíveis:
 
 - `-c`, `--check`: valida o ambiente sem instalar nem alterar o sistema
-- `-n`, `--dry-run`: mostra o que seria feito sem instalar nem alterar o sistema
-- `-d`, `--no-desktop`: pula a etapa de integração desktop
 - `-g`, `--no-gh`: pula a etapa de GitHub SSH
-- `-k`, `--keep-gh-keys`: preserva as chaves SSH atuais do GitHub
-- `-q`, `--quiet`: mostra só etapas, avisos, erros e resumo final
 - `-t`, `--ssh-title NOME`: define o título da chave SSH enviada ao GitHub
 - `-v`, `--verbose`: desativa o modo resumido
-- `-b`, `--branch NOME`: executa uma branch específica
-- `--version`: mostra branch, commit e URL de bootstrap
 - `-h`, `--help`: mostra a ajuda
 
 Exemplos:
 
 ```bash
 curl -fsSL https://obslove.dev | bash -s -- -c
-curl -fsSL https://obslove.dev | bash -s -- -n
 curl -fsSL https://obslove.dev | bash -s -- -g
-curl -fsSL https://obslove.dev | bash -s -- -d
-curl -fsSL https://obslove.dev | bash -s -- -k
-curl -fsSL https://obslove.dev | bash -s -- -q
 curl -fsSL https://obslove.dev | bash -s -- -t "meu-dispositivo"
 curl -fsSL https://obslove.dev | bash -s -- -v
-curl -fsSL https://obslove.dev | bash -s -- --version
 curl -fsSL https://obslove.dev | bash -s -- -c -g -t "meu-dispositivo"
 ```
-
-As variáveis de ambiente antigas continuam funcionando por compatibilidade.
-
-Equivalências:
-
-- `CHECK_ONLY=1`
-
-  ```bash
-  CHECK_ONLY=1 bash <(curl -fsSL https://obslove.dev)
-  ```
-
-- `DRY_RUN=1`
-
-  ```bash
-  DRY_RUN=1 bash <(curl -fsSL https://obslove.dev)
-  ```
-
-- `SKIP_DESKTOP_INTEGRATION=1`
-
-  ```bash
-  SKIP_DESKTOP_INTEGRATION=1 bash <(curl -fsSL https://obslove.dev)
-  ```
-
-- `SKIP_GITHUB_SSH=1`
-
-  ```bash
-  SKIP_GITHUB_SSH=1 bash <(curl -fsSL https://obslove.dev)
-  ```
-
-- `REPLACE_GITHUB_SSH_KEYS=0`
-
-  ```bash
-  REPLACE_GITHUB_SSH_KEYS=0 bash <(curl -fsSL https://obslove.dev)
-  ```
-
-- `GITHUB_SSH_KEY_TITLE="meu-dispositivo"`
-
-  ```bash
-  GITHUB_SSH_KEY_TITLE="meu-dispositivo" bash <(curl -fsSL https://obslove.dev)
-  ```
-
-- `STEP_OUTPUT_ONLY=0`
-
-  ```bash
-  STEP_OUTPUT_ONLY=0 bash <(curl -fsSL https://obslove.dev)
-  ```
-
-- `QUIET_MODE=1`
-
-  ```bash
-  QUIET_MODE=1 bash <(curl -fsSL https://obslove.dev)
-  ```
-
-- `BOOTSTRAP_BRANCH=main`
-
-  ```bash
-  BOOTSTRAP_BRANCH=main bash <(curl -fsSL https://obslove.dev)
-  ```
-
-- `QUIET_MODE=1` e `DRY_RUN=1`
-
-  ```bash
-  QUIET_MODE=1 DRY_RUN=1 bash <(curl -fsSL https://obslove.dev)
-  ```
 </details>
 
 <details>

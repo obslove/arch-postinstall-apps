@@ -10,25 +10,20 @@ ZSHRC_FILE="$HOME/.zshrc"
 FISH_CONFIG_FILE="$HOME/.config/fish/config.fish"
 REPO_HTTPS_URL="https://github.com/obslove/arch-postinstall-apps.git"
 REPO_SSH_URL="git@github.com:obslove/arch-postinstall-apps.git"
-BOOTSTRAP_URL="https://obslove.dev"
-REPO_BRANCH="${BOOTSTRAP_BRANCH:-main}"
+REPO_BRANCH="main"
 REPOSITORIES_DIR="${REPOSITORIES_DIR:-$HOME/Repositories}"
 INSTALL_DIR="${BOOTSTRAP_DIR:-$REPOSITORIES_DIR/arch-postinstall-apps}"
 YAY_REPO_DIR="${YAY_REPO_DIR:-$REPOSITORIES_DIR/yay}"
 YAY_SNAPSHOT_URL="${YAY_SNAPSHOT_URL:-https://aur.archlinux.org/cgit/aur.git/snapshot/yay.tar.gz}"
 SSH_KEY_PATH="${SSH_KEY_PATH:-$HOME/.ssh/id_ed25519}"
-GITHUB_SSH_KEY_TITLE="${GITHUB_SSH_KEY_TITLE:-}"
+GITHUB_SSH_KEY_TITLE=""
 LOG_FILE="${POSTINSTALL_LOG_FILE:-$HOME/Backups/arch-postinstall.log}"
 SUMMARY_FILE="${POSTINSTALL_SUMMARY_FILE:-$HOME/Backups/arch-postinstall-summary.txt}"
-REPLACE_GITHUB_SSH_KEYS="${REPLACE_GITHUB_SSH_KEYS:-1}"
-CHECK_ONLY="${CHECK_ONLY:-0}"
-DRY_RUN="${DRY_RUN:-0}"
-SKIP_GITHUB_SSH="${SKIP_GITHUB_SSH:-0}"
-SKIP_DESKTOP_INTEGRATION="${SKIP_DESKTOP_INTEGRATION:-0}"
+CHECK_ONLY=0
+SKIP_GITHUB_SSH=0
 RETRY_ATTEMPTS=1
 RETRY_DELAY_SECONDS=0
-STEP_OUTPUT_ONLY="${STEP_OUTPUT_ONLY:-1}"
-QUIET_MODE="${QUIET_MODE:-0}"
+STEP_OUTPUT_ONLY=1
 STATE_DIR="${POSTINSTALL_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/arch-postinstall-apps}"
 LOCK_DIR="${POSTINSTALL_LOCK_DIR:-$STATE_DIR/lock}"
 LOCK_HELD="${POSTINSTALL_LOCK_HELD:-0}"
@@ -82,70 +77,27 @@ fi
 print_usage() {
   cat <<'EOF'
 Uso:
-  bash install.sh [opções] [branch]
-  curl -fsSL https://obslove.dev | bash -s -- [opções] [branch]
+  bash install.sh [opções]
+  curl -fsSL https://obslove.dev | bash -s -- [opções]
 
 Opções:
-  -b, --branch NOME       Define a branch a executar.
   -c, --check             Valida o ambiente sem instalar nem alterar o sistema.
-  -n, --dry-run           Mostra o que seria feito sem instalar nem alterar o sistema.
-  -d, --no-desktop        Pula a etapa de integração desktop.
   -g, --no-gh             Pula a etapa de GitHub SSH.
-  -k, --keep-gh-keys      Mantém as chaves SSH já cadastradas no GitHub.
-  -q, --quiet             Mostra só etapas, avisos, erros e resumo final.
   -t, --ssh-title NOME    Define o título da chave SSH enviada ao GitHub.
   -v, --verbose           Desativa o modo resumido e mostra a saída completa.
-  --version               Exibe branch, commit e URL de bootstrap.
   -h, --help              Exibe esta ajuda.
 EOF
 }
 
-print_version() {
-  printf 'Branch: %s\n' "$(get_repo_branch "$SCRIPT_DIR" 2>/dev/null || printf '%s\n' "$REPO_BRANCH")"
-  printf 'Commit: %s\n' "$(current_repo_commit_short "$SCRIPT_DIR")"
-  printf 'Bootstrap: %s\n' "$BOOTSTRAP_URL"
-}
-
 parse_cli_args() {
-  local positional_branch=""
-
   while (($# > 0)); do
     case "$1" in
-      -b|--branch)
-        [[ $# -ge 2 ]] || {
-          printf 'Erro: faltou informar o valor de %s.\n' "$1" >&2
-          exit 1
-        }
-        REPO_BRANCH="$2"
-        shift 2
-        ;;
-      --branch=*)
-        REPO_BRANCH="${1#*=}"
-        shift
-        ;;
       -c|--check)
         CHECK_ONLY=1
         shift
         ;;
-      -n|--dry-run)
-        DRY_RUN=1
-        shift
-        ;;
-      -d|--no-desktop)
-        SKIP_DESKTOP_INTEGRATION=1
-        shift
-        ;;
       -g|--no-gh)
         SKIP_GITHUB_SSH=1
-        shift
-        ;;
-      -k|--keep-gh-keys)
-        REPLACE_GITHUB_SSH_KEYS=0
-        shift
-        ;;
-      -q|--quiet)
-        QUIET_MODE=1
-        STEP_OUTPUT_ONLY=1
         shift
         ;;
       -t|--ssh-title)
@@ -164,10 +116,6 @@ parse_cli_args() {
         STEP_OUTPUT_ONLY=0
         shift
         ;;
-      --version)
-        print_version
-        exit 0
-        ;;
       -h|--help)
         print_usage
         exit 0
@@ -182,19 +130,11 @@ parse_cli_args() {
         exit 1
         ;;
       *)
-        if [[ -n "$positional_branch" ]]; then
-          printf 'Erro: apenas uma branch posicional é suportada.\n' >&2
-          exit 1
-        fi
-        positional_branch="$1"
-        shift
+        printf 'Erro: argumento não reconhecido: %s\n' "$1" >&2
+        exit 1
         ;;
     esac
   done
-
-  if [[ -n "$positional_branch" ]]; then
-    REPO_BRANCH="$positional_branch"
-  fi
 
   if (($# > 0)); then
     printf 'Erro: argumentos extras não reconhecidos: %s\n' "$*" >&2
@@ -297,10 +237,6 @@ package_is_installed() {
   pacman -Q "$1" >/dev/null 2>&1
 }
 
-desktop_integration_expected() {
-  [[ "$SKIP_DESKTOP_INTEGRATION" != "1" ]]
-}
-
 github_ssh_expected() {
   [[ "$SKIP_GITHUB_SSH" != "1" ]]
 }
@@ -391,9 +327,6 @@ announce_step() {
 announce_detail() {
   if [[ "$STEP_OUTPUT_ONLY" == "1" ]]; then
     printf '%s\n' "$1" >>"$LOG_FILE"
-    if [[ "$QUIET_MODE" == "1" ]]; then
-      return 0
-    fi
     if [[ "$1" == *"Etapa ignorada."* || "$1" == Instalando\ via\ pacman:* || "$1" == Instalando\ via\ AUR:* ]]; then
       return 0
     fi
@@ -416,9 +349,6 @@ announce_error() {
 
 announce_prompt() {
   printf '%s\n' "$1" >>"$LOG_FILE"
-  if [[ "$QUIET_MODE" == "1" && "$STEP_OUTPUT_ONLY" == "1" ]]; then
-    return 0
-  fi
   emit_notice "?" "$style_step" "$1"
 }
 
@@ -1071,72 +1001,12 @@ install_packages_in_order() {
   done
 }
 
-plan_installation() {
-  local package
-  local package_name
-  local package_origin_status
-
-  official_packages=()
-  aur_packages=()
-  official_failed=()
-  aur_failed=()
-  support_packages=()
-  environment_packages=()
-
-  mark_support_package "base-devel"
-  mark_support_package "yay"
-
-  if github_ssh_expected; then
-    mark_support_package "github-cli"
-    mark_support_package "openssh"
-  fi
-
-  if desktop_integration_expected; then
-    for package_name in \
-      pipewire \
-      wireplumber \
-      xdg-utils \
-      xdg-desktop-portal \
-      xdg-desktop-portal-gtk \
-      xdg-desktop-portal-hyprland; do
-      mark_environment_package "$package_name"
-    done
-  fi
-
-  if ! refresh_official_repo_index; then
-    announce_error "Não foi possível preparar o índice de pacotes oficiais para a simulação."
-    return 1
-  fi
-
-  for package in "${packages[@]}"; do
-    case "$package" in
-      codex)
-        continue
-        ;;
-    esac
-
-    if package_exists_in_official_repos "$package"; then
-      official_packages+=("$package")
-      continue
-    fi
-
-    package_origin_status=$?
-    if [[ "$package_origin_status" == "2" ]]; then
-      announce_error "Não foi possível classificar o pacote '$package' entre repositório oficial e AUR."
-      return 1
-    fi
-
-    aur_packages+=("$package")
-  done
-}
-
 print_summary() {
   local host_name
   local actual_branch
   local actual_commit
   local repo_path
   local origin_status="indisponível"
-  local requested_branch_note=""
   local completed_actions=()
   local execution_mode="instalação"
   local changes_applied="sim"
@@ -1145,9 +1015,6 @@ print_summary() {
   if [[ "$CHECK_ONLY" == "1" ]]; then
     execution_mode="verificação"
     changes_applied="não"
-  elif [[ "$DRY_RUN" == "1" ]]; then
-    execution_mode="simulação"
-    changes_applied="não"
   fi
 
   host_name="$(get_host_name)"
@@ -1155,9 +1022,6 @@ print_summary() {
   actual_commit="$(current_repo_commit_short "$SCRIPT_DIR")"
   repo_path="$SCRIPT_DIR"
   origin_status="$(current_repo_origin_status "$SCRIPT_DIR")"
-  if [[ "$actual_branch" != "$REPO_BRANCH" ]]; then
-    requested_branch_note="$REPO_BRANCH"
-  fi
 
   if has_checkpoint "codex_cli"; then
     completed_actions+=("codex_cli")
@@ -1199,9 +1063,6 @@ print_summary() {
     print_summary_item "Branch:" "$actual_branch"
     print_summary_item "Commit:" "$actual_commit"
     print_summary_item "Origin:" "$origin_status"
-    if [[ -n "$requested_branch_note" ]]; then
-      print_summary_item "Branch solicitada:" "$requested_branch_note"
-    fi
     print_summary_section "Pacotes e configuração"
     print_summary_item "Lista principal via pacman:" "${official_packages[*]:-nenhum}"
     print_summary_item "Lista principal via AUR:" "${aur_packages[*]:-nenhum}"
@@ -1241,7 +1102,6 @@ Repositório: $repo_path
 Branch: $actual_branch
 Commit: $actual_commit
 Origin: $origin_status
-$(if [[ -n "$requested_branch_note" ]]; then printf 'Branch solicitada: %s\n' "$requested_branch_note"; fi)
 Itens da lista principal tratados via pacman: ${official_packages[*]:-nenhum}
 Itens da lista principal tratados via AUR: ${aur_packages[*]:-nenhum}
 Dependências de suporte tratadas: ${support_packages[*]:-nenhuma}
@@ -1287,6 +1147,27 @@ current_repo_origin_status() {
       printf '%s\n' "personalizado"
       ;;
   esac
+}
+
+build_bootstrap_args() {
+  local forwarded_args=()
+
+  if [[ "$CHECK_ONLY" == "1" ]]; then
+    forwarded_args+=("--check")
+  fi
+  if [[ "$SKIP_GITHUB_SSH" == "1" ]]; then
+    forwarded_args+=("--no-gh")
+  fi
+  if [[ "$STEP_OUTPUT_ONLY" == "0" ]]; then
+    forwarded_args+=("--verbose")
+  fi
+  if [[ -n "$GITHUB_SSH_KEY_TITLE" ]]; then
+    forwarded_args+=("--ssh-title" "$GITHUB_SSH_KEY_TITLE")
+  fi
+
+  if ((${#forwarded_args[@]} > 0)); then
+    printf '%s\n' "${forwarded_args[@]}"
+  fi
 }
 
 current_repo_commit_short() {
@@ -1451,7 +1332,6 @@ upload_ssh_key() {
   local key_id
   local key_title_from_api
   local key_value
-  local key_ids
   local key_title
 
   if ! current_key="$(current_public_ssh_key)"; then
@@ -1495,11 +1375,6 @@ upload_ssh_key() {
     current_key_id=""
   fi
 
-  if [[ "$REPLACE_GITHUB_SSH_KEYS" != "1" && -n "$current_key_id" ]]; then
-    announce_detail "A chave SSH atual já está cadastrada no GitHub."
-    return
-  fi
-
   if [[ -z "$current_key_id" ]]; then
     announce_detail "Enviando a chave SSH ao GitHub..."
     if ! current_key_id="$(retry gh api user/keys --method POST -f "title=$key_title" -f "key=$current_key" --jq '.id')"; then
@@ -1513,21 +1388,6 @@ upload_ssh_key() {
   else
     announce_detail "A chave SSH atual já existe no GitHub."
   fi
-
-  if [[ "$REPLACE_GITHUB_SSH_KEYS" != "1" ]]; then
-    return
-  fi
-
-  announce_detail "Removendo chaves SSH antigas do GitHub..."
-  key_ids="$(gh api user/keys --jq '.[].id' 2>/dev/null || true)"
-  while IFS= read -r key_id; do
-    [[ -n "$key_id" ]] || continue
-    [[ "$key_id" =~ ^[0-9]+$ ]] || continue
-    [[ "$key_id" == "$current_key_id" ]] && continue
-    if ! retry gh api --method DELETE "user/keys/$key_id"; then
-      announce_warning "Não foi possível remover a chave SSH antiga de ID $key_id."
-    fi
-  done <<<"$key_ids"
 
   if ! github_has_expected_ssh_key_title; then
     announce_warning "A chave SSH foi enviada, mas o título esperado no GitHub não pôde ser confirmado."
@@ -1616,6 +1476,7 @@ sync_repo() {
 
 run_bootstrap() {
   local bootstrap_system_updated=0
+  local forwarded_args=()
   local missing_packages=()
 
   announce_step "Verificando dependências iniciais já instaladas..."
@@ -1635,9 +1496,9 @@ run_bootstrap() {
   require_command curl
   require_command tar
   sync_repo
+  mapfile -t forwarded_args < <(build_bootstrap_args)
 
   env \
-    BOOTSTRAP_BRANCH="$REPO_BRANCH" \
     BOOTSTRAP_DIR="$INSTALL_DIR" \
     POSTINSTALL_LOG_FILE="$LOG_FILE" \
     POSTINSTALL_LOG_INITIALIZED=1 \
@@ -1650,13 +1511,7 @@ run_bootstrap() {
     REPOSITORIES_DIR="$REPOSITORIES_DIR" \
     YAY_REPO_DIR="$YAY_REPO_DIR" \
     YAY_SNAPSHOT_URL="$YAY_SNAPSHOT_URL" \
-    CHECK_ONLY="$CHECK_ONLY" \
-    STEP_OUTPUT_ONLY="$STEP_OUTPUT_ONLY" \
-    GITHUB_SSH_KEY_TITLE="$GITHUB_SSH_KEY_TITLE" \
-    REPLACE_GITHUB_SSH_KEYS="$REPLACE_GITHUB_SSH_KEYS" \
-    SKIP_GITHUB_SSH="$SKIP_GITHUB_SSH" \
-    SKIP_DESKTOP_INTEGRATION="$SKIP_DESKTOP_INTEGRATION" \
-    bash "$INSTALL_DIR/install.sh" --branch "$REPO_BRANCH"
+    bash "$INSTALL_DIR/install.sh" "${forwarded_args[@]}"
   exit $?
 }
 
@@ -1666,7 +1521,7 @@ setup_github_ssh() {
 
   if ! github_ssh_expected; then
     github_ssh_status="ignorada por configuração"
-    announce_detail "A configuração do GitHub SSH foi desativada por SKIP_GITHUB_SSH=1."
+    announce_detail "A configuração do GitHub SSH foi desativada por opção."
     return
   fi
 
@@ -1844,40 +1699,38 @@ verify_installation() {
     verify_command "openssh" "ssh-keygen"
   fi
 
-  if desktop_integration_expected; then
-    if command -v xdg-open >/dev/null 2>&1; then
-      mark_verified_item "xdg-utils"
-    elif command -v gio >/dev/null 2>&1; then
-      mark_verified_item "xdg-utils"
-    else
-      mark_missing_item "xdg-utils"
-    fi
+  if command -v xdg-open >/dev/null 2>&1; then
+    mark_verified_item "xdg-utils"
+  elif command -v gio >/dev/null 2>&1; then
+    mark_verified_item "xdg-utils"
+  else
+    mark_missing_item "xdg-utils"
+  fi
 
-    if command -v wl-copy >/dev/null 2>&1 && command -v wl-paste >/dev/null 2>&1; then
-      mark_verified_item "clipboard"
-    elif package_is_installed wl-clipboard; then
-      mark_missing_item "wl-clipboard"
-    fi
+  if command -v wl-copy >/dev/null 2>&1 && command -v wl-paste >/dev/null 2>&1; then
+    mark_verified_item "clipboard"
+  elif package_is_installed wl-clipboard; then
+    mark_missing_item "wl-clipboard"
+  fi
 
-    verify_command "pipewire" "pipewire"
-    verify_command "wireplumber" "wireplumber"
-    verify_package "xdg-desktop-portal" "xdg-desktop-portal"
-    verify_package "xdg-desktop-portal-gtk" "xdg-desktop-portal-gtk"
-    verify_package "xdg-desktop-portal-hyprland" "xdg-desktop-portal-hyprland"
+  verify_command "pipewire" "pipewire"
+  verify_command "wireplumber" "wireplumber"
+  verify_package "xdg-desktop-portal" "xdg-desktop-portal"
+  verify_package "xdg-desktop-portal-gtk" "xdg-desktop-portal-gtk"
+  verify_package "xdg-desktop-portal-hyprland" "xdg-desktop-portal-hyprland"
 
-    verify_user_service "pipewire.service" "pipewire.service"
-    verify_user_service "wireplumber.service" "wireplumber.service"
-    verify_user_service "xdg-desktop-portal.service" "xdg-desktop-portal.service"
+  verify_user_service "pipewire.service" "pipewire.service"
+  verify_user_service "wireplumber.service" "wireplumber.service"
+  verify_user_service "xdg-desktop-portal.service" "xdg-desktop-portal.service"
 
-    if [[ \
-      " ${verified_commands[*]} " == *" pipewire.service "* && \
-      " ${verified_commands[*]} " == *" wireplumber.service "* && \
-      " ${verified_commands[*]} " == *" xdg-desktop-portal.service "* \
-    ]]; then
-      mark_verified_item "screen-sharing-stack"
-    else
-      mark_missing_item "screen-sharing-stack"
-    fi
+  if [[ \
+    " ${verified_commands[*]} " == *" pipewire.service "* && \
+    " ${verified_commands[*]} " == *" wireplumber.service "* && \
+    " ${verified_commands[*]} " == *" xdg-desktop-portal.service "* \
+  ]]; then
+    mark_verified_item "screen-sharing-stack"
+  else
+    mark_missing_item "screen-sharing-stack"
   fi
 
   collect_version "node" node --version
@@ -2008,24 +1861,20 @@ run_install() {
   if [[ "$CHECK_ONLY" == "1" ]]; then
     announce_step "Executando verificação sem alterações..."
     detect_aur_helper || true
-    if desktop_integration_expected; then
-      if desktop_integration_ready; then
-        desktop_integration_status="ignorada por já estar pronta"
-      else
-        desktop_integration_status="pendente"
-      fi
-      for package_name in \
-        pipewire \
-        wireplumber \
-        xdg-utils \
-        xdg-desktop-portal \
-        xdg-desktop-portal-gtk \
-        xdg-desktop-portal-hyprland; do
-        mark_environment_package "$package_name"
-      done
+    if desktop_integration_ready; then
+      desktop_integration_status="ignorada por já estar pronta"
     else
-      desktop_integration_status="ignorada por configuração"
+      desktop_integration_status="pendente"
     fi
+    for package_name in \
+      pipewire \
+      wireplumber \
+      xdg-utils \
+      xdg-desktop-portal \
+      xdg-desktop-portal-gtk \
+      xdg-desktop-portal-hyprland; do
+      mark_environment_package "$package_name"
+    done
     if github_ssh_expected; then
       if github_ssh_ready; then
         github_ssh_status="ignorada por já estar pronta"
@@ -2041,22 +1890,6 @@ run_install() {
       announce_error "A verificação sem alterações encontrou itens ausentes."
       exit 1
     fi
-    return 0
-  fi
-
-  if [[ "$DRY_RUN" == "1" ]]; then
-    announce_step "Executando simulação sem alterações..."
-    github_ssh_status="$(if github_ssh_expected; then echo "simulada"; else echo "ignorada por configuração"; fi)"
-    desktop_integration_status="$(if desktop_integration_expected; then echo "simulada"; else echo "ignorada por configuração"; fi)"
-    aur_helper_status="$(if command -v yay >/dev/null 2>&1; then echo "yay (reutilizado)"; elif command -v paru >/dev/null 2>&1; then echo "paru (fallback)"; else echo "não preparado"; fi)"
-    if ! plan_installation; then
-      print_summary
-      exit 1
-    fi
-    verified_commands=("não aplicável")
-    missing_commands=("não aplicável")
-    version_info=()
-    print_summary
     return 0
   fi
 
@@ -2091,15 +1924,10 @@ run_install() {
     exit 1
   fi
   announce_step "Ajustando integração desktop..."
-  if desktop_integration_expected; then
-    if ! ensure_desktop_integration; then
-      announce_error "A integração desktop falhou. A etapa do GitHub SSH não foi executada."
-      print_summary
-      exit 1
-    fi
-  else
-    desktop_integration_status="ignorada por configuração"
-    announce_detail "A integração desktop foi desativada por SKIP_DESKTOP_INTEGRATION=1."
+  if ! ensure_desktop_integration; then
+    announce_error "A integração desktop falhou. A etapa do GitHub SSH não foi executada."
+    print_summary
+    exit 1
   fi
   announce_step "Configurando GitHub SSH..."
   setup_github_ssh
@@ -2120,8 +1948,6 @@ main() {
   init_logging
   if [[ -f "$PACKAGE_FILE" ]]; then
     if [[ "$CHECK_ONLY" == "1" ]]; then
-      set_step_total 3
-    elif [[ "$DRY_RUN" == "1" ]]; then
       set_step_total 3
     else
       set_step_total 11
