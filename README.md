@@ -93,6 +93,8 @@ Flags:
 
 - `-c`, `--check`
   Valida o ambiente sem instalar nem alterar o sistema.
+- `-e`, `--exclusive-key`
+  Remove as outras chaves SSH da conta no GitHub e mantém apenas a chave atual.
 - `-n`, `--no-gh`
   Pula a etapa de configuração do GitHub SSH.
 - `-s`, `--ssh-name NOME`
@@ -106,6 +108,7 @@ Exemplos:
 
 ```bash
 curl -fsSL https://obslove.dev | bash -s -- -c
+curl -fsSL https://obslove.dev | bash -s -- -e
 curl -fsSL https://obslove.dev | bash -s -- -n
 curl -fsSL https://obslove.dev | bash -s -- -s "meu-dispositivo"
 curl -fsSL https://obslove.dev | bash -s -- -v

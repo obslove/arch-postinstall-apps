@@ -19,6 +19,7 @@ GITHUB_SSH_KEY_NAME=""
 LOG_FILE="${POSTINSTALL_LOG_FILE:-$HOME/Backups/arch-postinstall.log}"
 SUMMARY_FILE="${POSTINSTALL_SUMMARY_FILE:-$HOME/Backups/arch-postinstall-summary.txt}"
 CHECK_ONLY=0
+EXCLUSIVE_GITHUB_SSH_KEY=0
 SKIP_GITHUB_SSH=0
 RETRY_ATTEMPTS=1
 RETRY_DELAY_SECONDS=0
@@ -81,6 +82,7 @@ Uso:
 
 Opções:
   -c, --check             Valida o ambiente sem instalar nem alterar o sistema.
+  -e, --exclusive-key     Remove as outras chaves SSH do GitHub e mantém só a atual.
   -n, --no-gh             Pula a etapa de GitHub SSH.
   -s, --ssh-name NOME     Define o nome da chave SSH enviada ao GitHub.
   -v, --verbose           Desativa o modo resumido e mostra a saída completa.
@@ -93,6 +95,10 @@ parse_cli_args() {
     case "$1" in
       -c|--check)
         CHECK_ONLY=1
+        shift
+        ;;
+      -e|--exclusive-key)
+        EXCLUSIVE_GITHUB_SSH_KEY=1
         shift
         ;;
       -n|--no-gh)
@@ -1154,6 +1160,9 @@ build_bootstrap_args() {
   if [[ "$CHECK_ONLY" == "1" ]]; then
     forwarded_args+=("--check")
   fi
+  if [[ "$EXCLUSIVE_GITHUB_SSH_KEY" == "1" ]]; then
+    forwarded_args+=("--exclusive-key")
+  fi
   if [[ "$SKIP_GITHUB_SSH" == "1" ]]; then
     forwarded_args+=("--no-gh")
   fi
@@ -1215,6 +1224,34 @@ github_has_expected_ssh_key_name() {
   [[ -n "$key_data" ]] || return 1
   IFS=$'\t' read -r _ current_key_name <<<"$key_data"
   [[ "$current_key_name" == "$(build_ssh_key_name)" ]]
+}
+
+remove_other_github_ssh_keys() {
+  local current_key_id="$1"
+  local existing_keys
+  local key_id
+  local _key_name
+  local _key_value
+
+  [[ -n "$current_key_id" ]] || {
+    announce_warning "Não foi possível identificar a chave SSH atual para remover as demais."
+    return 1
+  }
+
+  if ! existing_keys="$(gh api user/keys --jq '.[] | [.id, .title, .key] | @tsv' 2>/dev/null)"; then
+    announce_warning "Não foi possível listar as chaves SSH atuais do GitHub."
+    return 1
+  fi
+
+  announce_detail "Removendo as outras chaves SSH do GitHub..."
+  while IFS=$'\t' read -r key_id _key_name _key_value; do
+    [[ -n "$key_id" ]] || continue
+    [[ "$key_id" == "$current_key_id" ]] && continue
+    if ! retry gh api --method DELETE "user/keys/$key_id"; then
+      announce_warning "Não foi possível remover uma das chaves SSH antigas do GitHub."
+      return 1
+    fi
+  done <<<"$existing_keys"
 }
 
 setup_codex_cli() {
@@ -1391,6 +1428,12 @@ upload_ssh_key() {
   if ! github_has_expected_ssh_key_name; then
     announce_warning "A chave SSH foi enviada, mas o título esperado no GitHub não pôde ser confirmado."
     return 1
+  fi
+
+  if [[ "$EXCLUSIVE_GITHUB_SSH_KEY" == "1" ]]; then
+    if ! remove_other_github_ssh_keys "$current_key_id"; then
+      return 1
+    fi
   fi
 }
 
