@@ -11,19 +11,19 @@ Um único script para preparar o ambiente inicial e a pós-instalação no Arch 
 `fish`
 
 ```fish
-curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh | bash
+curl -fsSL https://obslove.dev/install.sh | bash
 ```
 
 `bash`
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh)
+bash <(curl -fsSL https://obslove.dev/install.sh)
 ```
 
 `zsh`
 
 ```zsh
-bash <(curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh)
+bash <(curl -fsSL https://obslove.dev/install.sh)
 ```
 
 Quando executado fora do repositório, o script instala `git`, clona ou atualiza `~/Repositories/arch-postinstall-apps` e continua a execução a partir desse diretório.
@@ -194,19 +194,19 @@ O script também garante `pipewire`, `wireplumber`, `xdg-utils`, `xdg-desktop-po
 
   ```fish
   set -x REPLACE_GITHUB_SSH_KEYS 0
-  curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh | bash
+  curl -fsSL https://obslove.dev/install.sh | bash
   ```
 
   `bash`
 
   ```bash
-  REPLACE_GITHUB_SSH_KEYS=0 bash <(curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh)
+  REPLACE_GITHUB_SSH_KEYS=0 bash <(curl -fsSL https://obslove.dev/install.sh)
   ```
 
   `zsh`
 
   ```zsh
-  REPLACE_GITHUB_SSH_KEYS=0 bash <(curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh)
+  REPLACE_GITHUB_SSH_KEYS=0 bash <(curl -fsSL https://obslove.dev/install.sh)
   ```
 </details>
 
@@ -217,19 +217,19 @@ O script também garante `pipewire`, `wireplumber`, `xdg-utils`, `xdg-desktop-po
 
   ```fish
   set -x GITHUB_SSH_KEY_TITLE "meu-dispositivo"
-  curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh | bash
+  curl -fsSL https://obslove.dev/install.sh | bash
   ```
 
   `bash`
 
   ```bash
-  GITHUB_SSH_KEY_TITLE="meu-dispositivo" bash <(curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh)
+  GITHUB_SSH_KEY_TITLE="meu-dispositivo" bash <(curl -fsSL https://obslove.dev/install.sh)
   ```
 
   `zsh`
 
   ```zsh
-  GITHUB_SSH_KEY_TITLE="meu-dispositivo" bash <(curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh)
+  GITHUB_SSH_KEY_TITLE="meu-dispositivo" bash <(curl -fsSL https://obslove.dev/install.sh)
   ```
 </details>
 
@@ -242,19 +242,19 @@ O resumo final registra explicitamente `Modo: verificação` e `Alterações apl
 
   ```fish
   set -x CHECK_ONLY 1
-  curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh | bash
+  curl -fsSL https://obslove.dev/install.sh | bash
   ```
 
   `bash`
 
   ```bash
-  CHECK_ONLY=1 bash <(curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh)
+  CHECK_ONLY=1 bash <(curl -fsSL https://obslove.dev/install.sh)
   ```
 
   `zsh`
 
   ```zsh
-  CHECK_ONLY=1 bash <(curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh)
+  CHECK_ONLY=1 bash <(curl -fsSL https://obslove.dev/install.sh)
   ```
 </details>
 
@@ -265,19 +265,19 @@ O resumo final registra explicitamente `Modo: verificação` e `Alterações apl
 
   ```fish
   set -x STEP_OUTPUT_ONLY 0
-  curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh | bash
+  curl -fsSL https://obslove.dev/install.sh | bash
   ```
 
   `bash`
 
   ```bash
-  STEP_OUTPUT_ONLY=0 bash <(curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh)
+  STEP_OUTPUT_ONLY=0 bash <(curl -fsSL https://obslove.dev/install.sh)
   ```
 
   `zsh`
 
   ```zsh
-  STEP_OUTPUT_ONLY=0 bash <(curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh)
+  STEP_OUTPUT_ONLY=0 bash <(curl -fsSL https://obslove.dev/install.sh)
   ```
 </details>
 
@@ -288,19 +288,19 @@ O resumo final registra explicitamente `Modo: verificação` e `Alterações apl
 
   ```fish
   set -x SKIP_GITHUB_SSH 1
-  curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh | bash
+  curl -fsSL https://obslove.dev/install.sh | bash
   ```
 
   `bash`
 
   ```bash
-  SKIP_GITHUB_SSH=1 bash <(curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh)
+  SKIP_GITHUB_SSH=1 bash <(curl -fsSL https://obslove.dev/install.sh)
   ```
 
   `zsh`
 
   ```zsh
-  SKIP_GITHUB_SSH=1 bash <(curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh)
+  SKIP_GITHUB_SSH=1 bash <(curl -fsSL https://obslove.dev/install.sh)
   ```
 </details>
 
@@ -311,19 +311,19 @@ O resumo final registra explicitamente `Modo: verificação` e `Alterações apl
 
   ```fish
   set -x SKIP_DESKTOP_INTEGRATION 1
-  curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh | bash
+  curl -fsSL https://obslove.dev/install.sh | bash
   ```
 
   `bash`
 
   ```bash
-  SKIP_DESKTOP_INTEGRATION=1 bash <(curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh)
+  SKIP_DESKTOP_INTEGRATION=1 bash <(curl -fsSL https://obslove.dev/install.sh)
   ```
 
   `zsh`
 
   ```zsh
-  SKIP_DESKTOP_INTEGRATION=1 bash <(curl -fsSL https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh)
+  SKIP_DESKTOP_INTEGRATION=1 bash <(curl -fsSL https://obslove.dev/install.sh)
   ```
 </details>
 
