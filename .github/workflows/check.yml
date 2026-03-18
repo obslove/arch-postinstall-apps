@@ -16,3 +16,5 @@ jobs:
           bash -n install.sh
       - name: Shellcheck
         run: shellcheck install.sh
+      - name: Bootstrap URL in README
+        run: grep -q 'https://obslove.dev' README.md

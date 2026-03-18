@@ -10,6 +10,7 @@ ZSHRC_FILE="$HOME/.zshrc"
 FISH_CONFIG_FILE="$HOME/.config/fish/config.fish"
 REPO_HTTPS_URL="https://github.com/obslove/arch-postinstall-apps.git"
 REPO_SSH_URL="git@github.com:obslove/arch-postinstall-apps.git"
+BOOTSTRAP_URL="https://obslove.dev"
 REPO_BRANCH="${BOOTSTRAP_BRANCH:-main}"
 REPOSITORIES_DIR="${REPOSITORIES_DIR:-$HOME/Repositories}"
 INSTALL_DIR="${BOOTSTRAP_DIR:-$REPOSITORIES_DIR/arch-postinstall-apps}"
@@ -94,8 +95,15 @@ Opções:
   -q, --quiet             Mostra só etapas, avisos, erros e resumo final.
   -t, --ssh-title NOME    Define o título da chave SSH enviada ao GitHub.
   -v, --verbose           Desativa o modo resumido e mostra a saída completa.
+  --version               Exibe branch, commit e URL de bootstrap.
   -h, --help              Exibe esta ajuda.
 EOF
+}
+
+print_version() {
+  printf 'Branch: %s\n' "$(get_repo_branch "$SCRIPT_DIR" 2>/dev/null || printf '%s\n' "$REPO_BRANCH")"
+  printf 'Commit: %s\n' "$(current_repo_commit_short "$SCRIPT_DIR")"
+  printf 'Bootstrap: %s\n' "$BOOTSTRAP_URL"
 }
 
 parse_cli_args() {
@@ -155,6 +163,10 @@ parse_cli_args() {
       -v|--verbose)
         STEP_OUTPUT_ONLY=0
         shift
+        ;;
+      --version)
+        print_version
+        exit 0
         ;;
       -h|--help)
         print_usage

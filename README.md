@@ -48,7 +48,7 @@ Se o script for executado fora do repositório, ele verifica dependências inici
 - Dependências do ambiente: `pipewire`, `wireplumber`, `xdg-utils`, `xdg-desktop-portal`, `xdg-desktop-portal-gtk`, `xdg-desktop-portal-hyprland`
 - Dependência temporária, quando necessária: `wl-clipboard`
 
-Edite [config/packages.txt](/home/ven/arch-postinstall-apps-main/config/packages.txt) para alterar a lista principal. Se existir [config/packages-extra.txt](/home/ven/arch-postinstall-apps-main/config/packages-extra.txt), ele também será carregado.
+Edite [config/packages.txt](/home/ven/arch-postinstall-apps/config/packages.txt) para alterar a lista principal. Se existir [config/packages-extra.txt](/home/ven/arch-postinstall-apps/config/packages-extra.txt), ele também será carregado.
 </details>
 
 <details>
@@ -80,6 +80,7 @@ Flags disponíveis:
 - `-t`, `--ssh-title NOME`: define o título da chave SSH enviada ao GitHub
 - `-v`, `--verbose`: desativa o modo resumido
 - `-b`, `--branch NOME`: executa uma branch específica
+- `--version`: mostra branch, commit e URL de bootstrap
 - `-h`, `--help`: mostra a ajuda
 
 Exemplos:
@@ -93,6 +94,7 @@ curl -fsSL https://obslove.dev | bash -s -- -k
 curl -fsSL https://obslove.dev | bash -s -- -q
 curl -fsSL https://obslove.dev | bash -s -- -t meu-dispositivo
 curl -fsSL https://obslove.dev | bash -s -- -v
+curl -fsSL https://obslove.dev | bash -s -- --version
 curl -fsSL https://obslove.dev | bash -s -- -c -g -t meu-dispositivo
 ```
 
@@ -152,6 +154,12 @@ Equivalências:
 
   ```bash
   BOOTSTRAP_BRANCH=main bash <(curl -fsSL https://obslove.dev)
+  ```
+
+- `QUIET_MODE=1` e `DRY_RUN=1`
+
+  ```bash
+  QUIET_MODE=1 DRY_RUN=1 bash <(curl -fsSL https://obslove.dev)
   ```
 </details>
 
