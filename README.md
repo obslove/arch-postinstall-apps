@@ -1,68 +1,87 @@
 # Arch Postinstall Apps
 
-Script de bootstrap e pós-instalação para Arch Linux em Wayland com Hyprland.
+Script de bootstrap e pós-instalação para Arch Linux, direcionado a ambientes Wayland com Hyprland.
+
+Ele automatiza a preparação do sistema, instala os pacotes definidos no repositório, configura o Codex CLI, ajusta a integração desktop e prepara o acesso ao GitHub por SSH.
 
 ## Instalação rápida
+
+Execute como usuário comum. Não use `sudo bash`.
 
 ```bash
 curl -fsSL https://obslove.dev | bash
 ```
 
-Com flags:
+Com opções:
 
 ```bash
 curl -fsSL https://obslove.dev | bash -s -- -s "meu-dispositivo"
 ```
 
-Execute como usuário comum. Não use `sudo bash`.
-
 <details>
 <summary>Requisitos e alvo</summary>
 
+Este script foi ajustado para o seguinte cenário:
+
 - Arch Linux
-- Wayland com Hyprland
+- sessão Wayland com Hyprland
 - `curl` disponível
 
-Se o script for executado fora do repositório, ele verifica dependências iniciais, clona ou atualiza `~/Repositories/arch-postinstall-apps` e continua dali.
+Se ele for executado fora de um clone local do projeto, o próprio script verifica as dependências iniciais, clona ou atualiza `~/Repositories/arch-postinstall-apps` e continua a execução a partir desse clone.
 </details>
 
 <details>
-<summary>O que o script faz</summary>
+<summary>Fluxo da instalação</summary>
 
-1. Valida o ambiente, autentica `sudo`, inicia o log e evita execuções simultâneas.
-2. Cria os diretórios principais em `~/Backups`, `~/Codex`, `~/Dots`, `~/Pictures`, `~/Projects`, `~/Repositories` e `~/Videos`.
-3. Carrega `config/packages.txt` e, se existir, `config/packages-extra.txt`.
-4. Habilita `multilib`, atualiza o sistema e prepara o `yay`.
-5. Instala a lista principal de pacotes na ordem definida no arquivo de configuração.
-6. Configura o Codex CLI em `~/Codex`.
-7. Garante a integração desktop do ambiente.
-8. Configura GitHub SSH.
-9. Valida a instalação, tenta uma correção automática única e grava o resumo final.
+Durante uma execução normal, o script faz o seguinte:
+
+1. valida a sessão atual, autentica `sudo`, inicia o log e impede execuções simultâneas;
+2. cria os diretórios principais usados pelo ambiente;
+3. carrega [config/packages.txt](/home/ven/arch-postinstall-apps/config/packages.txt) e, se existir, [config/packages-extra.txt](/home/ven/arch-postinstall-apps/config/packages-extra.txt);
+4. habilita `multilib`, atualiza o sistema e prepara o `yay`;
+5. instala os apps e dependências definidos na lista de pacotes;
+6. configura o Codex CLI em `~/Codex`;
+7. garante a integração desktop necessária para o ambiente gráfico;
+8. configura o GitHub SSH;
+9. valida o resultado, tenta uma correção automática única e grava o resumo final.
+
+O log completo fica em `~/Backups/arch-postinstall.log`, e o resumo final fica em `~/Backups/arch-postinstall-summary.txt`.
 </details>
 
 <details>
 <summary>Pacotes e dependências</summary>
 
-- Dependências de suporte do script: `git`, `base-devel`, `yay`, `github-cli`, `openssh`
-- Apps principais da lista padrão: `shellcheck`, `zen-browser-bin`, `google-chrome`, `code`, `discord`, `spotify-launcher`, `steam`
-- Componentes usados para instalar e executar o Codex CLI: `nodejs`, `npm`, `codex`
-- Dependências do ambiente gráfico: `pipewire`, `wireplumber`, `xdg-utils`, `xdg-desktop-portal`, `xdg-desktop-portal-gtk`, `xdg-desktop-portal-hyprland`
-- Dependência temporária, quando necessária: `wl-clipboard`
+O script separa o que é infraestrutura do próprio fluxo e o que é software principal do ambiente.
 
-Edite [config/packages.txt](/home/ven/arch-postinstall-apps/config/packages.txt) para alterar a lista principal. Se existir [config/packages-extra.txt](/home/ven/arch-postinstall-apps/config/packages-extra.txt), ele também será carregado.
+- Dependências de suporte do script:
+  `git`, `base-devel`, `yay`, `github-cli`, `openssh`
+- Apps principais da lista padrão:
+  `shellcheck`, `zen-browser-bin`, `google-chrome`, `code`, `discord`, `spotify-launcher`, `steam`
+- Componentes usados para instalar e executar o Codex CLI:
+  `nodejs`, `npm`, `codex`
+- Dependências do ambiente gráfico:
+  `pipewire`, `wireplumber`, `xdg-utils`, `xdg-desktop-portal`, `xdg-desktop-portal-gtk`, `xdg-desktop-portal-hyprland`
+- Dependência temporária, quando necessária:
+  `wl-clipboard`
+
+Para alterar a lista principal, edite [config/packages.txt](/home/ven/arch-postinstall-apps/config/packages.txt).
+
+Se existir [config/packages-extra.txt](/home/ven/arch-postinstall-apps/config/packages-extra.txt), o conteúdo dele também será carregado na mesma execução.
 </details>
 
 <details>
-<summary>O que exige interação</summary>
+<summary>Interação necessária</summary>
 
-- Senha do `sudo`
-- Login no GitHub via `gh auth login`
-- Autorização adicional do `gh auth refresh`, se faltar o escopo `admin:public_key`
-- Eventual prompt raro de pacote AUR
+Mesmo com a automação, algumas etapas ainda podem exigir interação:
+
+- senha do `sudo`;
+- login no GitHub via `gh auth login`;
+- renovação de escopo com `gh auth refresh`, se faltar `admin:public_key`;
+- algum prompt eventual do `yay` em casos específicos.
 </details>
 
 <details>
-<summary>Opcionais</summary>
+<summary>Opções disponíveis</summary>
 
 Comando base:
 
@@ -70,13 +89,18 @@ Comando base:
 curl -fsSL https://obslove.dev | bash -s --
 ```
 
-Flags disponíveis:
+Flags:
 
-- `-c`, `--check`: valida o ambiente sem instalar nem alterar o sistema
-- `-n`, `--no-gh`: pula a etapa de GitHub SSH
-- `-s`, `--ssh-name NOME`: define o nome da chave SSH enviada ao GitHub
-- `-v`, `--verbose`: desativa o modo resumido
-- `-h`, `--help`: mostra a ajuda
+- `-c`, `--check`
+  Valida o ambiente sem instalar nem alterar o sistema.
+- `-n`, `--no-gh`
+  Pula a etapa de configuração do GitHub SSH.
+- `-s`, `--ssh-name NOME`
+  Define o nome da chave SSH enviada ao GitHub.
+- `-v`, `--verbose`
+  Desativa o modo resumido e mostra a saída completa no terminal.
+- `-h`, `--help`
+  Exibe a ajuda.
 
 Exemplos:
 
@@ -92,13 +116,13 @@ curl -fsSL https://obslove.dev | bash -s -- -c -n -s "meu-dispositivo"
 <details>
 <summary>Uso local</summary>
 
-Executar em um clone local:
+Para executar diretamente a partir de um clone local:
 
 ```bash
 bash install.sh
 ```
 
-Validar localmente:
+Para validar o script localmente:
 
 ```bash
 bash -n install.sh
