@@ -11,7 +11,7 @@ curl -fsSL https://obslove.dev | bash
 Com flags:
 
 ```bash
-curl -fsSL https://obslove.dev | bash -s -- -...
+curl -fsSL https://obslove.dev | bash -s -- -c
 ```
 
 Execute como usuário comum. Não use `sudo bash`.
