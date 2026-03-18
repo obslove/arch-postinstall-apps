@@ -10,7 +10,7 @@ ZSHRC_FILE="$HOME/.zshrc"
 FISH_CONFIG_FILE="$HOME/.config/fish/config.fish"
 REPO_HTTPS_URL="https://github.com/obslove/arch-postinstall-apps.git"
 REPO_SSH_URL="git@github.com:obslove/arch-postinstall-apps.git"
-REPO_BRANCH="${1:-${BOOTSTRAP_BRANCH:-main}}"
+REPO_BRANCH="${BOOTSTRAP_BRANCH:-main}"
 REPOSITORIES_DIR="${REPOSITORIES_DIR:-$HOME/Repositories}"
 INSTALL_DIR="${BOOTSTRAP_DIR:-$REPOSITORIES_DIR/arch-postinstall-apps}"
 YAY_REPO_DIR="${YAY_REPO_DIR:-$REPOSITORIES_DIR/yay}"
@@ -69,6 +69,107 @@ if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
   style_error=$'\033[1;31m'
   style_muted=$'\033[0;90m'
 fi
+
+print_usage() {
+  cat <<'EOF'
+Uso:
+  bash install.sh [opções] [branch]
+  curl -fsSL https://obslove.dev | bash -s -- [opções] [branch]
+
+Opções:
+  -b, --branch NOME       Define a branch a executar.
+  -c, --check             Valida o ambiente sem instalar nem alterar o sistema.
+  -d, --no-desktop        Pula a etapa de integração desktop.
+  -g, --no-gh             Pula a etapa de GitHub SSH.
+  -k, --keep-gh-keys      Mantém as chaves SSH já cadastradas no GitHub.
+  -t, --ssh-title NOME    Define o título da chave SSH enviada ao GitHub.
+  -v, --verbose           Desativa o modo resumido e mostra a saída completa.
+  -h, --help              Exibe esta ajuda.
+EOF
+}
+
+parse_cli_args() {
+  local positional_branch=""
+
+  while (($# > 0)); do
+    case "$1" in
+      -b|--branch)
+        [[ $# -ge 2 ]] || {
+          printf 'Erro: faltou informar o valor de %s.\n' "$1" >&2
+          exit 1
+        }
+        REPO_BRANCH="$2"
+        shift 2
+        ;;
+      --branch=*)
+        REPO_BRANCH="${1#*=}"
+        shift
+        ;;
+      -c|--check)
+        CHECK_ONLY=1
+        shift
+        ;;
+      -d|--no-desktop)
+        SKIP_DESKTOP_INTEGRATION=1
+        shift
+        ;;
+      -g|--no-gh)
+        SKIP_GITHUB_SSH=1
+        shift
+        ;;
+      -k|--keep-gh-keys)
+        REPLACE_GITHUB_SSH_KEYS=0
+        shift
+        ;;
+      -t|--ssh-title)
+        [[ $# -ge 2 ]] || {
+          printf 'Erro: faltou informar o valor de %s.\n' "$1" >&2
+          exit 1
+        }
+        GITHUB_SSH_KEY_TITLE="$2"
+        shift 2
+        ;;
+      --ssh-title=*)
+        GITHUB_SSH_KEY_TITLE="${1#*=}"
+        shift
+        ;;
+      -v|--verbose)
+        STEP_OUTPUT_ONLY=0
+        shift
+        ;;
+      -h|--help)
+        print_usage
+        exit 0
+        ;;
+      --)
+        shift
+        break
+        ;;
+      -*)
+        printf 'Erro: opção desconhecida: %s\n' "$1" >&2
+        printf 'Use --help para ver as opções disponíveis.\n' >&2
+        exit 1
+        ;;
+      *)
+        if [[ -n "$positional_branch" ]]; then
+          printf 'Erro: apenas uma branch posicional é suportada.\n' >&2
+          exit 1
+        fi
+        positional_branch="$1"
+        shift
+        ;;
+    esac
+  done
+
+  if [[ -n "$positional_branch" ]]; then
+    REPO_BRANCH="$positional_branch"
+  fi
+
+  if (($# > 0)); then
+    printf 'Erro: argumentos extras não reconhecidos: %s\n' "$*" >&2
+    exit 1
+  fi
+}
 
 ensure_not_root() {
   if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
@@ -1443,7 +1544,7 @@ run_bootstrap() {
     REPLACE_GITHUB_SSH_KEYS="$REPLACE_GITHUB_SSH_KEYS" \
     SKIP_GITHUB_SSH="$SKIP_GITHUB_SSH" \
     SKIP_DESKTOP_INTEGRATION="$SKIP_DESKTOP_INTEGRATION" \
-    bash "$INSTALL_DIR/install.sh" "$REPO_BRANCH"
+    bash "$INSTALL_DIR/install.sh" --branch "$REPO_BRANCH"
   exit $?
 }
 
@@ -1884,6 +1985,7 @@ run_install() {
 }
 
 main() {
+  parse_cli_args "$@"
   trap cleanup EXIT
   ensure_not_root
   acquire_lock
