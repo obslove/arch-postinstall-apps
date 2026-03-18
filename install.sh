@@ -30,6 +30,12 @@ STATE_DIR="${POSTINSTALL_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/arch-p
 LOCK_DIR="${POSTINSTALL_LOCK_DIR:-$STATE_DIR/lock}"
 LOCK_HELD="${POSTINSTALL_LOCK_HELD:-0}"
 SYSTEM_UPDATED="${POSTINSTALL_SYSTEM_UPDATED:-0}"
+BOOTSTRAP_PACKAGES=(
+  ca-certificates
+  git
+  curl
+  tar
+)
 
 official_packages=()
 aur_packages=()
@@ -1498,16 +1504,10 @@ sync_repo() {
 
 run_bootstrap() {
   local bootstrap_system_updated=0
-  local bootstrap_packages=(
-    ca-certificates
-    git
-    curl
-    tar
-  )
   local missing_packages=()
 
   announce_step "Verificando dependências iniciais já instaladas..."
-  collect_missing_packages missing_packages "${bootstrap_packages[@]}"
+  collect_missing_packages missing_packages "${BOOTSTRAP_PACKAGES[@]}"
   if ((${#missing_packages[@]} > 0)); then
     announce_step "Instalando dependências iniciais..."
     if ! retry_log_only sudo pacman -Syu --needed --noconfirm "${missing_packages[@]}"; then
@@ -1997,7 +1997,13 @@ main() {
       set_step_total 11
     fi
   else
-    set_step_total 4
+    local bootstrap_missing_packages=()
+    collect_missing_packages bootstrap_missing_packages "${BOOTSTRAP_PACKAGES[@]}"
+    if ((${#bootstrap_missing_packages[@]} > 0)); then
+      set_step_total 4
+    else
+      set_step_total 3
+    fi
   fi
   announce_step "Validando ambiente..."
   ensure_arch
