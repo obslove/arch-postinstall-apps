@@ -301,7 +301,21 @@ print_summary_section() {
 }
 
 print_summary_item() {
-  printf '│  %s %-22s %s\n' "$(style_text "$style_detail" "•")" "$1" "$2"
+  local label="$1"
+  local value="$2"
+  local label_length=0
+  local padding_width=22
+
+  label_length="$(printf '%s' "$label" | wc -m | tr -d '[:space:]')"
+  if [[ -z "$label_length" ]]; then
+    label_length=0
+  fi
+  if (( label_length < padding_width )); then
+    printf '│  %s %s%*s %s\n' "$(style_text "$style_detail" "•")" "$label" "$((padding_width - label_length))" "" "$value"
+    return 0
+  fi
+
+  printf '│  %s %s %s\n' "$(style_text "$style_detail" "•")" "$label" "$value"
 }
 
 close_step_block() {
@@ -1340,9 +1354,15 @@ sync_repo() {
     fi
 
     if git -C "$INSTALL_DIR" show-ref --verify --quiet "refs/heads/$REPO_BRANCH"; then
-      git -C "$INSTALL_DIR" checkout "$REPO_BRANCH"
+      if ! run_log_only git -C "$INSTALL_DIR" checkout "$REPO_BRANCH"; then
+        announce_error "Não foi possível trocar para a branch local '$REPO_BRANCH'."
+        exit 1
+      fi
     elif git -C "$INSTALL_DIR" show-ref --verify --quiet "refs/remotes/origin/$REPO_BRANCH"; then
-      git -C "$INSTALL_DIR" checkout -b "$REPO_BRANCH" "origin/$REPO_BRANCH"
+      if ! run_log_only git -C "$INSTALL_DIR" checkout -b "$REPO_BRANCH" "origin/$REPO_BRANCH"; then
+        announce_error "Não foi possível criar a branch local '$REPO_BRANCH' a partir de origin."
+        exit 1
+      fi
     elif [[ "$fetched_origin" == "0" ]]; then
       announce_error "Não foi possível atualizar origin e a branch '$REPO_BRANCH' não existe localmente."
       announce_error "Verifique acesso ao GitHub ou rode uma branch já presente no clone local."
