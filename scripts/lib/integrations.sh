@@ -1,24 +1,5 @@
 #!/usr/bin/env bash
 
-build_ssh_key_name() {
-  local github_login=""
-
-  if [[ -n "$GITHUB_SSH_KEY_NAME" ]]; then
-    printf '%s\n' "$GITHUB_SSH_KEY_NAME"
-    return
-  fi
-
-  if command -v gh >/dev/null 2>&1; then
-    github_login="$(gh api user --jq '.login' 2>/dev/null || true)"
-    if [[ -n "$github_login" ]]; then
-      printf '%s\n' "$github_login"
-      return
-    fi
-  fi
-
-  printf '%s\n' "$USER"
-}
-
 confirm_exclusive_github_ssh_key() {
   local response=""
 
@@ -141,28 +122,6 @@ run_gh_auth_flow() {
   fi
 
   run_with_terminal_stdin gh "$@" "${clipboard_args[@]}"
-}
-
-current_public_ssh_key() {
-  [[ -f "${SSH_KEY_PATH}.pub" ]] || return 1
-  awk 'NR == 1 { print $1, $2 }' "${SSH_KEY_PATH}.pub"
-}
-
-find_current_github_ssh_key() {
-  local current_key
-
-  current_key="$(current_public_ssh_key)" || return 1
-  gh api user/keys --jq ".[] | select(.key == \"$current_key\") | [.id, .title] | @tsv"
-}
-
-github_has_expected_ssh_key_name() {
-  local key_data
-  local current_key_name=""
-
-  key_data="$(find_current_github_ssh_key 2>/dev/null || true)"
-  [[ -n "$key_data" ]] || return 1
-  IFS=$'\t' read -r _ current_key_name <<<"$key_data"
-  [[ "$current_key_name" == "$(build_ssh_key_name)" ]]
 }
 
 remove_other_github_ssh_keys() {
