@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+# shellcheck shell=bash
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=scripts/lib/shellcheck-runtime.sh
+
+if false; then
+  source "$SCRIPT_DIR/scripts/lib/shellcheck-runtime.sh"
+fi
 
 print_summary() {
   local host_name
@@ -263,6 +270,7 @@ final_verification_step() {
 }
 
 run_install() {
+  # shellcheck disable=SC2034
   local package_list=()
   local package_name
 

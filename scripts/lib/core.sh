@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
+# shellcheck disable=SC2034
 # shellcheck source-path=SCRIPTDIR
+# shellcheck source=scripts/lib/shellcheck-runtime.sh
+
+if false; then
+  source "$SCRIPT_DIR/scripts/lib/shellcheck-runtime.sh"
+fi
 
 SHARED_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 # shellcheck source=shared.sh

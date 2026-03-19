@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+# shellcheck shell=bash
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=scripts/lib/shellcheck-runtime.sh
+
+if false; then
+  source "$SCRIPT_DIR/scripts/lib/shellcheck-runtime.sh"
+fi
 
 verify_command() {
   local label="$1"

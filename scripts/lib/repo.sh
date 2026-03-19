@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+# shellcheck shell=bash
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=scripts/lib/shellcheck-runtime.sh
+
+if false; then
+  source "$SCRIPT_DIR/scripts/lib/shellcheck-runtime.sh"
+fi
 
 build_ssh_key_name() {
   local github_login=""
