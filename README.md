@@ -55,16 +55,18 @@ O log completo fica em `~/Backups/arch-postinstall.log`, e o resumo final fica e
 
 O script separa o que é infraestrutura do próprio fluxo e o que é software principal do ambiente.
 
+<!-- packages:start -->
 - Dependências de suporte do script:
   `git`, `base-devel`, `yay`, `github-cli`, `openssh`
 - Apps principais da lista padrão:
-  `shellcheck`, `zen-browser-bin`, `google-chrome`, `code`, `discord`, `spotify-launcher`, `steam`
+  `zen-browser-bin`, `google-chrome`, `shellcheck`, `code`, `discord`, `spotify-launcher`, `steam`
 - Componentes usados para instalar e executar o Codex CLI:
   `nodejs`, `npm`, `codex`
 - Dependências do ambiente gráfico:
   `pipewire`, `wireplumber`, `xdg-utils`, `xdg-desktop-portal`, `xdg-desktop-portal-gtk`, `xdg-desktop-portal-hyprland`
 - Dependência temporária, quando necessária:
   `wl-clipboard`
+<!-- packages:end -->
 
 Para alterar a lista principal, edite [config/packages.txt](/home/ven/arch-postinstall-apps/config/packages.txt).
 
@@ -96,7 +98,7 @@ Flags:
 - `-c`, `--check`
   Valida o ambiente sem instalar nem alterar o sistema.
 - `-e`, `--exclusive-key`
-  Destrutiva: remove as outras chaves SSH da conta no GitHub e mantém apenas a chave atual, mesmo que o GitHub SSH já esteja configurado.
+  Destrutiva: remove as outras chaves SSH da conta no GitHub e mantém apenas a chave atual, mesmo que o GitHub SSH já esteja configurado. Essa opção pede confirmação explícita no terminal.
 - `-n`, `--no-gh`
   Pula a etapa de configuração do GitHub SSH.
 - `-s`, `--ssh-name NOME`

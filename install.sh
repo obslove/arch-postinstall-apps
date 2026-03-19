@@ -248,6 +248,28 @@ github_ssh_force_reconcile() {
   [[ "$EXCLUSIVE_GITHUB_SSH_KEY" == "1" || -n "$GITHUB_SSH_KEY_NAME" ]]
 }
 
+confirm_exclusive_github_ssh_key() {
+  local response=""
+
+  if [[ "$EXCLUSIVE_GITHUB_SSH_KEY" != "1" ]]; then
+    return 0
+  fi
+
+  announce_warning "A opção --exclusive-key removerá as outras chaves SSH da sua conta no GitHub."
+  emit_notice "?" "$style_step" "Confirma essa remoção? Digite 'sim' para continuar:"
+  if [[ ! -r /dev/tty ]]; then
+    announce_warning "Não foi possível ler a confirmação no terminal. A remoção das outras chaves foi cancelada."
+    return 1
+  fi
+  IFS= read -r response </dev/tty || true
+  if [[ "$response" != "sim" ]]; then
+    announce_warning "A remoção das outras chaves SSH do GitHub foi cancelada."
+    return 1
+  fi
+
+  return 0
+}
+
 collect_missing_packages() {
   local array_name="$1"
   shift
@@ -1558,6 +1580,11 @@ setup_github_ssh() {
     return
   fi
 
+  if ! confirm_exclusive_github_ssh_key; then
+    github_ssh_status="ignorada por confirmação negada"
+    return
+  fi
+
   announce_detail "Verificando estado atual do GitHub SSH..."
   if has_checkpoint "github_ssh"; then
     announce_detail "Checkpoint do GitHub SSH encontrado. Conferindo autenticação e chave atual..."
@@ -1730,6 +1757,11 @@ verify_installation() {
   if github_ssh_expected; then
     verify_command "github-cli" "gh"
     verify_command "openssh" "ssh-keygen"
+    if [[ "$(current_repo_origin_status "$SCRIPT_DIR")" == "ssh" ]]; then
+      mark_verified_item "origin-ssh"
+    else
+      mark_missing_item "origin-ssh"
+    fi
   fi
 
   if command -v xdg-open >/dev/null 2>&1; then
@@ -1782,6 +1814,7 @@ attempt_final_repair_once() {
   local aur_package
   local package_origin_status
   local should_repair_codex=0
+  local should_repair_origin=0
   local should_start_services=0
 
   if ((${#missing_commands[@]} == 0)); then
@@ -1796,6 +1829,9 @@ attempt_final_repair_once() {
         ;;
       github-cli|openssh|xdg-utils|wl-clipboard|pipewire|wireplumber|xdg-desktop-portal|xdg-desktop-portal-gtk|xdg-desktop-portal-hyprland)
         append_array_item repair_pacman_packages "$item"
+        ;;
+      origin-ssh)
+        should_repair_origin=1
         ;;
       pipewire.service|wireplumber.service|xdg-desktop-portal.service|screen-sharing-stack)
         should_start_services=1
@@ -1848,6 +1884,13 @@ attempt_final_repair_once() {
   if (( should_repair_codex == 1 )); then
     announce_detail "Reconfigurando o Codex CLI..."
     if ! setup_codex_cli; then
+      return 1
+    fi
+  fi
+
+  if (( should_repair_origin == 1 )); then
+    announce_detail "Ajustando o remoto principal do repositório..."
+    if ! ensure_repo_origin_remote "$SCRIPT_DIR"; then
       return 1
     fi
   fi

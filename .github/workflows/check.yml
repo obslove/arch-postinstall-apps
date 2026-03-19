@@ -20,7 +20,23 @@ jobs:
         run: |
           bash install.sh --help | grep -Fq -- '--exclusive-key'
           bash install.sh --help | grep -Fq -- '--ssh-name'
+      - name: CLI parser
+        run: |
+          if bash install.sh --opcao-inexistente >parser.log 2>&1; then
+            exit 1
+          fi
+          grep -Fq 'opção desconhecida' parser.log
+          if bash install.sh -s >parser.log 2>&1; then
+            exit 1
+          fi
+          grep -Fq 'faltou informar o valor' parser.log
+          if bash install.sh -- lixo >parser.log 2>&1; then
+            exit 1
+          fi
+          grep -Fq 'argumentos extras não reconhecidos' parser.log
       - name: Bootstrap commands in README
         run: |
           grep -Fqx 'curl -fsSL https://obslove.dev | bash' README.md
           grep -Fqx 'curl -fsSL https://obslove.dev | bash -s --' README.md
+      - name: README package section
+        run: bash scripts/update-readme-packages.sh --check
