@@ -81,7 +81,7 @@ collect_version() {
 verify_installation() {
   local array_name="$1"
   # shellcheck disable=SC2178
-  declare -n package_list="$array_name"
+  declare -n target_packages="$array_name"
   local package_name
   local service_name
 
@@ -89,7 +89,7 @@ verify_installation() {
   missing_commands=()
   version_info=()
 
-  for package_name in "${package_list[@]}"; do
+  for package_name in "${target_packages[@]}"; do
     case "$package_name" in
       nodejs)
         verify_command "nodejs" "node"

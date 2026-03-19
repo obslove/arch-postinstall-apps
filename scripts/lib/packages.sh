@@ -144,13 +144,13 @@ package_exists_in_official_repos() {
 calculate_install_step_total() {
   local array_name="$1"
   # shellcheck disable=SC2178
-  declare -n package_list="$array_name"
+  declare -n target_packages="$array_name"
   local package
   local total=8
   local has_official=0
   local has_aur=0
 
-  for package in "${package_list[@]}"; do
+  for package in "${target_packages[@]}"; do
     if pacman -Si -- "$package" >/dev/null 2>&1; then
       has_official=1
     else
@@ -263,7 +263,7 @@ install_codex_cli_component() {
 install_packages_in_order() {
   local array_name="$1"
   # shellcheck disable=SC2178
-  declare -n package_list="$array_name"
+  declare -n target_packages="$array_name"
   local package
   local package_origin_status
   local shown_pacman_step=0
@@ -280,7 +280,7 @@ install_packages_in_order() {
   aur_packages=()
 
   if [[ "$STEP_OUTPUT_ONLY" == "1" ]]; then
-    for package in "${package_list[@]}"; do
+    for package in "${target_packages[@]}"; do
       if package_exists_in_official_repos "$package"; then
         official_target_count=$((official_target_count + 1))
       else
@@ -294,7 +294,7 @@ install_packages_in_order() {
     done
   fi
 
-  for package in "${package_list[@]}"; do
+  for package in "${target_packages[@]}"; do
     if package_exists_in_official_repos "$package"; then
       package_origin_status=0
     else
