@@ -17,12 +17,18 @@ source "$REPO_DIR/scripts/lib/ops.sh"
 source "$REPO_DIR/scripts/lib/components.sh"
 # shellcheck source=../lib/components/codex.sh
 source "$REPO_DIR/scripts/lib/components/codex.sh"
+# shellcheck source=../lib/components/aur-helper.sh
+source "$REPO_DIR/scripts/lib/components/aur-helper.sh"
 # shellcheck source=../lib/components/desktop.sh
 source "$REPO_DIR/scripts/lib/components/desktop.sh"
 # shellcheck source=../lib/components/github-ssh.sh
 source "$REPO_DIR/scripts/lib/components/github-ssh.sh"
-# shellcheck source=../lib/packages.sh
-source "$REPO_DIR/scripts/lib/packages.sh"
+# shellcheck source=../lib/package-config.sh
+source "$REPO_DIR/scripts/lib/package-config.sh"
+# shellcheck source=../lib/package-repos.sh
+source "$REPO_DIR/scripts/lib/package-repos.sh"
+# shellcheck source=../lib/package-install.sh
+source "$REPO_DIR/scripts/lib/package-install.sh"
 # shellcheck source=../lib/verification.sh
 source "$REPO_DIR/scripts/lib/verification.sh"
 # shellcheck source=../lib/repair.sh

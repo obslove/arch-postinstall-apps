@@ -1,0 +1,129 @@
+#!/usr/bin/env bash
+# shellcheck shell=bash
+# shellcheck disable=SC2034
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=scripts/lib/shellcheck-runtime.sh
+# shellcheck source=scripts/lib/ops.sh
+# shellcheck source=scripts/lib/components.sh
+
+if false; then
+  source "$SCRIPT_DIR/scripts/lib/shellcheck-runtime.sh"
+  source "$SCRIPT_DIR/scripts/lib/ops.sh"
+  source "$SCRIPT_DIR/scripts/lib/components.sh"
+fi
+
+detect_aur_helper() {
+  if command -v yay >/dev/null 2>&1; then
+    aur_helper="yay"
+    aur_helper_status="yay (reutilizado)"
+    return 0
+  fi
+
+  if command -v paru >/dev/null 2>&1; then
+    aur_helper="paru"
+    aur_helper_status="paru (fallback)"
+    return 0
+  fi
+
+  aur_helper=""
+  aur_helper_status="indisponível"
+  return 1
+}
+
+component_detect_aur_helper() {
+  detect_aur_helper
+}
+
+component_checkpoint_key_aur_helper() {
+  return 1
+}
+
+build_yay() {
+  local yay_dir="$1"
+
+  (
+    cd "$yay_dir" || exit
+    makepkg -si --noconfirm
+  )
+}
+
+install_yay() {
+  local archive_file
+  local missing_packages=()
+  local package_name
+  local status=0
+
+  for package_name in "${AUR_HELPER_SUPPORT_PACKAGES[@]}"; do
+    mark_support_package "$package_name"
+  done
+  mkdir -p "$REPOSITORIES_DIR"
+  collect_missing_packages missing_packages "${AUR_HELPER_SUPPORT_PACKAGES[@]}"
+  if ((${#missing_packages[@]} > 0)); then
+    if ! ops_pacman_install_needed "${missing_packages[@]}"; then
+      return 1
+    fi
+  fi
+  require_command curl
+  require_command tar
+
+  archive_file="$(mktemp)"
+  register_cleanup_path "$archive_file"
+
+  announce_detail "Baixando snapshot do yay..."
+  if ! ops_download_file "$YAY_SNAPSHOT_URL" "$archive_file"; then
+    return 1
+  fi
+
+  rm -rf "$YAY_REPO_DIR"
+  announce_detail "Extraindo snapshot do yay em $YAY_REPO_DIR..."
+  if ! ops_extract_tar_gz "$archive_file" "$REPOSITORIES_DIR"; then
+    return 1
+  fi
+
+  if [[ -d "$REPOSITORIES_DIR/yay" && "$REPOSITORIES_DIR/yay" != "$YAY_REPO_DIR" ]]; then
+    mv "$REPOSITORIES_DIR/yay" "$YAY_REPO_DIR"
+  fi
+
+  if (( status == 0 )); then
+    if ops_build_yay_package "$YAY_REPO_DIR"; then
+      aur_helper="yay"
+      aur_helper_status="yay (instalado nesta execução)"
+    else
+      status=$?
+    fi
+  fi
+
+  return "$status"
+}
+
+component_apply_aur_helper() {
+  if command -v yay >/dev/null 2>&1; then
+    aur_helper="yay"
+    aur_helper_status="yay (reutilizado)"
+    announce_detail "Usando helper AUR: $aur_helper"
+    return 0
+  fi
+
+  announce_detail "O yay será instalado e usado como helper AUR padrão."
+  if ! install_yay; then
+    if detect_aur_helper; then
+      announce_warning "Não foi possível instalar o yay. O script usará o helper AUR disponível: $aur_helper."
+      return 0
+    fi
+
+    announce_error "Não foi possível preparar um helper AUR (yay)."
+    return 1
+  fi
+
+  aur_helper="yay"
+  aur_helper_status="yay (instalado nesta execução)"
+  announce_detail "Usando helper AUR: $aur_helper"
+}
+
+component_verify_aur_helper() {
+  component_detect aur_helper
+}
+
+ensure_aur_helper() {
+  component_apply aur_helper
+}
