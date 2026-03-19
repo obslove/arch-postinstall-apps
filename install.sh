@@ -279,10 +279,6 @@ run_with_terminal_stdin() {
   "$@"
 }
 
-command_uses_terminal_stdin() {
-  [[ "${1:-}" == "sudo" ]]
-}
-
 collect_missing_packages() {
   local array_name="$1"
   shift
@@ -401,21 +397,21 @@ announce_prompt() {
 
 run_log_only() {
   if [[ "$STEP_OUTPUT_ONLY" == "1" ]]; then
-    if command_uses_terminal_stdin "${1:-}"; then
-      run_with_terminal_stdin "$@" >>"$LOG_FILE" 2>&1
-      return
-    fi
-
     "$@" </dev/null >>"$LOG_FILE" 2>&1
     return
   fi
 
-  if command_uses_terminal_stdin "${1:-}"; then
-    run_with_terminal_stdin "$@" 2>&1 | sed 's/^/│    /'
-    return "${PIPESTATUS[0]}"
+  "$@" </dev/null 2>&1 | sed 's/^/│    /'
+  return "${PIPESTATUS[0]}"
+}
+
+run_interactive_log_only() {
+  if [[ "$STEP_OUTPUT_ONLY" == "1" ]]; then
+    run_with_terminal_stdin "$@" >>"$LOG_FILE" 2>&1
+    return
   fi
 
-  "$@" </dev/null 2>&1 | sed 's/^/│    /'
+  run_with_terminal_stdin "$@" 2>&1 | sed 's/^/│    /'
   return "${PIPESTATUS[0]}"
 }
 
@@ -459,6 +455,10 @@ retry() {
 
 retry_log_only() {
   run_log_only "$@"
+}
+
+retry_interactive_log_only() {
+  run_interactive_log_only "$@"
 }
 
 require_command() {
@@ -547,7 +547,7 @@ ensure_temp_clipboard_utility() {
   fi
 
   announce_detail "Instalando wl-clipboard temporariamente para copiar o código do GitHub..."
-  if ! retry_log_only sudo pacman -S --needed --noconfirm "${missing_packages[@]}"; then
+  if ! retry_interactive_log_only sudo pacman -S --needed --noconfirm "${missing_packages[@]}"; then
     announce_warning "Não foi possível instalar wl-clipboard. Continuando sem cópia automática."
     return 1
   fi
@@ -562,7 +562,7 @@ cleanup_temp_clipboard_utility() {
   fi
 
   announce_detail "Removendo $temp_clipboard_package instalado temporariamente..."
-  if ! retry_log_only sudo pacman -Rns --noconfirm "$temp_clipboard_package"; then
+  if ! retry_interactive_log_only sudo pacman -Rns --noconfirm "$temp_clipboard_package"; then
     announce_warning "Não foi possível remover $temp_clipboard_package automaticamente."
     return 1
   fi
@@ -615,7 +615,7 @@ ensure_desktop_integration() {
 
   collect_missing_packages missing_packages "${required_packages[@]}"
   announce_detail "Garantindo integração desktop..."
-  if ! retry_log_only sudo pacman -S --needed --noconfirm "${missing_packages[@]}"; then
+  if ! retry_interactive_log_only sudo pacman -S --needed --noconfirm "${missing_packages[@]}"; then
     desktop_integration_status="falhou"
     announce_error "Não foi possível instalar a integração desktop."
     return 1
@@ -726,7 +726,7 @@ ensure_multilib() {
     exit 1
   fi
 
-  if ! run_log_only sudo pacman -Syy --noconfirm; then
+  if ! run_interactive_log_only sudo pacman -Syy --noconfirm; then
     announce_error "Não foi possível sincronizar os bancos de dados do pacman após habilitar multilib."
     exit 1
   fi
@@ -826,7 +826,7 @@ install_yay() {
   mkdir -p "$REPOSITORIES_DIR"
   collect_missing_packages missing_packages base-devel
   if ((${#missing_packages[@]} > 0)); then
-    if ! retry_log_only sudo pacman -S --needed --noconfirm "${missing_packages[@]}"; then
+    if ! retry_interactive_log_only sudo pacman -S --needed --noconfirm "${missing_packages[@]}"; then
       return 1
     fi
   fi
@@ -1005,7 +1005,7 @@ install_packages_in_order() {
         shown_pacman_step=1
       fi
       announce_detail "Instalando via pacman: $package"
-      if retry_log_only sudo pacman -S --needed --noconfirm "$package"; then
+      if retry_interactive_log_only sudo pacman -S --needed --noconfirm "$package"; then
         continue
       fi
 
@@ -1561,7 +1561,7 @@ run_bootstrap() {
   collect_missing_packages missing_packages "${BOOTSTRAP_PACKAGES[@]}"
   if ((${#missing_packages[@]} > 0)); then
     announce_step "Instalando dependências iniciais..."
-    if ! retry_log_only sudo pacman -Syu --needed --noconfirm "${missing_packages[@]}"; then
+    if ! retry_interactive_log_only sudo pacman -Syu --needed --noconfirm "${missing_packages[@]}"; then
       announce_error "Não foi possível instalar as dependências iniciais."
       exit 1
     fi
@@ -1631,7 +1631,7 @@ setup_github_ssh() {
   announce_detail "Verificando dependências da etapa de GitHub SSH..."
   collect_missing_packages missing_packages github-cli openssh
   if ((${#missing_packages[@]} > 0)); then
-    if ! retry_log_only sudo pacman -S --needed --noconfirm "${missing_packages[@]}"; then
+    if ! retry_interactive_log_only sudo pacman -S --needed --noconfirm "${missing_packages[@]}"; then
       github_ssh_status="ignorada por falha"
       announce_warning "Não foi possível instalar github-cli/openssh. A configuração do GitHub será ignorada."
       return
@@ -1882,7 +1882,7 @@ attempt_final_repair_once() {
   collect_missing_packages pacman_missing_packages "${repair_pacman_packages[@]}"
   if ((${#pacman_missing_packages[@]} > 0)); then
     announce_detail "Reinstalando itens via pacman..."
-    if ! retry_log_only sudo pacman -S --needed --noconfirm "${pacman_missing_packages[@]}"; then
+    if ! retry_interactive_log_only sudo pacman -S --needed --noconfirm "${pacman_missing_packages[@]}"; then
       return 1
     fi
   fi
@@ -2002,7 +2002,7 @@ run_install() {
     announce_detail "O sistema já foi atualizado no bootstrap. A nova atualização completa será ignorada."
   else
     announce_step "Atualizando o sistema..."
-    if ! retry_log_only sudo pacman -Syu --noconfirm; then
+    if ! retry_interactive_log_only sudo pacman -Syu --noconfirm; then
       announce_error "Não foi possível concluir a atualização completa do sistema."
       print_summary
       exit 1
