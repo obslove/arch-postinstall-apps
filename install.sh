@@ -84,7 +84,17 @@ parse_cli_args() {
 }
 # --- end: scripts/lib/cli.sh ---
 
-# --- begin: scripts/bootstrap/lib.sh ---
+# --- begin: scripts/bootstrap/step-result.sh ---
+# shellcheck shell=bash
+# shellcheck disable=SC2034
+
+step_result_reset() { STEP_RESULT_STATUS=""; STEP_RESULT_MESSAGE=""; }
+step_result_success() { STEP_RESULT_STATUS="success"; STEP_RESULT_MESSAGE="${1:-}"; }
+step_result_skipped() { STEP_RESULT_STATUS="skipped"; STEP_RESULT_MESSAGE="${1:-}"; }
+step_result_hard_fail() { STEP_RESULT_STATUS="hard_fail"; STEP_RESULT_MESSAGE="${1:-}"; }
+# --- end: scripts/bootstrap/step-result.sh ---
+
+# --- begin: scripts/bootstrap/ui.sh ---
 # shellcheck shell=bash
 # shellcheck disable=SC2034
 
@@ -106,92 +116,6 @@ init_output_styles() {
     style_error=$'\033[1;31m'
     style_muted=$'\033[0;90m'
   fi
-}
-
-step_result_reset() { STEP_RESULT_STATUS=""; STEP_RESULT_MESSAGE=""; }
-step_result_success() { STEP_RESULT_STATUS="success"; STEP_RESULT_MESSAGE="${1:-}"; }
-step_result_skipped() { STEP_RESULT_STATUS="skipped"; STEP_RESULT_MESSAGE="${1:-}"; }
-step_result_hard_fail() { STEP_RESULT_STATUS="hard_fail"; STEP_RESULT_MESSAGE="${1:-}"; }
-
-ensure_not_root() {
-  if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
-    announce_error "Execute este script como usuário comum, e não como root."
-    exit 1
-  fi
-}
-
-acquire_lock() {
-  local existing_pid=""
-
-  if [[ "$LOCK_HELD" == "1" ]]; then
-    return
-  fi
-
-  mkdir -p "$STATE_DIR"
-  if mkdir "$LOCK_DIR" 2>/dev/null; then
-    printf '%s\n' "$$" >"$LOCK_DIR/pid"
-    register_cleanup_path "$LOCK_DIR"
-    export POSTINSTALL_LOCK_HELD=1
-    LOCK_HELD=1
-    return
-  fi
-
-  if [[ -f "$LOCK_DIR/pid" ]]; then
-    existing_pid="$(<"$LOCK_DIR/pid")"
-  fi
-
-  if [[ -z "$existing_pid" ]] || ! kill -0 "$existing_pid" 2>/dev/null; then
-    announce_warning "Foi detectado um lock órfão. Limpando a execução anterior."
-    rm -rf "$LOCK_DIR"
-    if mkdir "$LOCK_DIR" 2>/dev/null; then
-      printf '%s\n' "$$" >"$LOCK_DIR/pid"
-      register_cleanup_path "$LOCK_DIR"
-      export POSTINSTALL_LOCK_HELD=1
-      LOCK_HELD=1
-      return
-    fi
-  fi
-
-  announce_error "Já existe outra execução do script em andamento."
-  if [[ -f "$LOCK_DIR/pid" ]]; then
-    announce_error "PID atual do lock: $(<"$LOCK_DIR/pid")"
-  fi
-  exit 1
-}
-
-register_cleanup_path() { cleanup_paths+=("$1"); }
-
-run_with_terminal_stdin() {
-  if [[ -r /dev/tty ]]; then
-    "$@" </dev/tty
-    return
-  fi
-
-  "$@"
-}
-
-collect_missing_packages() {
-  local array_name="$1"
-  shift
-  local package_name
-  # shellcheck disable=SC2178
-  declare -n target_array="$array_name"
-
-  target_array=()
-  for package_name in "$@"; do
-    if ! pacman -Q "$package_name" >/dev/null 2>&1; then
-      target_array+=("$package_name")
-    fi
-  done
-}
-
-cleanup() {
-  local path
-
-  for path in "${cleanup_paths[@]}"; do
-    [[ -n "$path" ]] || continue
-    rm -rf "$path"
-  done
 }
 
 init_logging() {
@@ -286,6 +210,44 @@ announce_prompt() {
   emit_notice "?" "$style_step" "$1"
 }
 
+close_step_block() {
+  if [[ "$step_open" != "1" ]]; then
+    return 0
+  fi
+
+  style_text "$style_muted" "╰─"
+  printf '\n'
+  step_open=0
+}
+# --- end: scripts/bootstrap/ui.sh ---
+
+# --- begin: scripts/bootstrap/process.sh ---
+# shellcheck shell=bash
+
+run_with_terminal_stdin() {
+  if [[ -r /dev/tty ]]; then
+    "$@" </dev/tty
+    return
+  fi
+
+  "$@"
+}
+
+collect_missing_packages() {
+  local array_name="$1"
+  shift
+  local package_name
+  # shellcheck disable=SC2178
+  declare -n target_array="$array_name"
+
+  target_array=()
+  for package_name in "$@"; do
+    if ! pacman -Q "$package_name" >/dev/null 2>&1; then
+      target_array+=("$package_name")
+    fi
+  done
+}
+
 run_log_only() {
   if [[ "$STEP_OUTPUT_ONLY" == "1" ]]; then
     "$@" </dev/null >>"$LOG_FILE" 2>&1
@@ -306,16 +268,6 @@ run_interactive_log_only() {
   return "${PIPESTATUS[0]}"
 }
 
-close_step_block() {
-  if [[ "$step_open" != "1" ]]; then
-    return 0
-  fi
-
-  style_text "$style_muted" "╰─"
-  printf '\n'
-  step_open=0
-}
-
 retry() {
   "$@"
 }
@@ -326,6 +278,71 @@ retry_log_only() {
 
 retry_interactive_log_only() {
   run_interactive_log_only "$@"
+}
+# --- end: scripts/bootstrap/process.sh ---
+
+# --- begin: scripts/bootstrap/locking.sh ---
+# shellcheck shell=bash
+
+register_cleanup_path() { cleanup_paths+=("$1"); }
+
+acquire_lock() {
+  local existing_pid=""
+
+  if [[ "$LOCK_HELD" == "1" ]]; then
+    return
+  fi
+
+  mkdir -p "$STATE_DIR"
+  if mkdir "$LOCK_DIR" 2>/dev/null; then
+    printf '%s\n' "$$" >"$LOCK_DIR/pid"
+    register_cleanup_path "$LOCK_DIR"
+    export POSTINSTALL_LOCK_HELD=1
+    LOCK_HELD=1
+    return
+  fi
+
+  if [[ -f "$LOCK_DIR/pid" ]]; then
+    existing_pid="$(<"$LOCK_DIR/pid")"
+  fi
+
+  if [[ -z "$existing_pid" ]] || ! kill -0 "$existing_pid" 2>/dev/null; then
+    announce_warning "Foi detectado um lock órfão. Limpando a execução anterior."
+    rm -rf "$LOCK_DIR"
+    if mkdir "$LOCK_DIR" 2>/dev/null; then
+      printf '%s\n' "$$" >"$LOCK_DIR/pid"
+      register_cleanup_path "$LOCK_DIR"
+      export POSTINSTALL_LOCK_HELD=1
+      LOCK_HELD=1
+      return
+    fi
+  fi
+
+  announce_error "Já existe outra execução do script em andamento."
+  if [[ -f "$LOCK_DIR/pid" ]]; then
+    announce_error "PID atual do lock: $(<"$LOCK_DIR/pid")"
+  fi
+  exit 1
+}
+
+cleanup() {
+  local path
+
+  for path in "${cleanup_paths[@]}"; do
+    [[ -n "$path" ]] || continue
+    rm -rf "$path"
+  done
+}
+# --- end: scripts/bootstrap/locking.sh ---
+
+# --- begin: scripts/bootstrap/env.sh ---
+# shellcheck shell=bash
+
+ensure_not_root() {
+  if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
+    announce_error "Execute este script como usuário comum, e não como root."
+    exit 1
+  fi
 }
 
 require_command() {
@@ -355,6 +372,10 @@ ensure_arch() {
     exit 1
   fi
 }
+# --- end: scripts/bootstrap/env.sh ---
+
+# --- begin: scripts/bootstrap/repo.sh ---
+# shellcheck shell=bash
 
 ensure_repo_origin_remote() {
   local repo_dir="$1"
@@ -394,52 +415,6 @@ get_repo_branch() {
   [[ -n "$branch_name" ]] || return 1
   printf 'detached@%s\n' "$branch_name"
 }
-# --- end: scripts/bootstrap/lib.sh ---
-
-# --- begin: scripts/bootstrap/entrypoint.sh ---
-# shellcheck shell=bash
-# shellcheck disable=SC2034
-# shellcheck source-path=SCRIPTDIR
-SELF_PATH="${BASH_SOURCE[0]:-$0}"
-SCRIPT_DIR="$(cd "$(dirname "$SELF_PATH")" && pwd)"
-LOCAL_MAIN="$SCRIPT_DIR/scripts/install/main.sh"
-
-if [[ -f "$SELF_PATH" && -f "$LOCAL_MAIN" ]]; then
-  exec bash "$LOCAL_MAIN" "$@"
-fi
-
-REPO_HTTPS_URL="https://github.com/obslove/arch-postinstall-apps.git"
-REPO_SSH_URL="git@github.com:obslove/arch-postinstall-apps.git"
-REPOSITORIES_DIR="${REPOSITORIES_DIR:-$HOME/Repositories}"
-INSTALL_DIR="${BOOTSTRAP_DIR:-$REPOSITORIES_DIR/arch-postinstall-apps}"
-YAY_REPO_DIR="${YAY_REPO_DIR:-$REPOSITORIES_DIR/yay}"
-YAY_SNAPSHOT_URL="${YAY_SNAPSHOT_URL:-https://aur.archlinux.org/cgit/aur.git/snapshot/yay.tar.gz}"
-SSH_KEY_PATH="${SSH_KEY_PATH:-$HOME/.ssh/id_ed25519}"
-GITHUB_SSH_KEY_NAME=""
-LOG_FILE="${POSTINSTALL_LOG_FILE:-$HOME/Backups/arch-postinstall.log}"
-SUMMARY_FILE="${POSTINSTALL_SUMMARY_FILE:-$HOME/Backups/arch-postinstall-summary.txt}"
-CHECK_ONLY=0
-EXCLUSIVE_GITHUB_SSH_KEY=0
-SKIP_GITHUB_SSH=0
-STEP_OUTPUT_ONLY=1
-STATE_DIR="${POSTINSTALL_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/arch-postinstall-apps}"
-LOCK_DIR="${POSTINSTALL_LOCK_DIR:-$STATE_DIR/lock}"
-LOCK_HELD="${POSTINSTALL_LOCK_HELD:-0}"
-BOOTSTRAP_PACKAGES=(
-  ca-certificates
-  git
-  curl
-  tar
-)
-
-cleanup_paths=()
-step_counter=0
-step_open=0
-step_total=0
-STEP_RESULT_STATUS=""
-STEP_RESULT_MESSAGE=""
-
-init_output_styles
 
 repo_is_dirty() {
   ! git -C "$INSTALL_DIR" diff --quiet --no-ext-diff || \
@@ -520,6 +495,68 @@ sync_repo() {
     return 1
   fi
 }
+# --- end: scripts/bootstrap/repo.sh ---
+
+# --- begin: scripts/bootstrap/entrypoint.sh ---
+# shellcheck shell=bash
+# shellcheck disable=SC2034
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=scripts/bootstrap/step-result.sh
+# shellcheck source=scripts/bootstrap/ui.sh
+# shellcheck source=scripts/bootstrap/process.sh
+# shellcheck source=scripts/bootstrap/locking.sh
+# shellcheck source=scripts/bootstrap/env.sh
+# shellcheck source=scripts/bootstrap/repo.sh
+
+if false; then
+  source "$SCRIPT_DIR/scripts/bootstrap/step-result.sh"
+  source "$SCRIPT_DIR/scripts/bootstrap/ui.sh"
+  source "$SCRIPT_DIR/scripts/bootstrap/process.sh"
+  source "$SCRIPT_DIR/scripts/bootstrap/locking.sh"
+  source "$SCRIPT_DIR/scripts/bootstrap/env.sh"
+  source "$SCRIPT_DIR/scripts/bootstrap/repo.sh"
+fi
+
+SELF_PATH="${BASH_SOURCE[0]:-$0}"
+SCRIPT_DIR="$(cd "$(dirname "$SELF_PATH")" && pwd)"
+LOCAL_MAIN="$SCRIPT_DIR/scripts/install/main.sh"
+
+if [[ -f "$SELF_PATH" && -f "$LOCAL_MAIN" ]]; then
+  exec bash "$LOCAL_MAIN" "$@"
+fi
+
+REPO_HTTPS_URL="https://github.com/obslove/arch-postinstall-apps.git"
+REPO_SSH_URL="git@github.com:obslove/arch-postinstall-apps.git"
+REPOSITORIES_DIR="${REPOSITORIES_DIR:-$HOME/Repositories}"
+INSTALL_DIR="${BOOTSTRAP_DIR:-$REPOSITORIES_DIR/arch-postinstall-apps}"
+YAY_REPO_DIR="${YAY_REPO_DIR:-$REPOSITORIES_DIR/yay}"
+YAY_SNAPSHOT_URL="${YAY_SNAPSHOT_URL:-https://aur.archlinux.org/cgit/aur.git/snapshot/yay.tar.gz}"
+SSH_KEY_PATH="${SSH_KEY_PATH:-$HOME/.ssh/id_ed25519}"
+GITHUB_SSH_KEY_NAME=""
+LOG_FILE="${POSTINSTALL_LOG_FILE:-$HOME/Backups/arch-postinstall.log}"
+SUMMARY_FILE="${POSTINSTALL_SUMMARY_FILE:-$HOME/Backups/arch-postinstall-summary.txt}"
+CHECK_ONLY=0
+EXCLUSIVE_GITHUB_SSH_KEY=0
+SKIP_GITHUB_SSH=0
+STEP_OUTPUT_ONLY=1
+STATE_DIR="${POSTINSTALL_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/arch-postinstall-apps}"
+LOCK_DIR="${POSTINSTALL_LOCK_DIR:-$STATE_DIR/lock}"
+LOCK_HELD="${POSTINSTALL_LOCK_HELD:-0}"
+BOOTSTRAP_PACKAGES=(
+  ca-certificates
+  git
+  curl
+  tar
+)
+
+cleanup_paths=()
+step_counter=0
+step_open=0
+step_total=0
+STEP_RESULT_STATUS=""
+STEP_RESULT_MESSAGE=""
+
+init_output_styles
 
 handle_bootstrap_step_result_or_exit() {
   case "${STEP_RESULT_STATUS:-}" in

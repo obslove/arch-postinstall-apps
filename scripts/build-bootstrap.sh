@@ -9,7 +9,12 @@ OUTPUT_FILE="$REPO_DIR/install.sh"
 
 FRAGMENTS=(
   "$REPO_DIR/scripts/lib/cli.sh"
-  "$REPO_DIR/scripts/bootstrap/lib.sh"
+  "$REPO_DIR/scripts/bootstrap/step-result.sh"
+  "$REPO_DIR/scripts/bootstrap/ui.sh"
+  "$REPO_DIR/scripts/bootstrap/process.sh"
+  "$REPO_DIR/scripts/bootstrap/locking.sh"
+  "$REPO_DIR/scripts/bootstrap/env.sh"
+  "$REPO_DIR/scripts/bootstrap/repo.sh"
   "$REPO_DIR/scripts/bootstrap/entrypoint.sh"
 )
 
