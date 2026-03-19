@@ -19,6 +19,10 @@ source "$REPO_DIR/scripts/lib/packages.sh"
 source "$REPO_DIR/scripts/lib/integrations.sh"
 # shellcheck source=../lib/verify.sh
 source "$REPO_DIR/scripts/lib/verify.sh"
+# shellcheck source=../lib/summary.sh
+source "$REPO_DIR/scripts/lib/summary.sh"
+# shellcheck source=../lib/pipeline.sh
+source "$REPO_DIR/scripts/lib/pipeline.sh"
 # shellcheck source=../lib/flow.sh
 source "$REPO_DIR/scripts/lib/flow.sh"
 

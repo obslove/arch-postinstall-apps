@@ -3,142 +3,15 @@
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=scripts/lib/shellcheck-runtime.sh
 # shellcheck source=scripts/lib/ops.sh
+# shellcheck source=scripts/lib/summary.sh
+# shellcheck source=scripts/lib/pipeline.sh
 
 if false; then
   source "$SCRIPT_DIR/scripts/lib/shellcheck-runtime.sh"
   source "$SCRIPT_DIR/scripts/lib/ops.sh"
+  source "$SCRIPT_DIR/scripts/lib/summary.sh"
+  source "$SCRIPT_DIR/scripts/lib/pipeline.sh"
 fi
-
-print_summary() {
-  local host_name
-  local actual_branch
-  local actual_commit
-  local repo_path
-  local origin_status="indisponível"
-  local completed_actions=()
-  local execution_mode="instalação"
-  local changes_applied="sim"
-  local version_line
-
-  if [[ "$CHECK_ONLY" == "1" ]]; then
-    execution_mode="verificação"
-    changes_applied="não"
-  fi
-
-  host_name="$(get_host_name)"
-  actual_branch="$(get_repo_branch "$SCRIPT_DIR" 2>/dev/null || printf '%s\n' "main")"
-  actual_commit="$(current_repo_commit_short "$SCRIPT_DIR")"
-  repo_path="$SCRIPT_DIR"
-  origin_status="$(current_repo_origin_status "$SCRIPT_DIR")"
-
-  if has_checkpoint "codex_cli"; then
-    completed_actions+=("codex_cli")
-  fi
-  if has_checkpoint "desktop_integration"; then
-    completed_actions+=("desktop_integration")
-  fi
-  if has_checkpoint "github_ssh"; then
-    completed_actions+=("github_ssh")
-  fi
-
-  close_step_block
-
-  if [[ "$STEP_OUTPUT_ONLY" == "1" ]]; then
-    echo
-    printf '%s %s\n' "$(style_text "$style_success" "╭─")" "$(style_text "$style_success" "Concluído")"
-    print_summary_section "Resultado"
-    print_summary_item "Modo:" "$execution_mode"
-    print_summary_item "Alterações aplicadas:" "$changes_applied"
-    print_summary_item "GitHub SSH:" "$github_ssh_status"
-    print_summary_item "Integração desktop:" "$desktop_integration_status"
-    print_summary_section "Repositório"
-    print_summary_item "Commit:" "$actual_commit"
-    print_summary_section "Arquivos"
-    print_summary_item "Log:" "$LOG_FILE"
-    print_summary_item "Resumo:" "$SUMMARY_FILE"
-    echo "│"
-    style_text "$style_muted" "╰─ Fim"
-    printf '\n'
-  else
-    echo
-    printf '%s %s\n' "$(style_text "$style_success" "╭─")" "$(style_text "$style_success" "Concluído")"
-    print_summary_section "Arquivos"
-    print_summary_item "Log:" "$LOG_FILE"
-    print_summary_item "Resumo:" "$SUMMARY_FILE"
-    print_summary_section "Estado"
-    print_summary_item "Modo:" "$execution_mode"
-    print_summary_item "Alterações aplicadas:" "$changes_applied"
-    print_summary_item "Hostname:" "$host_name"
-    print_summary_item "Repositório:" "$repo_path"
-    print_summary_item "Branch:" "$actual_branch"
-    print_summary_item "Commit:" "$actual_commit"
-    print_summary_item "Origin:" "$origin_status"
-    print_summary_section "Pacotes e configuração"
-    print_summary_item "Lista principal via pacman:" "${official_packages[*]:-nenhum}"
-    print_summary_item "Lista principal via AUR:" "${aur_packages[*]:-nenhum}"
-    print_summary_item "Dependências de suporte:" "${support_packages[*]:-nenhuma}"
-    print_summary_item "Ambiente gráfico:" "${environment_packages[*]:-nenhuma}"
-    print_summary_item "Configurações explícitas:" "${completed_actions[*]:-nenhuma}"
-    print_summary_item "GitHub SSH esperado:" "$(if github_ssh_expected; then echo sim; else echo não; fi)"
-    print_summary_item "GitHub SSH:" "$github_ssh_status"
-    print_summary_item "Integração desktop:" "$desktop_integration_status"
-    print_summary_item "Helper AUR:" "${aur_helper_status:-indisponível}"
-    print_summary_section "Verificação"
-    print_summary_item "Falhas pacman:" "${official_failed[*]:-nenhuma}"
-    print_summary_item "Falhas AUR:" "${aur_failed[*]:-nenhuma}"
-    print_summary_item "Falhas parciais:" "${soft_failures[*]:-nenhuma}"
-    print_summary_item "Verificados:" "${verified_commands[*]:-nenhum}"
-    print_summary_item "Ausentes:" "${missing_commands[*]:-nenhum}"
-    if ((${#version_info[@]} == 0)); then
-      print_summary_item "Versões:" "nenhuma"
-    else
-      print_summary_section "Versões"
-      for version_line in "${version_info[@]}"; do
-        echo "│    $(style_text "$style_detail" "•") $version_line"
-      done
-    fi
-    echo "│"
-    style_text "$style_muted" "╰─ Fim"
-    printf '\n'
-  fi
-
-  mkdir -p "$(dirname "$SUMMARY_FILE")"
-  cat >"$SUMMARY_FILE" <<EOF
-Data: $(date '+%Y-%m-%d %H:%M:%S %z')
-Modo: $execution_mode
-Alterações aplicadas: $changes_applied
-Log: $LOG_FILE
-Hostname: $host_name
-Repositório: $repo_path
-Branch: $actual_branch
-Commit: $actual_commit
-Origin: $origin_status
-Itens da lista principal tratados via pacman: ${official_packages[*]:-nenhum}
-Itens da lista principal tratados via AUR: ${aur_packages[*]:-nenhum}
-Dependências de suporte tratadas: ${support_packages[*]:-nenhuma}
-Dependências do ambiente gráfico tratadas: ${environment_packages[*]:-nenhuma}
-Configurações explícitas: ${completed_actions[*]:-nenhuma}
-GitHub SSH esperado: $(if github_ssh_expected; then echo sim; else echo não; fi)
-GitHub SSH: $github_ssh_status
-Integração desktop: $desktop_integration_status
-Helper AUR: ${aur_helper_status:-indisponível}
-Falhas pacman: ${official_failed[*]:-nenhuma}
-Falhas AUR: ${aur_failed[*]:-nenhuma}
-Falhas parciais: ${soft_failures[*]:-nenhuma}
-Verificados: ${verified_commands[*]:-nenhum}
-Ausentes: ${missing_commands[*]:-nenhum}
-Versões:
-$(if ((${#version_info[@]} == 0)); then echo "- nenhuma"; else printf '%s\n' "${version_info[@]/#/- }"; fi)
-Checkpoints:
-- codex_cli: $(if has_checkpoint "codex_cli"; then echo concluido; else echo pendente; fi)
-- desktop_integration: $(if has_checkpoint "desktop_integration"; then echo concluido; else echo pendente; fi)
-- github_ssh: $(if has_checkpoint "github_ssh"; then echo concluido; else echo pendente; fi)
-EOF
-
-  if [[ "$SCRIPT_DIR" != "$INSTALL_DIR" ]]; then
-    printf 'Clone gerenciado: %s\n' "$INSTALL_DIR" >>"$SUMMARY_FILE"
-  fi
-}
 
 handle_runtime_step_result_or_exit() {
   case "${STEP_RESULT_STATUS:-}" in
@@ -271,67 +144,129 @@ final_verification_step() {
   step_result_hard_fail "A verificação final encontrou itens ausentes após a instalação."
 }
 
-run_install() {
-  # shellcheck disable=SC2034
-  local package_list=()
+pipeline_load_configuration_step() {
+  local array_name="$1"
+
+  announce_step "Carregando configuração..."
+  load_packages "$array_name"
+  if [[ "$CHECK_ONLY" != "1" ]]; then
+    set_step_total "$(calculate_install_step_total "$array_name")"
+  fi
+}
+
+pipeline_check_only_step() {
+  local array_name="$1"
   local package_name
 
-  execution_state_reset
-  announce_step "Carregando configuração..."
-  load_packages package_list
-  if [[ "$CHECK_ONLY" != "1" ]]; then
-    set_step_total "$(calculate_install_step_total package_list)"
+  announce_step "Executando verificação sem alterações..."
+  detect_aur_helper || true
+  if desktop_integration_ready; then
+    desktop_integration_status="ignorada por já estar pronta"
+  else
+    desktop_integration_status="pendente"
   fi
-  if [[ "$CHECK_ONLY" == "1" ]]; then
-    announce_step "Executando verificação sem alterações..."
-    detect_aur_helper || true
-    if desktop_integration_ready; then
-      desktop_integration_status="ignorada por já estar pronta"
+  for package_name in "${DESKTOP_INTEGRATION_PACKAGES[@]}"; do
+    mark_environment_package "$package_name"
+  done
+  if github_ssh_expected; then
+    if github_ssh_ready; then
+      github_ssh_status="ignorada por já estar pronta"
     else
-      desktop_integration_status="pendente"
+      github_ssh_status="pendente"
     fi
-    for package_name in "${DESKTOP_INTEGRATION_PACKAGES[@]}"; do
-      mark_environment_package "$package_name"
-    done
-    if github_ssh_expected; then
-      if github_ssh_ready; then
-        github_ssh_status="ignorada por já estar pronta"
-      else
-        github_ssh_status="pendente"
-      fi
-    else
-      github_ssh_status="ignorada por configuração"
-    fi
-    verify_installation package_list
-    print_summary
-    if ((${#missing_commands[@]} > 0)); then
-      announce_error "A verificação sem alterações encontrou itens ausentes."
-      exit 1
-    fi
-    return 0
+  else
+    github_ssh_status="ignorada por configuração"
   fi
+  verify_installation "$array_name"
+  print_summary
+  if ((${#missing_commands[@]} > 0)); then
+    announce_error "A verificação sem alterações encontrou itens ausentes."
+    exit 1
+  fi
+}
 
+pipeline_create_directories_step() {
   create_directories
-  ensure_multilib
+}
 
+pipeline_ensure_multilib_step() {
+  ensure_multilib
+}
+
+pipeline_update_system_step() {
   announce_step "Atualizando o sistema..."
   update_system_step
   handle_runtime_step_result_or_exit
+}
 
+pipeline_prepare_aur_helper_step() {
   announce_step "Preparando helper AUR..."
   prepare_aur_helper_step
   handle_runtime_step_result_or_exit
+}
 
-  install_packages_step package_list
+pipeline_install_packages_step() {
+  local array_name="$1"
+
+  install_packages_step "$array_name"
   handle_runtime_step_result_or_exit
+}
+
+pipeline_desktop_integration_step() {
   announce_step "Ajustando integração desktop..."
   desktop_integration_step
   handle_runtime_step_result_or_exit
+}
+
+pipeline_github_ssh_step() {
   announce_step "Configurando GitHub SSH..."
   github_ssh_step
   handle_runtime_step_result_or_exit
+}
+
+pipeline_final_verification_step() {
+  local array_name="$1"
+
   announce_step "Validando instalação..."
-  final_verification_step package_list
+  final_verification_step "$array_name"
   handle_runtime_step_result_or_exit
-  print_summary
+}
+
+define_runtime_pipeline() {
+  local array_name="$1"
+
+  pipeline_reset
+  pipeline_add_step "load_configuration" "all" "pipeline_load_configuration_step" "$array_name"
+
+  if [[ "$CHECK_ONLY" == "1" ]]; then
+    pipeline_add_step "check_only_verification" "check" "pipeline_check_only_step" "$array_name"
+    return 0
+  fi
+
+  pipeline_add_step "create_directories" "install" "pipeline_create_directories_step"
+  pipeline_add_step "ensure_multilib" "install" "pipeline_ensure_multilib_step"
+  pipeline_add_step "update_system" "install" "pipeline_update_system_step"
+  pipeline_add_step "prepare_aur_helper" "install" "pipeline_prepare_aur_helper_step"
+  pipeline_add_step "install_packages" "install" "pipeline_install_packages_step" "$array_name"
+  pipeline_add_step "desktop_integration" "install" "pipeline_desktop_integration_step"
+  pipeline_add_step "github_ssh" "install" "pipeline_github_ssh_step"
+  pipeline_add_step "final_verification" "install" "pipeline_final_verification_step" "$array_name"
+}
+
+run_install() {
+  local execution_mode="install"
+  # shellcheck disable=SC2034
+  local package_list=()
+
+  if [[ "$CHECK_ONLY" == "1" ]]; then
+    execution_mode="check"
+  fi
+
+  execution_state_reset
+  define_runtime_pipeline package_list
+  run_pipeline_steps "$execution_mode"
+
+  if [[ "$execution_mode" == "install" ]]; then
+    print_summary
+  fi
 }
