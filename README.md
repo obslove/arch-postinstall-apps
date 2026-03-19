@@ -41,7 +41,7 @@ Durante uma execução normal, o script faz o seguinte:
 2. cria os diretórios principais usados pelo ambiente;
 3. carrega [config/packages.txt](/home/ven/arch-postinstall-apps/config/packages.txt) e, se existir, [config/packages-extra.txt](/home/ven/arch-postinstall-apps/config/packages-extra.txt);
 4. habilita `multilib`, atualiza o sistema e prepara o `yay`;
-5. instala os apps e dependências definidos na lista de pacotes;
+5. instala os apps da lista principal e as dependências declaradas dos componentes do setup;
 6. configura o Codex CLI em `~/Codex`;
 7. garante a integração desktop necessária para o ambiente gráfico;
 8. configura o GitHub SSH;
@@ -68,7 +68,9 @@ O script separa o que é infraestrutura do próprio fluxo e o que é software pr
   `wl-clipboard`
 <!-- packages:end -->
 
-Para alterar a lista principal, edite [config/packages.txt](/home/ven/arch-postinstall-apps/config/packages.txt).
+Para alterar a lista principal de apps, edite [config/packages.txt](/home/ven/arch-postinstall-apps/config/packages.txt).
+
+Para alterar os componentes declarados do setup, edite [config/components.sh](/home/ven/arch-postinstall-apps/config/components.sh).
 
 Se existir [config/packages-extra.txt](/home/ven/arch-postinstall-apps/config/packages-extra.txt), o conteúdo dele também será carregado na mesma execução.
 </details>
@@ -142,6 +144,7 @@ shellcheck install.sh
 
 ```text
 config/packages-extra.txt.example
+config/components.sh
 config/packages.txt
 install.sh
 ```

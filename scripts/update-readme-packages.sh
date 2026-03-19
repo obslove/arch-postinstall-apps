@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# shellcheck shell=bash
+# shellcheck source-path=SCRIPTDIR
 
 set -euo pipefail
 
@@ -6,6 +8,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 README_FILE="$REPO_DIR/README.md"
 PACKAGE_FILE="$REPO_DIR/config/packages.txt"
+# shellcheck source=../config/components.sh
+source "$REPO_DIR/config/components.sh"
 
 usage() {
   cat <<'EOF'
@@ -17,53 +21,43 @@ EOF
 
 render_package_block() {
   local line
-  local items=()
   local app_items=()
-  local codex_items=()
-  local item
+
+  print_item_list() {
+    local array_name="$1"
+    # shellcheck disable=SC2178
+    declare -n target_array="$array_name"
+    local current_item
+
+    printf '  '
+    printf "\`%s\`" "${target_array[0]}"
+    for current_item in "${target_array[@]:1}"; do
+      printf ", \`%s\`" "$current_item"
+    done
+    printf '\n'
+  }
 
   while IFS= read -r line || [[ -n "$line" ]]; do
     line="${line#"${line%%[![:space:]]*}"}"
     line="${line%"${line##*[![:space:]]}"}"
     [[ -n "$line" ]] || continue
     [[ "$line" == \#* ]] && continue
-    items+=("$line")
+    app_items+=("$line")
   done <"$PACKAGE_FILE"
-
-  for item in "${items[@]}"; do
-    case "$item" in
-      git)
-        ;;
-      nodejs|npm|codex)
-        codex_items+=("$item")
-        ;;
-      *)
-        app_items+=("$item")
-        ;;
-    esac
-  done
 
   printf '%s\n' '<!-- packages:start -->'
   printf '%s\n' '- Dependências de suporte do script:'
-  printf '%s\n' '  `git`, `base-devel`, `yay`, `github-cli`, `openssh`'
+  print_item_list SCRIPT_SUPPORT_PACKAGES
   printf '%s\n' '- Apps principais da lista padrão:'
-  printf '  '
-  printf '`%s`' "${app_items[0]}"
-  for item in "${app_items[@]:1}"; do
-    printf ', `%s`' "$item"
-  done
-  printf '\n'
-  printf '%s\n' '- Componentes usados para instalar e executar o Codex CLI:'
-  printf '  '
-  printf '`%s`' "${codex_items[0]}"
-  for item in "${codex_items[@]:1}"; do
-    printf ', `%s`' "$item"
-  done
-  printf '\n'
+  print_item_list app_items
+  if component_enabled "codex_cli"; then
+    printf '%s\n' '- Componentes usados para instalar e executar o Codex CLI:'
+    print_item_list CODEX_CLI_README_ITEMS
+  fi
   printf '%s\n' '- Dependências do ambiente gráfico:'
-  printf '%s\n' '  `pipewire`, `wireplumber`, `xdg-utils`, `xdg-desktop-portal`, `xdg-desktop-portal-gtk`, `xdg-desktop-portal-hyprland`'
+  print_item_list DESKTOP_INTEGRATION_PACKAGES
   printf '%s\n' '- Dependência temporária, quando necessária:'
-  printf '%s\n' '  `wl-clipboard`'
+  print_item_list TEMPORARY_CLIPBOARD_PACKAGES
   printf '%s\n' '<!-- packages:end -->'
 }
 

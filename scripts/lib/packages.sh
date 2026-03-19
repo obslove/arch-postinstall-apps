@@ -147,16 +147,10 @@ calculate_install_step_total() {
   declare -n package_list="$array_name"
   local package
   local total=8
-  local has_codex=0
   local has_official=0
   local has_aur=0
 
   for package in "${package_list[@]}"; do
-    if [[ "$package" == "codex" ]]; then
-      has_codex=1
-      continue
-    fi
-
     if pacman -Si -- "$package" >/dev/null 2>&1; then
       has_official=1
     else
@@ -164,7 +158,9 @@ calculate_install_step_total() {
     fi
   done
 
-  (( has_codex == 1 )) && total=$((total + 1))
+  if component_enabled "codex_cli"; then
+    total=$((total + 1))
+  fi
   (( has_official == 1 )) && total=$((total + 1))
   (( has_aur == 1 )) && total=$((total + 1))
 
@@ -174,12 +170,14 @@ calculate_install_step_total() {
 install_yay() {
   local archive_file
   local missing_packages=()
+  local package_name
   local status=0
 
-  mark_support_package "base-devel"
-  mark_support_package "yay"
+  for package_name in "${AUR_HELPER_SUPPORT_PACKAGES[@]}"; do
+    mark_support_package "$package_name"
+  done
   mkdir -p "$REPOSITORIES_DIR"
-  collect_missing_packages missing_packages base-devel
+  collect_missing_packages missing_packages "${AUR_HELPER_SUPPORT_PACKAGES[@]}"
   if ((${#missing_packages[@]} > 0)); then
     if ! retry_interactive_log_only sudo pacman -S --needed --noconfirm "${missing_packages[@]}"; then
       return 1
@@ -242,6 +240,26 @@ ensure_aur_helper() {
   announce_detail "Usando helper AUR: $aur_helper"
 }
 
+install_codex_cli_component() {
+  local missing_packages=()
+
+  component_enabled "codex_cli" || return 0
+
+  announce_step "Configurando Codex CLI..."
+  collect_missing_packages missing_packages "${CODEX_CLI_PACKAGES[@]}"
+  if ((${#missing_packages[@]} > 0)); then
+    announce_detail "Instalando dependências do Codex CLI..."
+    if ! retry_interactive_log_only sudo pacman -S --needed --noconfirm "${missing_packages[@]}"; then
+      append_array_item official_failed "codex"
+      return 0
+    fi
+  fi
+
+  if ! setup_codex_cli; then
+    append_array_item official_failed "codex"
+  fi
+}
+
 install_packages_in_order() {
   local array_name="$1"
   # shellcheck disable=SC2178
@@ -263,7 +281,6 @@ install_packages_in_order() {
 
   if [[ "$STEP_OUTPUT_ONLY" == "1" ]]; then
     for package in "${package_list[@]}"; do
-      [[ "$package" == "codex" ]] && continue
       if package_exists_in_official_repos "$package"; then
         official_target_count=$((official_target_count + 1))
       else
@@ -278,16 +295,6 @@ install_packages_in_order() {
   fi
 
   for package in "${package_list[@]}"; do
-    case "$package" in
-      codex)
-        announce_step "Configurando Codex CLI..."
-        if ! setup_codex_cli; then
-          official_failed+=("codex")
-        fi
-        continue
-        ;;
-    esac
-
     if package_exists_in_official_repos "$package"; then
       package_origin_status=0
     else
@@ -337,4 +344,6 @@ install_packages_in_order() {
 
     aur_failed+=("$package")
   done
+
+  install_codex_cli_component
 }

@@ -1,15 +1,10 @@
-# Uma linha por item. Linhas vazias e linhas iniciadas com `#` são ignoradas.
+# Uma linha por app principal. Linhas vazias e linhas iniciadas com `#` são ignoradas.
 # A ordem é respeitada pelo instalador.
-# `codex` é um item especial: ele executa a configuração do Codex CLI.
-# `yay` não entra na lista: ele é preparado automaticamente pelo script e usado como helper AUR preferencial.
+# Componentes declarados do setup ficam em `config/components.sh`.
 
 zen-browser-bin
 google-chrome
-git
 shellcheck
-nodejs
-npm
-codex
 code
 discord
 spotify-launcher

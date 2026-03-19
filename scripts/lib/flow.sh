@@ -280,13 +280,7 @@ run_install() {
     else
       desktop_integration_status="pendente"
     fi
-    for package_name in \
-      pipewire \
-      wireplumber \
-      xdg-utils \
-      xdg-desktop-portal \
-      xdg-desktop-portal-gtk \
-      xdg-desktop-portal-hyprland; do
+    for package_name in "${DESKTOP_INTEGRATION_PACKAGES[@]}"; do
       mark_environment_package "$package_name"
     done
     if github_ssh_expected; then

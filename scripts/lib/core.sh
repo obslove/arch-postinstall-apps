@@ -5,6 +5,9 @@
 SHARED_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 # shellcheck source=shared.sh
 source "$SHARED_LIB_DIR/shared.sh"
+COMPONENT_CONFIG_FILE="$(cd "$SHARED_LIB_DIR/../../config" && pwd)/components.sh"
+# shellcheck source=../../config/components.sh
+source "$COMPONENT_CONFIG_FILE"
 
 config_init() {
   local repo_dir="$1"

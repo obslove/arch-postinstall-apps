@@ -58,7 +58,7 @@ start_desktop_user_services() {
   fi
 
   run_log_only systemctl --user daemon-reload || true
-  run_log_only systemctl --user start pipewire.service wireplumber.service xdg-desktop-portal.service
+  run_log_only systemctl --user start "${DESKTOP_USER_SERVICES[@]}"
 }
 
 collect_version() {
@@ -83,6 +83,7 @@ verify_installation() {
   # shellcheck disable=SC2178
   declare -n package_list="$array_name"
   local package_name
+  local service_name
 
   verified_commands=()
   missing_commands=()
@@ -90,9 +91,6 @@ verify_installation() {
 
   for package_name in "${package_list[@]}"; do
     case "$package_name" in
-      codex)
-        verify_command "codex" "codex"
-        ;;
       nodejs)
         verify_command "nodejs" "node"
         ;;
@@ -102,9 +100,31 @@ verify_installation() {
     esac
   done
 
+  if component_enabled "codex_cli"; then
+    for package_name in "${CODEX_CLI_PACKAGES[@]}"; do
+      case "$package_name" in
+        nodejs)
+          verify_command "nodejs" "node"
+          ;;
+        *)
+          verify_package "$package_name" "$package_name"
+          ;;
+      esac
+    done
+    verify_command "codex" "codex"
+  fi
+
   if github_ssh_expected; then
-    verify_command "github-cli" "gh"
-    verify_command "openssh" "ssh-keygen"
+    for package_name in "${GITHUB_SSH_SUPPORT_PACKAGES[@]}"; do
+      case "$package_name" in
+        github-cli)
+          verify_command "github-cli" "gh"
+          ;;
+        openssh)
+          verify_command "openssh" "ssh-keygen"
+          ;;
+      esac
+    done
     if [[ "$(current_repo_origin_status "$SCRIPT_DIR")" == "ssh" ]]; then
       mark_verified_item "origin-ssh"
     else
@@ -112,34 +132,40 @@ verify_installation() {
     fi
   fi
 
-  if command -v xdg-open >/dev/null 2>&1; then
-    mark_verified_item "xdg-utils"
-  elif command -v gio >/dev/null 2>&1; then
-    mark_verified_item "xdg-utils"
-  else
-    mark_missing_item "xdg-utils"
-  fi
+  for package_name in "${DESKTOP_INTEGRATION_PACKAGES[@]}"; do
+    case "$package_name" in
+      xdg-utils)
+        if command -v xdg-open >/dev/null 2>&1; then
+          mark_verified_item "xdg-utils"
+        elif command -v gio >/dev/null 2>&1; then
+          mark_verified_item "xdg-utils"
+        else
+          mark_missing_item "xdg-utils"
+        fi
+        ;;
+      pipewire|wireplumber)
+        verify_command "$package_name" "$package_name"
+        ;;
+      *)
+        verify_package "$package_name" "$package_name"
+        ;;
+    esac
+  done
 
   if command -v wl-copy >/dev/null 2>&1 && command -v wl-paste >/dev/null 2>&1; then
     mark_verified_item "clipboard"
-  elif package_is_installed wl-clipboard; then
-    mark_missing_item "wl-clipboard"
+  elif package_is_installed "${TEMPORARY_CLIPBOARD_PACKAGES[0]}"; then
+    mark_missing_item "${TEMPORARY_CLIPBOARD_PACKAGES[0]}"
   fi
 
-  verify_command "pipewire" "pipewire"
-  verify_command "wireplumber" "wireplumber"
-  verify_package "xdg-desktop-portal" "xdg-desktop-portal"
-  verify_package "xdg-desktop-portal-gtk" "xdg-desktop-portal-gtk"
-  verify_package "xdg-desktop-portal-hyprland" "xdg-desktop-portal-hyprland"
-
-  verify_user_service "pipewire.service" "pipewire.service"
-  verify_user_service "wireplumber.service" "wireplumber.service"
-  verify_user_service "xdg-desktop-portal.service" "xdg-desktop-portal.service"
+  for service_name in "${DESKTOP_USER_SERVICES[@]}"; do
+    verify_user_service "$service_name" "$service_name"
+  done
 
   if [[ \
-    " ${verified_commands[*]} " == *" pipewire.service "* && \
-    " ${verified_commands[*]} " == *" wireplumber.service "* && \
-    " ${verified_commands[*]} " == *" xdg-desktop-portal.service "* \
+    " ${verified_commands[*]} " == *" ${DESKTOP_USER_SERVICES[0]} "* && \
+    " ${verified_commands[*]} " == *" ${DESKTOP_USER_SERVICES[1]} "* && \
+    " ${verified_commands[*]} " == *" ${DESKTOP_USER_SERVICES[2]} "* \
   ]]; then
     mark_verified_item "screen-sharing-stack"
   else
@@ -152,6 +178,36 @@ verify_installation() {
   collect_version "codex" codex --version
   collect_version "zen-browser" zen-browser --version
   collect_version "google-chrome-stable" google-chrome-stable --version
+}
+
+repair_missing_item_as_pacman_package() {
+  local item="$1"
+  local package_name
+
+  for package_name in "${GITHUB_SSH_SUPPORT_PACKAGES[@]}"; do
+    [[ "$item" == "$package_name" ]] && return 0
+  done
+
+  for package_name in "${DESKTOP_INTEGRATION_PACKAGES[@]}"; do
+    [[ "$item" == "$package_name" ]] && return 0
+  done
+
+  for package_name in "${TEMPORARY_CLIPBOARD_PACKAGES[@]}"; do
+    [[ "$item" == "$package_name" ]] && return 0
+  done
+
+  return 1
+}
+
+repair_missing_item_requires_service_start() {
+  local item="$1"
+  local service_name
+
+  for service_name in "${DESKTOP_USER_SERVICES[@]}"; do
+    [[ "$item" == "$service_name" ]] && return 0
+  done
+
+  [[ "$item" == "screen-sharing-stack" ]]
 }
 
 attempt_final_repair_once() {
@@ -176,33 +232,40 @@ attempt_final_repair_once() {
       codex)
         should_repair_codex=1
         ;;
-      github-cli|openssh|xdg-utils|wl-clipboard|pipewire|wireplumber|xdg-desktop-portal|xdg-desktop-portal-gtk|xdg-desktop-portal-hyprland)
-        append_array_item repair_pacman_packages "$item"
-        ;;
       origin-ssh)
         should_repair_origin=1
         ;;
-      pipewire.service|wireplumber.service|xdg-desktop-portal.service|screen-sharing-stack)
-        should_start_services=1
-        ;;
-      *)
-        if package_exists_in_official_repos "$item"; then
-          package_origin_status=0
-        else
-          package_origin_status=$?
-        fi
-
-        if [[ "$package_origin_status" == "0" ]]; then
-          append_array_item repair_pacman_packages "$item"
-        else
-          if [[ "$package_origin_status" == "2" ]]; then
-            announce_error "Não foi possível classificar o item ausente '$item' para a correção automática."
-            return 1
-          fi
-          append_array_item repair_aur_packages "$item"
-        fi
-        ;;
     esac
+
+    if repair_missing_item_as_pacman_package "$item"; then
+        append_array_item repair_pacman_packages "$item"
+        continue
+    fi
+
+    if repair_missing_item_requires_service_start "$item"; then
+        should_start_services=1
+        continue
+    fi
+
+    if [[ "$item" == "codex" || "$item" == "origin-ssh" ]]; then
+      continue
+    fi
+
+    if package_exists_in_official_repos "$item"; then
+      package_origin_status=0
+    else
+      package_origin_status=$?
+    fi
+
+    if [[ "$package_origin_status" == "0" ]]; then
+      append_array_item repair_pacman_packages "$item"
+    else
+      if [[ "$package_origin_status" == "2" ]]; then
+        announce_error "Não foi possível classificar o item ausente '$item' para a correção automática."
+        return 1
+      fi
+      append_array_item repair_aur_packages "$item"
+    fi
   done
 
   collect_missing_packages pacman_missing_packages "${repair_pacman_packages[@]}"

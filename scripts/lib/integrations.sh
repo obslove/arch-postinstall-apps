@@ -48,7 +48,7 @@ ensure_temp_clipboard_utility() {
     return 0
   fi
 
-  collect_missing_packages missing_packages wl-clipboard
+  collect_missing_packages missing_packages "${TEMPORARY_CLIPBOARD_PACKAGES[@]}"
   if ((${#missing_packages[@]} == 0)); then
     return 0
   fi
@@ -80,13 +80,7 @@ cleanup_temp_clipboard_utility() {
 desktop_integration_ready() {
   local package_name
 
-  for package_name in \
-    pipewire \
-    wireplumber \
-    xdg-utils \
-    xdg-desktop-portal \
-    xdg-desktop-portal-gtk \
-    xdg-desktop-portal-hyprland; do
+  for package_name in "${DESKTOP_INTEGRATION_PACKAGES[@]}"; do
     if ! pacman -Q "$package_name" >/dev/null 2>&1; then
       return 1
     fi
@@ -97,18 +91,10 @@ desktop_integration_ready() {
 
 ensure_desktop_integration() {
   local package_name
-  local required_packages=(
-    pipewire
-    wireplumber
-    xdg-utils
-    xdg-desktop-portal
-    xdg-desktop-portal-gtk
-    xdg-desktop-portal-hyprland
-  )
   local missing_packages=()
 
   environment_packages=()
-  for package_name in "${required_packages[@]}"; do
+  for package_name in "${DESKTOP_INTEGRATION_PACKAGES[@]}"; do
     mark_environment_package "$package_name"
   done
 
@@ -121,7 +107,7 @@ ensure_desktop_integration() {
     return 0
   fi
 
-  collect_missing_packages missing_packages "${required_packages[@]}"
+  collect_missing_packages missing_packages "${DESKTOP_INTEGRATION_PACKAGES[@]}"
   announce_detail "Garantindo integração desktop..."
   if ! retry_interactive_log_only sudo pacman -S --needed --noconfirm "${missing_packages[@]}"; then
     desktop_integration_status="falhou"
@@ -423,10 +409,11 @@ setup_github_ssh() {
   fi
 
   announce_detail "Registrando dependências da etapa de GitHub SSH..."
-  mark_support_package "github-cli"
-  mark_support_package "openssh"
+  for package_name in "${GITHUB_SSH_SUPPORT_PACKAGES[@]}"; do
+    mark_support_package "$package_name"
+  done
   announce_detail "Verificando dependências da etapa de GitHub SSH..."
-  collect_missing_packages missing_packages github-cli openssh
+  collect_missing_packages missing_packages "${GITHUB_SSH_SUPPORT_PACKAGES[@]}"
   if ((${#missing_packages[@]} > 0)); then
     if ! retry_interactive_log_only sudo pacman -S --needed --noconfirm "${missing_packages[@]}"; then
       github_ssh_status="ignorada por falha"
