@@ -8,6 +8,8 @@ Ele automatiza a preparação do sistema, instala os pacotes definidos no reposi
 
 Execute como usuário comum. Não use `sudo bash`.
 
+O modo padrão usa saída resumida. Use `-v` para ver a saída detalhada no terminal.
+
 ```bash
 curl -fsSL https://obslove.dev | bash
 ```
@@ -94,7 +96,7 @@ Flags:
 - `-c`, `--check`
   Valida o ambiente sem instalar nem alterar o sistema.
 - `-e`, `--exclusive-key`
-  Remove as outras chaves SSH da conta no GitHub e mantém apenas a chave atual, mesmo que o GitHub SSH já esteja configurado.
+  Destrutiva: remove as outras chaves SSH da conta no GitHub e mantém apenas a chave atual, mesmo que o GitHub SSH já esteja configurado.
 - `-n`, `--no-gh`
   Pula a etapa de configuração do GitHub SSH.
 - `-s`, `--ssh-name NOME`

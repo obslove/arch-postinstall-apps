@@ -80,7 +80,7 @@ Uso:
 
 Opções:
   -c, --check             Valida o ambiente sem instalar nem alterar o sistema.
-  -e, --exclusive-key     Remove as outras chaves SSH do GitHub e mantém só a atual.
+  -e, --exclusive-key     Destrutiva: remove as outras chaves SSH do GitHub e mantém só a atual.
   -n, --no-gh             Pula a etapa de GitHub SSH.
   -s, --ssh-name NOME     Define o nome da chave SSH enviada ao GitHub.
   -v, --verbose           Desativa o modo resumido e mostra a saída completa.

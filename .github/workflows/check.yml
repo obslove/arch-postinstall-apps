@@ -16,6 +16,10 @@ jobs:
           bash -n install.sh
       - name: Shellcheck
         run: shellcheck install.sh
+      - name: Help output
+        run: |
+          bash install.sh --help | grep -Fq -- '--exclusive-key'
+          bash install.sh --help | grep -Fq -- '--ssh-name'
       - name: Bootstrap commands in README
         run: |
           grep -Fqx 'curl -fsSL https://obslove.dev | bash' README.md
