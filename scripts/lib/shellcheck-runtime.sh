@@ -46,6 +46,7 @@ step_open=0
 step_total=0
 STEP_RESULT_STATUS=""
 STEP_RESULT_MESSAGE=""
+STEP_RESULT_SUMMARY_PRINTED=0
 style_reset=""
 style_step=""
 style_detail=""

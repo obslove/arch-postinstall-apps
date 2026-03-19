@@ -33,12 +33,16 @@ handle_runtime_step_result_or_exit() {
       if [[ -n "${STEP_RESULT_MESSAGE:-}" ]]; then
         announce_error "$STEP_RESULT_MESSAGE"
       fi
-      print_summary
+      if [[ "${STEP_RESULT_SUMMARY_PRINTED:-0}" != "1" ]]; then
+        print_summary
+      fi
       exit 1
       ;;
     *)
       announce_error "Resultado de etapa desconhecido: ${STEP_RESULT_STATUS:-indefinido}"
-      print_summary
+      if [[ "${STEP_RESULT_SUMMARY_PRINTED:-0}" != "1" ]]; then
+        print_summary
+      fi
       exit 1
       ;;
   esac
@@ -151,17 +155,26 @@ final_verification_step() {
 pipeline_load_configuration_step() {
   local array_name="$1"
 
+  step_result_reset
   announce_step "Carregando configuração..."
-  load_packages "$array_name"
+  if ! load_packages "$array_name"; then
+    step_result_hard_fail "Não foi possível carregar a configuração de pacotes."
+    handle_runtime_step_result_or_exit
+    return 0
+  fi
+
   if [[ "$CHECK_ONLY" != "1" ]]; then
     set_step_total "$(calculate_install_step_total "$array_name")"
   fi
+
+  step_result_success "A configuração de pacotes foi carregada."
 }
 
 pipeline_check_only_step() {
   local array_name="$1"
   local package_name
 
+  step_result_reset
   announce_step "Executando verificação sem alterações..."
   component_detect aur_helper || true
   if component_detect desktop_integration; then
@@ -183,10 +196,14 @@ pipeline_check_only_step() {
   fi
   verify_installation "$array_name"
   print_summary
+  STEP_RESULT_SUMMARY_PRINTED=1
   if ((${#missing_commands[@]} > 0)); then
-    announce_error "A verificação sem alterações encontrou itens ausentes."
-    exit 1
+    step_result_hard_fail "A verificação sem alterações encontrou itens ausentes."
+    handle_runtime_step_result_or_exit
+    return 0
   fi
+
+  step_result_success "A verificação sem alterações foi concluída."
 }
 
 pipeline_create_directories_step() {
@@ -194,7 +211,15 @@ pipeline_create_directories_step() {
 }
 
 pipeline_ensure_multilib_step() {
-  ensure_multilib
+  step_result_reset
+
+  if ! ensure_multilib; then
+    step_result_hard_fail "Não foi possível preparar o repositório multilib."
+    handle_runtime_step_result_or_exit
+    return 0
+  fi
+
+  step_result_success "O repositório multilib foi preparado."
 }
 
 pipeline_update_system_step() {

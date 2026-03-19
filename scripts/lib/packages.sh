@@ -56,7 +56,7 @@ load_packages() {
 
   [[ -f "$PACKAGE_FILE" ]] || {
     announce_error "Lista de pacotes não encontrada em $PACKAGE_FILE"
-    exit 1
+    return 1
   }
 
   target_array=()
@@ -85,12 +85,12 @@ ensure_multilib() {
 
   if ! multilib_enabled; then
     announce_error "Não foi possível habilitar multilib automaticamente."
-    exit 1
+    return 1
   fi
 
   if ! ops_pacman_refresh_databases; then
     announce_error "Não foi possível sincronizar os bancos de dados do pacman após habilitar multilib."
-    exit 1
+    return 1
   fi
 }
 

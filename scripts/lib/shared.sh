@@ -25,6 +25,7 @@ init_output_styles() {
 step_result_reset() {
   STEP_RESULT_STATUS=""
   STEP_RESULT_MESSAGE=""
+  STEP_RESULT_SUMMARY_PRINTED=0
 }
 
 step_result_success() {
