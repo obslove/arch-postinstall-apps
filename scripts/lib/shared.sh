@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # shellcheck disable=SC2034
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=scripts/lib/runtime-state.sh
+
+if false; then
+  source "$SCRIPT_DIR/scripts/lib/runtime-state.sh"
+fi
 
 init_output_styles() {
   style_reset=""
@@ -126,19 +132,19 @@ append_array_item() {
 }
 
 mark_support_package() {
-  append_array_item support_packages "$1"
+  state_add_support_package "$1"
 }
 
 mark_environment_package() {
-  append_array_item environment_packages "$1"
+  state_add_environment_package "$1"
 }
 
 mark_verified_item() {
-  append_array_item verified_commands "$1"
+  state_add_verified_item "$1"
 }
 
 mark_missing_item() {
-  append_array_item missing_commands "$1"
+  state_add_missing_item "$1"
 }
 
 package_is_installed() {

@@ -96,7 +96,7 @@ component_apply_desktop_integration() {
   local package_name
   local missing_packages=()
 
-  environment_packages=()
+  state_reset_environment_packages
   for package_name in "${DESKTOP_INTEGRATION_PACKAGES[@]}"; do
     mark_environment_package "$package_name"
   done

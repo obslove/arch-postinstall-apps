@@ -5,11 +5,13 @@
 # shellcheck source=scripts/lib/shellcheck-runtime.sh
 # shellcheck source=scripts/lib/ops.sh
 # shellcheck source=scripts/lib/components.sh
+# shellcheck source=scripts/lib/runtime-state.sh
 
 if false; then
   source "$SCRIPT_DIR/scripts/lib/shellcheck-runtime.sh"
   source "$SCRIPT_DIR/scripts/lib/ops.sh"
   source "$SCRIPT_DIR/scripts/lib/components.sh"
+  source "$SCRIPT_DIR/scripts/lib/runtime-state.sh"
 fi
 
 append_package() {
@@ -284,13 +286,13 @@ component_apply_codex_cli() {
   if ((${#missing_packages[@]} > 0)); then
     announce_detail "Instalando dependências do Codex CLI..."
     if ! ops_pacman_install_needed "${missing_packages[@]}"; then
-      append_array_item official_failed "codex"
+      state_add_official_failure "codex"
       return 0
     fi
   fi
 
   if ! setup_codex_cli; then
-    append_array_item official_failed "codex"
+    state_add_official_failure "codex"
   fi
 }
 
@@ -314,8 +316,7 @@ install_packages_in_order() {
     return 1
   fi
 
-  official_packages=()
-  aur_packages=()
+  state_reset_package_results
 
   if [[ "$STEP_OUTPUT_ONLY" == "1" ]]; then
     for package in "${target_packages[@]}"; do
@@ -340,7 +341,7 @@ install_packages_in_order() {
     fi
 
     if [[ "$package_origin_status" == "0" ]]; then
-      official_packages+=("$package")
+      state_add_main_official_package "$package"
       if [[ "$shown_pacman_step" == "0" ]]; then
         announce_step "Instalando apps oficiais..."
         if (( official_target_count > 0 )); then
@@ -353,7 +354,7 @@ install_packages_in_order() {
         continue
       fi
 
-      official_failed+=("$package")
+      state_add_official_failure "$package"
       continue
     fi
 
@@ -362,9 +363,9 @@ install_packages_in_order() {
       return 1
     fi
 
-    aur_packages+=("$package")
+    state_add_main_aur_package "$package"
     if ! ensure_aur_helper; then
-      aur_failed+=("$package")
+      state_add_aur_failure "$package"
       continue
     fi
 
@@ -380,7 +381,7 @@ install_packages_in_order() {
       continue
     fi
 
-    aur_failed+=("$package")
+    state_add_aur_failure "$package"
   done
 
   install_codex_cli_component

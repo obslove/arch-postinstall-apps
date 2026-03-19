@@ -5,6 +5,7 @@
 # shellcheck source=scripts/lib/ops.sh
 # shellcheck source=scripts/lib/status.sh
 # shellcheck source=scripts/lib/components.sh
+# shellcheck source=scripts/lib/runtime-state.sh
 # shellcheck source=scripts/lib/summary.sh
 # shellcheck source=scripts/lib/pipeline.sh
 
@@ -13,6 +14,7 @@ if false; then
   source "$SCRIPT_DIR/scripts/lib/ops.sh"
   source "$SCRIPT_DIR/scripts/lib/status.sh"
   source "$SCRIPT_DIR/scripts/lib/components.sh"
+  source "$SCRIPT_DIR/scripts/lib/runtime-state.sh"
   source "$SCRIPT_DIR/scripts/lib/summary.sh"
   source "$SCRIPT_DIR/scripts/lib/pipeline.sh"
 fi
@@ -86,7 +88,7 @@ install_packages_step() {
     return 0
   fi
 
-  if ((${#official_failed[@]} > 0 || ${#aur_failed[@]} > 0)); then
+  if state_has_package_failures; then
     step_result_hard_fail "A instalação terminou com falhas em pacotes configurados."
     return 0
   fi
@@ -197,7 +199,7 @@ pipeline_check_only_step() {
   verify_installation "$array_name"
   print_summary
   STEP_RESULT_SUMMARY_PRINTED=1
-  if ((${#missing_commands[@]} > 0)); then
+  if state_has_missing_items; then
     step_result_hard_fail "A verificação sem alterações encontrou itens ausentes."
     handle_runtime_step_result_or_exit
     return 0

@@ -4,11 +4,13 @@
 # shellcheck source=scripts/lib/shellcheck-runtime.sh
 # shellcheck source=scripts/lib/status.sh
 # shellcheck source=scripts/lib/components.sh
+# shellcheck source=scripts/lib/runtime-state.sh
 
 if false; then
   source "$SCRIPT_DIR/scripts/lib/shellcheck-runtime.sh"
   source "$SCRIPT_DIR/scripts/lib/status.sh"
   source "$SCRIPT_DIR/scripts/lib/components.sh"
+  source "$SCRIPT_DIR/scripts/lib/runtime-state.sh"
 fi
 
 print_summary() {
@@ -81,26 +83,26 @@ print_summary() {
     print_summary_item "Commit:" "$actual_commit"
     print_summary_item "Origin:" "$origin_status"
     print_summary_section "Pacotes e configuração"
-    print_summary_item "Lista principal via pacman:" "${official_packages[*]:-nenhum}"
-    print_summary_item "Lista principal via AUR:" "${aur_packages[*]:-nenhum}"
-    print_summary_item "Dependências de suporte:" "${support_packages[*]:-nenhuma}"
-    print_summary_item "Ambiente gráfico:" "${environment_packages[*]:-nenhuma}"
+    print_summary_item "Lista principal via pacman:" "${STATE_MAIN_OFFICIAL_PACKAGES[*]:-nenhum}"
+    print_summary_item "Lista principal via AUR:" "${STATE_MAIN_AUR_PACKAGES[*]:-nenhum}"
+    print_summary_item "Dependências de suporte:" "${STATE_SUPPORT_PACKAGES[*]:-nenhuma}"
+    print_summary_item "Ambiente gráfico:" "${STATE_ENVIRONMENT_PACKAGES[*]:-nenhuma}"
     print_summary_item "Configurações explícitas:" "${completed_actions[*]:-nenhuma}"
     print_summary_item "GitHub SSH esperado:" "$(if github_ssh_expected; then echo sim; else echo não; fi)"
     print_summary_item "GitHub SSH:" "$github_ssh_status_text"
     print_summary_item "Integração desktop:" "$desktop_integration_status_text"
     print_summary_item "Helper AUR:" "${aur_helper_status:-indisponível}"
     print_summary_section "Verificação"
-    print_summary_item "Falhas pacman:" "${official_failed[*]:-nenhuma}"
-    print_summary_item "Falhas AUR:" "${aur_failed[*]:-nenhuma}"
-    print_summary_item "Falhas parciais:" "${soft_failures[*]:-nenhuma}"
-    print_summary_item "Verificados:" "${verified_commands[*]:-nenhum}"
-    print_summary_item "Ausentes:" "${missing_commands[*]:-nenhum}"
-    if ((${#version_info[@]} == 0)); then
+    print_summary_item "Falhas pacman:" "${STATE_FAILED_OFFICIAL_PACKAGES[*]:-nenhuma}"
+    print_summary_item "Falhas AUR:" "${STATE_FAILED_AUR_PACKAGES[*]:-nenhuma}"
+    print_summary_item "Falhas parciais:" "${STATE_SOFT_FAILURES[*]:-nenhuma}"
+    print_summary_item "Verificados:" "${STATE_VERIFIED_ITEMS[*]:-nenhum}"
+    print_summary_item "Ausentes:" "${STATE_MISSING_ITEMS[*]:-nenhum}"
+    if ((${#STATE_VERSION_LINES[@]} == 0)); then
       print_summary_item "Versões:" "nenhuma"
     else
       print_summary_section "Versões"
-      for version_line in "${version_info[@]}"; do
+      for version_line in "${STATE_VERSION_LINES[@]}"; do
         echo "│    $(style_text "$style_detail" "•") $version_line"
       done
     fi
@@ -120,22 +122,22 @@ Repositório: $repo_path
 Branch: $actual_branch
 Commit: $actual_commit
 Origin: $origin_status
-Itens da lista principal tratados via pacman: ${official_packages[*]:-nenhum}
-Itens da lista principal tratados via AUR: ${aur_packages[*]:-nenhum}
-Dependências de suporte tratadas: ${support_packages[*]:-nenhuma}
-Dependências do ambiente gráfico tratadas: ${environment_packages[*]:-nenhuma}
+Itens da lista principal tratados via pacman: ${STATE_MAIN_OFFICIAL_PACKAGES[*]:-nenhum}
+Itens da lista principal tratados via AUR: ${STATE_MAIN_AUR_PACKAGES[*]:-nenhum}
+Dependências de suporte tratadas: ${STATE_SUPPORT_PACKAGES[*]:-nenhuma}
+Dependências do ambiente gráfico tratadas: ${STATE_ENVIRONMENT_PACKAGES[*]:-nenhuma}
 Configurações explícitas: ${completed_actions[*]:-nenhuma}
 GitHub SSH esperado: $(if github_ssh_expected; then echo sim; else echo não; fi)
 GitHub SSH: $github_ssh_status_text
 Integração desktop: $desktop_integration_status_text
 Helper AUR: ${aur_helper_status:-indisponível}
-Falhas pacman: ${official_failed[*]:-nenhuma}
-Falhas AUR: ${aur_failed[*]:-nenhuma}
-Falhas parciais: ${soft_failures[*]:-nenhuma}
-Verificados: ${verified_commands[*]:-nenhum}
-Ausentes: ${missing_commands[*]:-nenhum}
+Falhas pacman: ${STATE_FAILED_OFFICIAL_PACKAGES[*]:-nenhuma}
+Falhas AUR: ${STATE_FAILED_AUR_PACKAGES[*]:-nenhuma}
+Falhas parciais: ${STATE_SOFT_FAILURES[*]:-nenhuma}
+Verificados: ${STATE_VERIFIED_ITEMS[*]:-nenhum}
+Ausentes: ${STATE_MISSING_ITEMS[*]:-nenhum}
 Versões:
-$(if ((${#version_info[@]} == 0)); then echo "- nenhuma"; else printf '%s\n' "${version_info[@]/#/- }"; fi)
+$(if ((${#STATE_VERSION_LINES[@]} == 0)); then echo "- nenhuma"; else printf '%s\n' "${STATE_VERSION_LINES[@]/#/- }"; fi)
 Checkpoints:
 - codex_cli: $(if component_has_checkpoint "codex_cli"; then echo concluido; else echo pendente; fi)
 - desktop_integration: $(if component_has_checkpoint "desktop_integration"; then echo concluido; else echo pendente; fi)

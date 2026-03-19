@@ -4,11 +4,13 @@
 # shellcheck source=scripts/lib/shellcheck-runtime.sh
 # shellcheck source=scripts/lib/ops.sh
 # shellcheck source=scripts/lib/components.sh
+# shellcheck source=scripts/lib/runtime-state.sh
 
 if false; then
   source "$SCRIPT_DIR/scripts/lib/shellcheck-runtime.sh"
   source "$SCRIPT_DIR/scripts/lib/ops.sh"
   source "$SCRIPT_DIR/scripts/lib/components.sh"
+  source "$SCRIPT_DIR/scripts/lib/runtime-state.sh"
 fi
 
 verify_command() {
@@ -83,10 +85,10 @@ collect_version() {
 
   output="$("$@" 2>/dev/null | sed -n '1p' || true)"
   if [[ -z "$output" ]]; then
-    version_info+=("$label: versão indisponível")
+    state_add_version_line "$label: versão indisponível"
     return 0
   fi
-  version_info+=("$label: $output")
+  state_add_version_line "$label: $output"
 }
 
 verify_installation() {
@@ -96,9 +98,7 @@ verify_installation() {
   local package_name
   local service_name
 
-  verified_commands=()
-  missing_commands=()
-  version_info=()
+  state_reset_verification_results
 
   for package_name in "${target_packages[@]}"; do
     case "$package_name" in
@@ -181,11 +181,9 @@ component_verify_desktop_integration() {
     verify_user_service "$service_name" "$service_name"
   done
 
-  if [[ \
-    " ${verified_commands[*]} " == *" ${DESKTOP_USER_SERVICES[0]} "* && \
-    " ${verified_commands[*]} " == *" ${DESKTOP_USER_SERVICES[1]} "* && \
-    " ${verified_commands[*]} " == *" ${DESKTOP_USER_SERVICES[2]} "* \
-  ]]; then
+  if state_has_verified_item "${DESKTOP_USER_SERVICES[0]}" && \
+    state_has_verified_item "${DESKTOP_USER_SERVICES[1]}" && \
+    state_has_verified_item "${DESKTOP_USER_SERVICES[2]}"; then
     mark_verified_item "screen-sharing-stack"
   else
     mark_missing_item "screen-sharing-stack"
@@ -254,12 +252,12 @@ attempt_final_repair_once() {
   local should_repair_origin=0
   local should_start_services=0
 
-  if ((${#missing_commands[@]} == 0)); then
+  if ! state_has_missing_items; then
     return 0
   fi
 
   announce_step "Tentando corrigir itens ausentes..."
-  for item in "${missing_commands[@]}"; do
+  for item in "${STATE_MISSING_ITEMS[@]}"; do
     case "$item" in
       codex)
         should_repair_codex=1
@@ -349,13 +347,13 @@ attempt_final_repair_once() {
   fi
 
   verify_installation "$1"
-  ((${#missing_commands[@]} == 0))
+  ! state_has_missing_items
 }
 
 ensure_final_verification_passed() {
   local array_name="$1"
 
-  if ((${#missing_commands[@]} == 0)); then
+  if ! state_has_missing_items; then
     return 0
   fi
 
@@ -364,6 +362,6 @@ ensure_final_verification_passed() {
   fi
 
   announce_error "A verificação final encontrou itens ausentes após a instalação."
-  announce_error "Itens ausentes: ${missing_commands[*]}"
+  announce_error "Itens ausentes: ${STATE_MISSING_ITEMS[*]}"
   return 1
 }

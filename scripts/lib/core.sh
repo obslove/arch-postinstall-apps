@@ -4,13 +4,17 @@
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=scripts/lib/shellcheck-runtime.sh
 # shellcheck source=scripts/lib/status.sh
+# shellcheck source=scripts/lib/runtime-state.sh
 
 if false; then
   source "$SCRIPT_DIR/scripts/lib/shellcheck-runtime.sh"
   source "$SCRIPT_DIR/scripts/lib/status.sh"
+  source "$SCRIPT_DIR/scripts/lib/runtime-state.sh"
 fi
 
 SHARED_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+# shellcheck source=runtime-state.sh
+source "$SHARED_LIB_DIR/runtime-state.sh"
 # shellcheck source=shared.sh
 source "$SHARED_LIB_DIR/shared.sh"
 # shellcheck source=cli.sh
@@ -79,23 +83,14 @@ finalize_config() {
 }
 
 execution_state_reset() {
-  official_packages=()
-  aur_packages=()
-  official_failed=()
-  aur_failed=()
-  support_packages=()
-  environment_packages=()
+  runtime_state_reset
   aur_helper=""
   aur_helper_status="não preparado"
-  verified_commands=()
-  missing_commands=()
-  version_info=()
   temp_clipboard_package=""
   official_repo_metadata_checked=0
   official_repo_metadata_ready=0
   github_ssh_status="$STATUS_PENDING"
   desktop_integration_status="$STATUS_PENDING"
-  soft_failures=()
   step_result_reset
 }
 
@@ -112,7 +107,7 @@ record_soft_failure() {
   local message="$1"
 
   [[ -n "$message" ]] || return 0
-  append_array_item soft_failures "$message"
+  state_add_soft_failure "$message"
 }
 
 create_directories() {
