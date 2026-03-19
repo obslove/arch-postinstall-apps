@@ -3,10 +3,12 @@
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=scripts/lib/shellcheck-runtime.sh
 # shellcheck source=scripts/lib/status.sh
+# shellcheck source=scripts/lib/components.sh
 
 if false; then
   source "$SCRIPT_DIR/scripts/lib/shellcheck-runtime.sh"
   source "$SCRIPT_DIR/scripts/lib/status.sh"
+  source "$SCRIPT_DIR/scripts/lib/components.sh"
 fi
 
 print_summary() {
@@ -36,13 +38,13 @@ print_summary() {
   repo_path="$SCRIPT_DIR"
   origin_status="$(current_repo_origin_status "$SCRIPT_DIR")"
 
-  if has_checkpoint "codex_cli"; then
+  if component_has_checkpoint "codex_cli"; then
     completed_actions+=("codex_cli")
   fi
-  if has_checkpoint "desktop_integration"; then
+  if component_has_checkpoint "desktop_integration"; then
     completed_actions+=("desktop_integration")
   fi
-  if has_checkpoint "github_ssh"; then
+  if component_has_checkpoint "github_ssh"; then
     completed_actions+=("github_ssh")
   fi
 
@@ -135,9 +137,9 @@ Ausentes: ${missing_commands[*]:-nenhum}
 Versões:
 $(if ((${#version_info[@]} == 0)); then echo "- nenhuma"; else printf '%s\n' "${version_info[@]/#/- }"; fi)
 Checkpoints:
-- codex_cli: $(if has_checkpoint "codex_cli"; then echo concluido; else echo pendente; fi)
-- desktop_integration: $(if has_checkpoint "desktop_integration"; then echo concluido; else echo pendente; fi)
-- github_ssh: $(if has_checkpoint "github_ssh"; then echo concluido; else echo pendente; fi)
+- codex_cli: $(if component_has_checkpoint "codex_cli"; then echo concluido; else echo pendente; fi)
+- desktop_integration: $(if component_has_checkpoint "desktop_integration"; then echo concluido; else echo pendente; fi)
+- github_ssh: $(if component_has_checkpoint "github_ssh"; then echo concluido; else echo pendente; fi)
 EOF
 
   if [[ "$SCRIPT_DIR" != "$INSTALL_DIR" ]]; then

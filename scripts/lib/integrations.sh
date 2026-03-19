@@ -5,11 +5,13 @@
 # shellcheck source=scripts/lib/shellcheck-runtime.sh
 # shellcheck source=scripts/lib/ops.sh
 # shellcheck source=scripts/lib/status.sh
+# shellcheck source=scripts/lib/components.sh
 
 if false; then
   source "$SCRIPT_DIR/scripts/lib/shellcheck-runtime.sh"
   source "$SCRIPT_DIR/scripts/lib/ops.sh"
   source "$SCRIPT_DIR/scripts/lib/status.sh"
+  source "$SCRIPT_DIR/scripts/lib/components.sh"
 fi
 
 confirm_exclusive_github_ssh_key() {
@@ -82,7 +84,15 @@ desktop_integration_ready() {
   return 0
 }
 
-ensure_desktop_integration() {
+component_detect_desktop_integration() {
+  desktop_integration_ready
+}
+
+component_checkpoint_key_desktop_integration() {
+  printf '%s\n' "desktop_integration"
+}
+
+component_apply_desktop_integration() {
   local package_name
   local missing_packages=()
 
@@ -93,7 +103,7 @@ ensure_desktop_integration() {
 
   if desktop_integration_ready; then
     desktop_integration_status="$STATUS_SKIPPED_READY"
-    if ! has_checkpoint "desktop_integration" && ! mark_checkpoint "desktop_integration"; then
+    if ! component_has_checkpoint "desktop_integration" && ! component_mark_checkpoint_if_missing "desktop_integration"; then
       announce_warning "Não foi possível registrar o checkpoint da integração desktop."
     fi
     announce_detail "A integração desktop já está preparada. Etapa ignorada."
@@ -115,6 +125,10 @@ ensure_desktop_integration() {
   fi
 
   desktop_integration_status="$STATUS_DONE"
+}
+
+ensure_desktop_integration() {
+  component_apply desktop_integration
 }
 
 run_gh_auth_flow() {
@@ -347,7 +361,15 @@ upload_ssh_key() {
   fi
 }
 
-setup_github_ssh() {
+component_detect_github_ssh() {
+  github_ssh_ready
+}
+
+component_checkpoint_key_github_ssh() {
+  printf '%s\n' "github_ssh"
+}
+
+component_apply_github_ssh() {
   local github_ssh_already_ready=0
   local missing_packages=()
 
@@ -431,4 +453,8 @@ setup_github_ssh() {
   if ! ensure_repo_origin_remote "$SCRIPT_DIR"; then
     announce_warning "A chave SSH foi configurada, mas não foi possível ajustar o remoto do repositório para SSH."
   fi
+}
+
+setup_github_ssh() {
+  component_apply github_ssh
 }

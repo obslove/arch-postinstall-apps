@@ -3,10 +3,12 @@
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=scripts/lib/shellcheck-runtime.sh
 # shellcheck source=scripts/lib/ops.sh
+# shellcheck source=scripts/lib/components.sh
 
 if false; then
   source "$SCRIPT_DIR/scripts/lib/shellcheck-runtime.sh"
   source "$SCRIPT_DIR/scripts/lib/ops.sh"
+  source "$SCRIPT_DIR/scripts/lib/components.sh"
 fi
 
 verify_command() {
@@ -109,37 +111,45 @@ verify_installation() {
     esac
   done
 
+  component_verify desktop_integration
   if component_enabled "codex_cli"; then
-    for package_name in "${CODEX_CLI_PACKAGES[@]}"; do
-      case "$package_name" in
-        nodejs)
-          verify_command "nodejs" "node"
-          ;;
-        *)
-          verify_package "$package_name" "$package_name"
-          ;;
-      esac
-    done
-    verify_command "codex" "codex"
+    component_verify codex_cli
+  fi
+  if github_ssh_expected; then
+    component_verify github_ssh
   fi
 
-  if github_ssh_expected; then
-    for package_name in "${GITHUB_SSH_SUPPORT_PACKAGES[@]}"; do
-      case "$package_name" in
-        github-cli)
-          verify_command "github-cli" "gh"
-          ;;
-        openssh)
-          verify_command "openssh" "ssh-keygen"
-          ;;
-      esac
-    done
-    if [[ "$(current_repo_origin_status "$SCRIPT_DIR")" == "ssh" ]]; then
-      mark_verified_item "origin-ssh"
-    else
-      mark_missing_item "origin-ssh"
-    fi
-  fi
+  collect_version "node" node --version
+  collect_version "npm" npm --version
+  collect_version "gh" gh --version
+  collect_version "codex" codex --version
+  collect_version "zen-browser" zen-browser --version
+  collect_version "google-chrome-stable" google-chrome-stable --version
+}
+
+component_verify_aur_helper() {
+  component_detect aur_helper
+}
+
+component_verify_codex_cli() {
+  local package_name
+
+  for package_name in "${CODEX_CLI_PACKAGES[@]}"; do
+    case "$package_name" in
+      nodejs)
+        verify_command "nodejs" "node"
+        ;;
+      *)
+        verify_package "$package_name" "$package_name"
+        ;;
+    esac
+  done
+  verify_command "codex" "codex"
+}
+
+component_verify_desktop_integration() {
+  local package_name
+  local service_name
 
   for package_name in "${DESKTOP_INTEGRATION_PACKAGES[@]}"; do
     case "$package_name" in
@@ -180,13 +190,26 @@ verify_installation() {
   else
     mark_missing_item "screen-sharing-stack"
   fi
+}
 
-  collect_version "node" node --version
-  collect_version "npm" npm --version
-  collect_version "gh" gh --version
-  collect_version "codex" codex --version
-  collect_version "zen-browser" zen-browser --version
-  collect_version "google-chrome-stable" google-chrome-stable --version
+component_verify_github_ssh() {
+  local package_name
+
+  for package_name in "${GITHUB_SSH_SUPPORT_PACKAGES[@]}"; do
+    case "$package_name" in
+      github-cli)
+        verify_command "github-cli" "gh"
+        ;;
+      openssh)
+        verify_command "openssh" "ssh-keygen"
+        ;;
+    esac
+  done
+  if [[ "$(current_repo_origin_status "$SCRIPT_DIR")" == "ssh" ]]; then
+    mark_verified_item "origin-ssh"
+  else
+    mark_missing_item "origin-ssh"
+  fi
 }
 
 repair_missing_item_as_pacman_package() {

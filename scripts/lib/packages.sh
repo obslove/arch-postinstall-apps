@@ -4,10 +4,12 @@
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=scripts/lib/shellcheck-runtime.sh
 # shellcheck source=scripts/lib/ops.sh
+# shellcheck source=scripts/lib/components.sh
 
 if false; then
   source "$SCRIPT_DIR/scripts/lib/shellcheck-runtime.sh"
   source "$SCRIPT_DIR/scripts/lib/ops.sh"
+  source "$SCRIPT_DIR/scripts/lib/components.sh"
 fi
 
 append_package() {
@@ -107,6 +109,14 @@ detect_aur_helper() {
 
   aur_helper=""
   aur_helper_status="indisponível"
+  return 1
+}
+
+component_detect_aur_helper() {
+  detect_aur_helper
+}
+
+component_checkpoint_key_aur_helper() {
   return 1
 }
 
@@ -224,7 +234,7 @@ install_yay() {
   return "$status"
 }
 
-ensure_aur_helper() {
+component_apply_aur_helper() {
   if command -v yay >/dev/null 2>&1; then
     aur_helper="yay"
     aur_helper_status="yay (reutilizado)"
@@ -248,7 +258,23 @@ ensure_aur_helper() {
   announce_detail "Usando helper AUR: $aur_helper"
 }
 
-install_codex_cli_component() {
+ensure_aur_helper() {
+  component_apply aur_helper
+}
+
+codex_cli_ready() {
+  has_checkpoint "codex_cli" && command -v codex >/dev/null 2>&1
+}
+
+component_detect_codex_cli() {
+  codex_cli_ready
+}
+
+component_checkpoint_key_codex_cli() {
+  printf '%s\n' "codex_cli"
+}
+
+component_apply_codex_cli() {
   local missing_packages=()
 
   component_enabled "codex_cli" || return 0
@@ -266,6 +292,10 @@ install_codex_cli_component() {
   if ! setup_codex_cli; then
     append_array_item official_failed "codex"
   fi
+}
+
+install_codex_cli_component() {
+  component_apply codex_cli
 }
 
 install_packages_in_order() {

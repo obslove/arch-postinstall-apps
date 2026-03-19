@@ -13,6 +13,8 @@ source "$REPO_DIR/scripts/lib/core.sh"
 source "$REPO_DIR/scripts/lib/repo.sh"
 # shellcheck source=../lib/ops.sh
 source "$REPO_DIR/scripts/lib/ops.sh"
+# shellcheck source=../lib/components.sh
+source "$REPO_DIR/scripts/lib/components.sh"
 # shellcheck source=../lib/packages.sh
 source "$REPO_DIR/scripts/lib/packages.sh"
 # shellcheck source=../lib/integrations.sh

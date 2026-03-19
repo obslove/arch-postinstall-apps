@@ -4,6 +4,7 @@
 # shellcheck source=scripts/lib/shellcheck-runtime.sh
 # shellcheck source=scripts/lib/ops.sh
 # shellcheck source=scripts/lib/status.sh
+# shellcheck source=scripts/lib/components.sh
 # shellcheck source=scripts/lib/summary.sh
 # shellcheck source=scripts/lib/pipeline.sh
 
@@ -11,6 +12,7 @@ if false; then
   source "$SCRIPT_DIR/scripts/lib/shellcheck-runtime.sh"
   source "$SCRIPT_DIR/scripts/lib/ops.sh"
   source "$SCRIPT_DIR/scripts/lib/status.sh"
+  source "$SCRIPT_DIR/scripts/lib/components.sh"
   source "$SCRIPT_DIR/scripts/lib/summary.sh"
   source "$SCRIPT_DIR/scripts/lib/pipeline.sh"
 fi
@@ -62,7 +64,7 @@ update_system_step() {
 prepare_aur_helper_step() {
   step_result_reset
 
-  if ensure_aur_helper; then
+  if component_apply aur_helper; then
     step_result_success "O helper AUR foi preparado."
     return 0
   fi
@@ -91,7 +93,7 @@ install_packages_step() {
 desktop_integration_step() {
   step_result_reset
 
-  if ensure_desktop_integration; then
+  if component_apply desktop_integration; then
     case "$desktop_integration_status" in
       "$STATUS_SKIPPED_READY")
         step_result_skipped "A integração desktop já estava pronta."
@@ -108,7 +110,7 @@ desktop_integration_step() {
 
 github_ssh_step() {
   step_result_reset
-  setup_github_ssh
+  component_apply github_ssh
 
   case "$github_ssh_status" in
     "$STATUS_DONE")
@@ -161,8 +163,8 @@ pipeline_check_only_step() {
   local package_name
 
   announce_step "Executando verificação sem alterações..."
-  detect_aur_helper || true
-  if desktop_integration_ready; then
+  component_detect aur_helper || true
+  if component_detect desktop_integration; then
     desktop_integration_status="$STATUS_SKIPPED_READY"
   else
     desktop_integration_status="$STATUS_PENDING"
@@ -171,7 +173,7 @@ pipeline_check_only_step() {
     mark_environment_package "$package_name"
   done
   if github_ssh_expected; then
-    if github_ssh_ready; then
+    if component_detect github_ssh; then
       github_ssh_status="$STATUS_SKIPPED_READY"
     else
       github_ssh_status="$STATUS_PENDING"
