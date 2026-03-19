@@ -74,6 +74,8 @@ execution_state_reset() {
   official_repo_metadata_ready=0
   github_ssh_status="pendente"
   desktop_integration_status="pendente"
+  soft_failures=()
+  step_result_reset
 }
 
 runtime_state_init() {
@@ -100,6 +102,38 @@ runtime_state_init() {
   fi
 
   execution_state_reset
+}
+
+step_result_reset() {
+  STEP_RESULT_STATUS=""
+  STEP_RESULT_MESSAGE=""
+}
+
+step_result_success() {
+  STEP_RESULT_STATUS="success"
+  STEP_RESULT_MESSAGE="${1:-}"
+}
+
+step_result_skipped() {
+  STEP_RESULT_STATUS="skipped"
+  STEP_RESULT_MESSAGE="${1:-}"
+}
+
+step_result_soft_fail() {
+  STEP_RESULT_STATUS="soft_fail"
+  STEP_RESULT_MESSAGE="${1:-}"
+}
+
+step_result_hard_fail() {
+  STEP_RESULT_STATUS="hard_fail"
+  STEP_RESULT_MESSAGE="${1:-}"
+}
+
+record_soft_failure() {
+  local message="$1"
+
+  [[ -n "$message" ]] || return 0
+  append_array_item soft_failures "$message"
 }
 
 print_usage() {

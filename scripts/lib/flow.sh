@@ -77,6 +77,7 @@ print_summary() {
     print_summary_section "Verificação"
     print_summary_item "Falhas pacman:" "${official_failed[*]:-nenhuma}"
     print_summary_item "Falhas AUR:" "${aur_failed[*]:-nenhuma}"
+    print_summary_item "Falhas parciais:" "${soft_failures[*]:-nenhuma}"
     print_summary_item "Verificados:" "${verified_commands[*]:-nenhum}"
     print_summary_item "Ausentes:" "${missing_commands[*]:-nenhum}"
     if ((${#version_info[@]} == 0)); then
@@ -114,6 +115,7 @@ Integração desktop: $desktop_integration_status
 Helper AUR: ${aur_helper_status:-indisponível}
 Falhas pacman: ${official_failed[*]:-nenhuma}
 Falhas AUR: ${aur_failed[*]:-nenhuma}
+Falhas parciais: ${soft_failures[*]:-nenhuma}
 Verificados: ${verified_commands[*]:-nenhum}
 Ausentes: ${missing_commands[*]:-nenhum}
 Versões:
@@ -127,6 +129,137 @@ EOF
   if [[ "$SCRIPT_DIR" != "$INSTALL_DIR" ]]; then
     printf 'Clone gerenciado: %s\n' "$INSTALL_DIR" >>"$SUMMARY_FILE"
   fi
+}
+
+handle_runtime_step_result_or_exit() {
+  case "${STEP_RESULT_STATUS:-}" in
+    success|"")
+      return 0
+      ;;
+    skipped)
+      return 0
+      ;;
+    soft_fail)
+      record_soft_failure "$STEP_RESULT_MESSAGE"
+      return 0
+      ;;
+    hard_fail)
+      if [[ -n "${STEP_RESULT_MESSAGE:-}" ]]; then
+        announce_error "$STEP_RESULT_MESSAGE"
+      fi
+      print_summary
+      exit 1
+      ;;
+    *)
+      announce_error "Resultado de etapa desconhecido: ${STEP_RESULT_STATUS:-indefinido}"
+      print_summary
+      exit 1
+      ;;
+  esac
+}
+
+update_system_step() {
+  step_result_reset
+
+  if [[ "$SYSTEM_UPDATED" == "1" ]]; then
+    announce_detail "O sistema já foi atualizado no bootstrap. A nova atualização completa será ignorada."
+    step_result_skipped "A atualização completa do sistema foi ignorada porque já ocorreu no bootstrap."
+    return 0
+  fi
+
+  if retry_interactive_log_only sudo pacman -Syu --noconfirm; then
+    step_result_success "A atualização completa do sistema foi concluída."
+    return 0
+  fi
+
+  step_result_hard_fail "Não foi possível concluir a atualização completa do sistema."
+}
+
+prepare_aur_helper_step() {
+  step_result_reset
+
+  if ensure_aur_helper; then
+    step_result_success "O helper AUR foi preparado."
+    return 0
+  fi
+
+  step_result_hard_fail "Não foi possível preparar o helper AUR padrão para a instalação."
+}
+
+install_packages_step() {
+  local array_name="$1"
+
+  step_result_reset
+
+  if ! install_packages_in_order "$array_name"; then
+    step_result_hard_fail "Falha ao executar a instalação dos pacotes configurados."
+    return 0
+  fi
+
+  if ((${#official_failed[@]} > 0 || ${#aur_failed[@]} > 0)); then
+    step_result_hard_fail "A instalação terminou com falhas em pacotes configurados."
+    return 0
+  fi
+
+  step_result_success "Os pacotes configurados foram tratados."
+}
+
+desktop_integration_step() {
+  step_result_reset
+
+  if ensure_desktop_integration; then
+    case "$desktop_integration_status" in
+      "ignorada por já estar pronta")
+        step_result_skipped "A integração desktop já estava pronta."
+        ;;
+      *)
+        step_result_success "A integração desktop foi concluída."
+        ;;
+    esac
+    return 0
+  fi
+
+  step_result_hard_fail "A integração desktop falhou. A etapa do GitHub SSH não foi executada."
+}
+
+github_ssh_step() {
+  step_result_reset
+  setup_github_ssh
+
+  case "$github_ssh_status" in
+    "concluída")
+      step_result_success "O GitHub SSH foi configurado."
+      ;;
+    "ignorada por configuração")
+      step_result_skipped "A configuração do GitHub SSH foi desativada por opção."
+      ;;
+    "ignorada por já estar pronta")
+      step_result_skipped "O GitHub SSH já estava configurado."
+      ;;
+    "ignorada por confirmação negada")
+      step_result_skipped "A remoção exclusiva de chaves SSH do GitHub foi cancelada."
+      ;;
+    "ignorada por falha")
+      step_result_soft_fail "A configuração do GitHub SSH foi ignorada após uma falha."
+      ;;
+    *)
+      step_result_soft_fail "A configuração do GitHub SSH terminou com estado inesperado: $github_ssh_status"
+      ;;
+  esac
+}
+
+final_verification_step() {
+  local array_name="$1"
+
+  step_result_reset
+  verify_installation "$array_name"
+
+  if ensure_final_verification_passed "$array_name"; then
+    step_result_success "A verificação final foi concluída."
+    return 0
+  fi
+
+  step_result_hard_fail "A verificação final encontrou itens ausentes após a instalação."
 }
 
 run_install() {
@@ -177,46 +310,24 @@ run_install() {
   create_directories
   ensure_multilib
 
-  if [[ "$SYSTEM_UPDATED" == "1" ]]; then
-    announce_detail "O sistema já foi atualizado no bootstrap. A nova atualização completa será ignorada."
-  else
-    announce_step "Atualizando o sistema..."
-    if ! retry_interactive_log_only sudo pacman -Syu --noconfirm; then
-      announce_error "Não foi possível concluir a atualização completa do sistema."
-      print_summary
-      exit 1
-    fi
-  fi
+  announce_step "Atualizando o sistema..."
+  update_system_step
+  handle_runtime_step_result_or_exit
 
   announce_step "Preparando helper AUR..."
-  if ! ensure_aur_helper; then
-    announce_error "Não foi possível preparar o helper AUR padrão para a instalação."
-    print_summary
-    exit 1
-  fi
+  prepare_aur_helper_step
+  handle_runtime_step_result_or_exit
 
-  if ! install_packages_in_order package_list; then
-    print_summary
-    exit 1
-  fi
-
-  if ((${#official_failed[@]} > 0 || ${#aur_failed[@]} > 0)); then
-    print_summary
-    exit 1
-  fi
+  install_packages_step package_list
+  handle_runtime_step_result_or_exit
   announce_step "Ajustando integração desktop..."
-  if ! ensure_desktop_integration; then
-    announce_error "A integração desktop falhou. A etapa do GitHub SSH não foi executada."
-    print_summary
-    exit 1
-  fi
+  desktop_integration_step
+  handle_runtime_step_result_or_exit
   announce_step "Configurando GitHub SSH..."
-  setup_github_ssh
+  github_ssh_step
+  handle_runtime_step_result_or_exit
   announce_step "Validando instalação..."
-  verify_installation package_list
-  if ! ensure_final_verification_passed package_list; then
-    print_summary
-    exit 1
-  fi
+  final_verification_step package_list
+  handle_runtime_step_result_or_exit
   print_summary
 }
