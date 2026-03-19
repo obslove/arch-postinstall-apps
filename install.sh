@@ -270,6 +270,15 @@ confirm_exclusive_github_ssh_key() {
   return 0
 }
 
+run_with_terminal_stdin() {
+  if [[ -r /dev/tty ]]; then
+    "$@" </dev/tty
+    return
+  fi
+
+  "$@"
+}
+
 collect_missing_packages() {
   local array_name="$1"
   shift
@@ -623,7 +632,7 @@ run_gh_auth_flow() {
     return
   fi
 
-  gh "$@" "${clipboard_args[@]}"
+  run_with_terminal_stdin gh "$@" "${clipboard_args[@]}"
 }
 
 append_package() {
@@ -1566,7 +1575,7 @@ run_bootstrap() {
     REPOSITORIES_DIR="$REPOSITORIES_DIR" \
     YAY_REPO_DIR="$YAY_REPO_DIR" \
     YAY_SNAPSHOT_URL="$YAY_SNAPSHOT_URL" \
-    bash "$INSTALL_DIR/install.sh" "${forwarded_args[@]}"
+    bash "$INSTALL_DIR/install.sh" "${forwarded_args[@]}" </dev/null
   exit $?
 }
 
@@ -2044,7 +2053,7 @@ main() {
   require_command pacman
   require_command sudo
   announce_prompt "Autenticando sudo..."
-  sudo -v
+  run_with_terminal_stdin sudo -v
 
   if [[ -f "$PACKAGE_FILE" ]]; then
     run_install
