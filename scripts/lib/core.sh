@@ -3,9 +3,11 @@
 # shellcheck disable=SC2034
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=scripts/lib/shellcheck-runtime.sh
+# shellcheck source=scripts/lib/status.sh
 
 if false; then
   source "$SCRIPT_DIR/scripts/lib/shellcheck-runtime.sh"
+  source "$SCRIPT_DIR/scripts/lib/status.sh"
 fi
 
 SHARED_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -13,6 +15,8 @@ SHARED_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 source "$SHARED_LIB_DIR/shared.sh"
 # shellcheck source=cli.sh
 source "$SHARED_LIB_DIR/cli.sh"
+# shellcheck source=status.sh
+source "$SHARED_LIB_DIR/status.sh"
 COMPONENT_CONFIG_FILE="$(cd "$SHARED_LIB_DIR/../../config" && pwd)/components.sh"
 # shellcheck source=../../config/components.sh
 source "$COMPONENT_CONFIG_FILE"
@@ -89,8 +93,8 @@ execution_state_reset() {
   temp_clipboard_package=""
   official_repo_metadata_checked=0
   official_repo_metadata_ready=0
-  github_ssh_status="pendente"
-  desktop_integration_status="pendente"
+  github_ssh_status="$STATUS_PENDING"
+  desktop_integration_status="$STATUS_PENDING"
   soft_failures=()
   step_result_reset
 }

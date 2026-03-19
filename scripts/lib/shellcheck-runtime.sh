@@ -27,6 +27,13 @@ STATE_DIR=""
 LOCK_DIR=""
 LOCK_HELD=0
 SYSTEM_UPDATED=0
+STATUS_PENDING=""
+STATUS_DONE=""
+STATUS_SKIPPED_READY=""
+STATUS_SKIPPED_DISABLED=""
+STATUS_SKIPPED_DECLINED=""
+STATUS_SOFT_FAILED=""
+STATUS_HARD_FAILED=""
 official_repo_metadata_checked=0
 official_repo_metadata_ready=0
 github_ssh_status=""
@@ -58,3 +65,11 @@ missing_commands=()
 version_info=()
 soft_failures=()
 cleanup_paths=()
+
+format_github_ssh_status() {
+  :
+}
+
+format_desktop_integration_status() {
+  :
+}

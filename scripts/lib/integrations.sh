@@ -4,10 +4,12 @@
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=scripts/lib/shellcheck-runtime.sh
 # shellcheck source=scripts/lib/ops.sh
+# shellcheck source=scripts/lib/status.sh
 
 if false; then
   source "$SCRIPT_DIR/scripts/lib/shellcheck-runtime.sh"
   source "$SCRIPT_DIR/scripts/lib/ops.sh"
+  source "$SCRIPT_DIR/scripts/lib/status.sh"
 fi
 
 confirm_exclusive_github_ssh_key() {
@@ -90,7 +92,7 @@ ensure_desktop_integration() {
   done
 
   if desktop_integration_ready; then
-    desktop_integration_status="ignorada por já estar pronta"
+    desktop_integration_status="$STATUS_SKIPPED_READY"
     if ! has_checkpoint "desktop_integration" && ! mark_checkpoint "desktop_integration"; then
       announce_warning "Não foi possível registrar o checkpoint da integração desktop."
     fi
@@ -101,18 +103,18 @@ ensure_desktop_integration() {
   collect_missing_packages missing_packages "${DESKTOP_INTEGRATION_PACKAGES[@]}"
   announce_detail "Garantindo integração desktop..."
   if ! ops_pacman_install_needed "${missing_packages[@]}"; then
-    desktop_integration_status="falhou"
+    desktop_integration_status="$STATUS_HARD_FAILED"
     announce_error "Não foi possível instalar a integração desktop."
     return 1
   fi
 
   if ! mark_checkpoint "desktop_integration"; then
-    desktop_integration_status="falhou"
+    desktop_integration_status="$STATUS_HARD_FAILED"
     announce_error "Não foi possível registrar o checkpoint da integração desktop."
     return 1
   fi
 
-  desktop_integration_status="concluída"
+  desktop_integration_status="$STATUS_DONE"
 }
 
 run_gh_auth_flow() {
@@ -350,13 +352,13 @@ setup_github_ssh() {
   local missing_packages=()
 
   if ! github_ssh_expected; then
-    github_ssh_status="ignorada por configuração"
+    github_ssh_status="$STATUS_SKIPPED_DISABLED"
     announce_detail "A configuração do GitHub SSH foi desativada por opção."
     return
   fi
 
   if ! confirm_exclusive_github_ssh_key; then
-    github_ssh_status="ignorada por confirmação negada"
+    github_ssh_status="$STATUS_SKIPPED_DECLINED"
     return
   fi
 
@@ -369,7 +371,7 @@ setup_github_ssh() {
   fi
 
   if [[ "$github_ssh_already_ready" == "1" ]]; then
-    github_ssh_status="ignorada por já estar pronta"
+    github_ssh_status="$STATUS_SKIPPED_READY"
     if ! ensure_repo_origin_remote "$SCRIPT_DIR"; then
       announce_warning "Não foi possível ajustar o remoto do repositório para SSH."
     fi
@@ -385,7 +387,7 @@ setup_github_ssh() {
   collect_missing_packages missing_packages "${GITHUB_SSH_SUPPORT_PACKAGES[@]}"
   if ((${#missing_packages[@]} > 0)); then
     if ! ops_pacman_install_needed "${missing_packages[@]}"; then
-      github_ssh_status="ignorada por falha"
+      github_ssh_status="$STATUS_SOFT_FAILED"
       announce_warning "Não foi possível instalar github-cli/openssh. A configuração do GitHub será ignorada."
       return
     fi
@@ -394,38 +396,38 @@ setup_github_ssh() {
   fi
 
   if ! command -v gh >/dev/null 2>&1 || ! command -v ssh-keygen >/dev/null 2>&1; then
-    github_ssh_status="ignorada por falha"
+    github_ssh_status="$STATUS_SOFT_FAILED"
     announce_warning "github-cli ou ssh-keygen está indisponível. A configuração do GitHub será ignorada."
     return
   fi
 
   if ! ensure_ssh_key; then
-    github_ssh_status="ignorada por falha"
+    github_ssh_status="$STATUS_SOFT_FAILED"
     announce_warning "Não foi possível preparar a chave SSH local. A configuração do GitHub será ignorada."
     return
   fi
 
   if ! ensure_github_auth; then
     cleanup_temp_clipboard_utility || true
-    github_ssh_status="ignorada por falha"
+    github_ssh_status="$STATUS_SOFT_FAILED"
     announce_warning "A autenticação do GitHub não foi concluída. O envio da chave SSH será ignorado."
     return
   fi
 
   if ! upload_ssh_key; then
     cleanup_temp_clipboard_utility || true
-    github_ssh_status="ignorada por falha"
+    github_ssh_status="$STATUS_SOFT_FAILED"
     announce_warning "Não foi possível enviar a chave SSH para o GitHub."
     return
   fi
 
   cleanup_temp_clipboard_utility || true
   if ! mark_checkpoint "github_ssh"; then
-    github_ssh_status="ignorada por falha"
+    github_ssh_status="$STATUS_SOFT_FAILED"
     announce_warning "A chave SSH foi configurada, mas o checkpoint do GitHub SSH não pôde ser registrado."
     return
   fi
-  github_ssh_status="concluída"
+  github_ssh_status="$STATUS_DONE"
   if ! ensure_repo_origin_remote "$SCRIPT_DIR"; then
     announce_warning "A chave SSH foi configurada, mas não foi possível ajustar o remoto do repositório para SSH."
   fi

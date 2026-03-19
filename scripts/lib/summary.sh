@@ -2,9 +2,11 @@
 # shellcheck shell=bash
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=scripts/lib/shellcheck-runtime.sh
+# shellcheck source=scripts/lib/status.sh
 
 if false; then
   source "$SCRIPT_DIR/scripts/lib/shellcheck-runtime.sh"
+  source "$SCRIPT_DIR/scripts/lib/status.sh"
 fi
 
 print_summary() {
@@ -17,11 +19,16 @@ print_summary() {
   local execution_mode="instalação"
   local changes_applied="sim"
   local version_line
+  local github_ssh_status_text
+  local desktop_integration_status_text
 
   if [[ "$CHECK_ONLY" == "1" ]]; then
     execution_mode="verificação"
     changes_applied="não"
   fi
+
+  github_ssh_status_text="$(format_github_ssh_status "$github_ssh_status")"
+  desktop_integration_status_text="$(format_desktop_integration_status "$desktop_integration_status")"
 
   host_name="$(get_host_name)"
   actual_branch="$(get_repo_branch "$SCRIPT_DIR" 2>/dev/null || printf '%s\n' "main")"
@@ -47,8 +54,8 @@ print_summary() {
     print_summary_section "Resultado"
     print_summary_item "Modo:" "$execution_mode"
     print_summary_item "Alterações aplicadas:" "$changes_applied"
-    print_summary_item "GitHub SSH:" "$github_ssh_status"
-    print_summary_item "Integração desktop:" "$desktop_integration_status"
+    print_summary_item "GitHub SSH:" "$github_ssh_status_text"
+    print_summary_item "Integração desktop:" "$desktop_integration_status_text"
     print_summary_section "Repositório"
     print_summary_item "Commit:" "$actual_commit"
     print_summary_section "Arquivos"
@@ -78,8 +85,8 @@ print_summary() {
     print_summary_item "Ambiente gráfico:" "${environment_packages[*]:-nenhuma}"
     print_summary_item "Configurações explícitas:" "${completed_actions[*]:-nenhuma}"
     print_summary_item "GitHub SSH esperado:" "$(if github_ssh_expected; then echo sim; else echo não; fi)"
-    print_summary_item "GitHub SSH:" "$github_ssh_status"
-    print_summary_item "Integração desktop:" "$desktop_integration_status"
+    print_summary_item "GitHub SSH:" "$github_ssh_status_text"
+    print_summary_item "Integração desktop:" "$desktop_integration_status_text"
     print_summary_item "Helper AUR:" "${aur_helper_status:-indisponível}"
     print_summary_section "Verificação"
     print_summary_item "Falhas pacman:" "${official_failed[*]:-nenhuma}"
@@ -117,8 +124,8 @@ Dependências de suporte tratadas: ${support_packages[*]:-nenhuma}
 Dependências do ambiente gráfico tratadas: ${environment_packages[*]:-nenhuma}
 Configurações explícitas: ${completed_actions[*]:-nenhuma}
 GitHub SSH esperado: $(if github_ssh_expected; then echo sim; else echo não; fi)
-GitHub SSH: $github_ssh_status
-Integração desktop: $desktop_integration_status
+GitHub SSH: $github_ssh_status_text
+Integração desktop: $desktop_integration_status_text
 Helper AUR: ${aur_helper_status:-indisponível}
 Falhas pacman: ${official_failed[*]:-nenhuma}
 Falhas AUR: ${aur_failed[*]:-nenhuma}

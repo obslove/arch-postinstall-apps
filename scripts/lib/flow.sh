@@ -3,12 +3,14 @@
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=scripts/lib/shellcheck-runtime.sh
 # shellcheck source=scripts/lib/ops.sh
+# shellcheck source=scripts/lib/status.sh
 # shellcheck source=scripts/lib/summary.sh
 # shellcheck source=scripts/lib/pipeline.sh
 
 if false; then
   source "$SCRIPT_DIR/scripts/lib/shellcheck-runtime.sh"
   source "$SCRIPT_DIR/scripts/lib/ops.sh"
+  source "$SCRIPT_DIR/scripts/lib/status.sh"
   source "$SCRIPT_DIR/scripts/lib/summary.sh"
   source "$SCRIPT_DIR/scripts/lib/pipeline.sh"
 fi
@@ -91,7 +93,7 @@ desktop_integration_step() {
 
   if ensure_desktop_integration; then
     case "$desktop_integration_status" in
-      "ignorada por já estar pronta")
+      "$STATUS_SKIPPED_READY")
         step_result_skipped "A integração desktop já estava pronta."
         ;;
       *)
@@ -109,19 +111,19 @@ github_ssh_step() {
   setup_github_ssh
 
   case "$github_ssh_status" in
-    "concluída")
+    "$STATUS_DONE")
       step_result_success "O GitHub SSH foi configurado."
       ;;
-    "ignorada por configuração")
+    "$STATUS_SKIPPED_DISABLED")
       step_result_skipped "A configuração do GitHub SSH foi desativada por opção."
       ;;
-    "ignorada por já estar pronta")
+    "$STATUS_SKIPPED_READY")
       step_result_skipped "O GitHub SSH já estava configurado."
       ;;
-    "ignorada por confirmação negada")
+    "$STATUS_SKIPPED_DECLINED")
       step_result_skipped "A remoção exclusiva de chaves SSH do GitHub foi cancelada."
       ;;
-    "ignorada por falha")
+    "$STATUS_SOFT_FAILED")
       step_result_soft_fail "A configuração do GitHub SSH foi ignorada após uma falha."
       ;;
     *)
@@ -161,21 +163,21 @@ pipeline_check_only_step() {
   announce_step "Executando verificação sem alterações..."
   detect_aur_helper || true
   if desktop_integration_ready; then
-    desktop_integration_status="ignorada por já estar pronta"
+    desktop_integration_status="$STATUS_SKIPPED_READY"
   else
-    desktop_integration_status="pendente"
+    desktop_integration_status="$STATUS_PENDING"
   fi
   for package_name in "${DESKTOP_INTEGRATION_PACKAGES[@]}"; do
     mark_environment_package "$package_name"
   done
   if github_ssh_expected; then
     if github_ssh_ready; then
-      github_ssh_status="ignorada por já estar pronta"
+      github_ssh_status="$STATUS_SKIPPED_READY"
     else
-      github_ssh_status="pendente"
+      github_ssh_status="$STATUS_PENDING"
     fi
   else
-    github_ssh_status="ignorada por configuração"
+    github_ssh_status="$STATUS_SKIPPED_DISABLED"
   fi
   verify_installation "$array_name"
   print_summary
