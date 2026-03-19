@@ -94,11 +94,11 @@ Flags:
 - `-c`, `--check`
   Valida o ambiente sem instalar nem alterar o sistema.
 - `-e`, `--exclusive-key`
-  Remove as outras chaves SSH da conta no GitHub e mantém apenas a chave atual.
+  Remove as outras chaves SSH da conta no GitHub e mantém apenas a chave atual, mesmo que o GitHub SSH já esteja configurado.
 - `-n`, `--no-gh`
   Pula a etapa de configuração do GitHub SSH.
 - `-s`, `--ssh-name NOME`
-  Define o nome da chave SSH enviada ao GitHub.
+  Define o nome da chave SSH enviada ao GitHub e força a reconciliação desse nome.
 - `-v`, `--verbose`
   Desativa o modo resumido e mostra a saída completa no terminal.
 - `-h`, `--help`

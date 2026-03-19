@@ -21,8 +21,6 @@ SUMMARY_FILE="${POSTINSTALL_SUMMARY_FILE:-$HOME/Backups/arch-postinstall-summary
 CHECK_ONLY=0
 EXCLUSIVE_GITHUB_SSH_KEY=0
 SKIP_GITHUB_SSH=0
-RETRY_ATTEMPTS=1
-RETRY_DELAY_SECONDS=0
 STEP_OUTPUT_ONLY=1
 STATE_DIR="${POSTINSTALL_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/arch-postinstall-apps}"
 LOCK_DIR="${POSTINSTALL_LOCK_DIR:-$STATE_DIR/lock}"
@@ -246,6 +244,10 @@ github_ssh_expected() {
   [[ "$SKIP_GITHUB_SSH" != "1" ]]
 }
 
+github_ssh_force_reconcile() {
+  [[ "$EXCLUSIVE_GITHUB_SSH_KEY" == "1" || -n "$GITHUB_SSH_KEY_NAME" ]]
+}
+
 collect_missing_packages() {
   local array_name="$1"
   shift
@@ -282,6 +284,14 @@ init_logging() {
   export POSTINSTALL_LOG_INITIALIZED=1
 
   exec > >(tee -a "$LOG_FILE") 2>&1
+}
+
+write_log_only() {
+  if [[ "${POSTINSTALL_LOG_INITIALIZED:-0}" != "1" ]]; then
+    return 0
+  fi
+
+  printf '%s\n' "$1" >>"$LOG_FILE"
 }
 
 style_text() {
@@ -331,8 +341,8 @@ announce_step() {
 
 announce_detail() {
   if [[ "$STEP_OUTPUT_ONLY" == "1" ]]; then
-    printf '%s\n' "$1" >>"$LOG_FILE"
     if [[ "$1" == *"Etapa ignorada."* || "$1" == Instalando\ via\ pacman:* || "$1" == Instalando\ via\ AUR:* ]]; then
+      write_log_only "$1"
       return 0
     fi
     printf '│  %s %s\n' "$(style_text "$style_detail" "•")" "$1"
@@ -343,17 +353,14 @@ announce_detail() {
 }
 
 announce_warning() {
-  printf '%s\n' "$1" >>"$LOG_FILE"
   emit_notice "!" "$style_warning" "$1"
 }
 
 announce_error() {
-  printf '%s\n' "$1" >>"$LOG_FILE"
   emit_notice "x" "$style_error" "$1"
 }
 
 announce_prompt() {
-  printf '%s\n' "$1" >>"$LOG_FILE"
   emit_notice "?" "$style_step" "$1"
 }
 
@@ -363,7 +370,7 @@ run_log_only() {
     return
   fi
 
-  "$@" 2>&1 | tee -a "$LOG_FILE" | sed 's/^/│    /'
+  "$@" 2>&1 | sed 's/^/│    /'
   return "${PIPESTATUS[0]}"
 }
 
@@ -402,45 +409,11 @@ close_step_block() {
 }
 
 retry() {
-  local attempt=1
-  local exit_code=0
-
-  while true; do
-    if "$@"; then
-      return 0
-    else
-      exit_code=$?
-    fi
-
-    if (( attempt >= RETRY_ATTEMPTS )); then
-      return "$exit_code"
-    fi
-
-    echo "Tentativa $attempt/$RETRY_ATTEMPTS falhou. Repetindo em ${RETRY_DELAY_SECONDS}s: $*"
-    sleep "$RETRY_DELAY_SECONDS"
-    attempt=$((attempt + 1))
-  done
+  "$@"
 }
 
 retry_log_only() {
-  local attempt=1
-  local exit_code=0
-
-  while true; do
-    if run_log_only "$@"; then
-      return 0
-    else
-      exit_code=$?
-    fi
-
-    if (( attempt >= RETRY_ATTEMPTS )); then
-      return "$exit_code"
-    fi
-
-    echo "Tentativa $attempt/$RETRY_ATTEMPTS falhou. Repetindo em ${RETRY_DELAY_SECONDS}s. Veja o log para detalhes."
-    sleep "$RETRY_DELAY_SECONDS"
-    attempt=$((attempt + 1))
-  done
+  run_log_only "$@"
 }
 
 require_command() {
@@ -771,6 +744,33 @@ package_exists_in_official_repos() {
   return 1
 }
 
+calculate_install_step_total() {
+  local package
+  local total=8
+  local has_codex=0
+  local has_official=0
+  local has_aur=0
+
+  for package in "${packages[@]}"; do
+    if [[ "$package" == "codex" ]]; then
+      has_codex=1
+      continue
+    fi
+
+    if pacman -Si -- "$package" >/dev/null 2>&1; then
+      has_official=1
+    else
+      has_aur=1
+    fi
+  done
+
+  (( has_codex == 1 )) && total=$((total + 1))
+  (( has_official == 1 )) && total=$((total + 1))
+  (( has_aur == 1 )) && total=$((total + 1))
+
+  printf '%s\n' "$total"
+}
+
 install_yay() {
   local archive_file
   local missing_packages=()
@@ -848,17 +848,6 @@ github_ssh_ready() {
   gh auth status >/dev/null 2>&1 || return 1
   has_checkpoint "github_ssh" || return 1
   github_has_expected_ssh_key_name
-}
-
-github_has_current_ssh_key() {
-  local current_key
-  local existing_keys
-
-  [[ -f "${SSH_KEY_PATH}.pub" ]] || return 1
-  current_key="$(current_public_ssh_key)"
-  existing_keys="$(gh api user/keys --jq '.[].key' 2>/dev/null || true)"
-  [[ -n "$existing_keys" ]] || return 1
-  grep -qxF "$current_key" <<<"$existing_keys"
 }
 
 desired_repo_origin_url() {
@@ -1043,14 +1032,16 @@ print_summary() {
   if [[ "$STEP_OUTPUT_ONLY" == "1" ]]; then
     echo
     printf '%s %s\n' "$(style_text "$style_success" "╭─")" "$(style_text "$style_success" "Concluído")"
+    print_summary_section "Resultado"
+    print_summary_item "Modo:" "$execution_mode"
+    print_summary_item "Alterações aplicadas:" "$changes_applied"
+    print_summary_item "GitHub SSH:" "$github_ssh_status"
+    print_summary_item "Integração desktop:" "$desktop_integration_status"
+    print_summary_section "Repositório"
+    print_summary_item "Commit:" "$actual_commit"
     print_summary_section "Arquivos"
     print_summary_item "Log:" "$LOG_FILE"
     print_summary_item "Resumo:" "$SUMMARY_FILE"
-    print_summary_section "Estado"
-    print_summary_item "Modo:" "$execution_mode"
-    print_summary_item "Alterações aplicadas:" "$changes_applied"
-    print_summary_item "Branch:" "$actual_branch"
-    print_summary_item "Commit:" "$actual_commit"
     echo "│"
     style_text "$style_muted" "╰─ Fim"
     printf '\n'
@@ -1570,7 +1561,7 @@ setup_github_ssh() {
   announce_detail "Verificando estado atual do GitHub SSH..."
   if has_checkpoint "github_ssh"; then
     announce_detail "Checkpoint do GitHub SSH encontrado. Conferindo autenticação e chave atual..."
-    if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1 && github_has_expected_ssh_key_name; then
+    if ! github_ssh_force_reconcile && command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1 && github_has_expected_ssh_key_name; then
       github_ssh_already_ready=1
     fi
   fi
@@ -1900,6 +1891,9 @@ run_install() {
   desktop_integration_status="pendente"
   announce_step "Carregando configuração..."
   load_packages
+  if [[ "$CHECK_ONLY" != "1" ]]; then
+    set_step_total "$(calculate_install_step_total)"
+  fi
   if [[ "$CHECK_ONLY" == "1" ]]; then
     announce_step "Executando verificação sem alterações..."
     detect_aur_helper || true
@@ -1991,8 +1985,6 @@ main() {
   if [[ -f "$PACKAGE_FILE" ]]; then
     if [[ "$CHECK_ONLY" == "1" ]]; then
       set_step_total 3
-    else
-      set_step_total 11
     fi
   else
     local bootstrap_missing_packages=()
