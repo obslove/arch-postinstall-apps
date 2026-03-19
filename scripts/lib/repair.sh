@@ -143,7 +143,7 @@ attempt_final_repair_once() {
 
   if (( should_repair_origin == 1 )); then
     announce_detail "Ajustando o remoto principal do repositório..."
-    if ! ensure_repo_origin_remote "$SCRIPT_DIR"; then
+    if ! ensure_repo_origin_remote "$SCRIPT_DIR" "$REPO_SSH_URL"; then
       return 1
     fi
   fi
