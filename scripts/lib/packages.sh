@@ -264,38 +264,6 @@ ensure_aur_helper() {
   component_apply aur_helper
 }
 
-codex_cli_ready() {
-  has_checkpoint "codex_cli" && command -v codex >/dev/null 2>&1
-}
-
-component_detect_codex_cli() {
-  codex_cli_ready
-}
-
-component_checkpoint_key_codex_cli() {
-  printf '%s\n' "codex_cli"
-}
-
-component_apply_codex_cli() {
-  local missing_packages=()
-
-  component_enabled "codex_cli" || return 0
-
-  announce_step "Configurando Codex CLI..."
-  collect_missing_packages missing_packages "${CODEX_CLI_PACKAGES[@]}"
-  if ((${#missing_packages[@]} > 0)); then
-    announce_detail "Instalando dependências do Codex CLI..."
-    if ! ops_pacman_install_needed "${missing_packages[@]}"; then
-      state_add_official_failure "codex"
-      return 0
-    fi
-  fi
-
-  if ! setup_codex_cli; then
-    state_add_official_failure "codex"
-  fi
-}
-
 install_codex_cli_component() {
   component_apply codex_cli
 }

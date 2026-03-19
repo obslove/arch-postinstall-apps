@@ -15,10 +15,14 @@ source "$REPO_DIR/scripts/lib/repo.sh"
 source "$REPO_DIR/scripts/lib/ops.sh"
 # shellcheck source=../lib/components.sh
 source "$REPO_DIR/scripts/lib/components.sh"
+# shellcheck source=../lib/components/codex.sh
+source "$REPO_DIR/scripts/lib/components/codex.sh"
+# shellcheck source=../lib/components/desktop.sh
+source "$REPO_DIR/scripts/lib/components/desktop.sh"
+# shellcheck source=../lib/components/github-ssh.sh
+source "$REPO_DIR/scripts/lib/components/github-ssh.sh"
 # shellcheck source=../lib/packages.sh
 source "$REPO_DIR/scripts/lib/packages.sh"
-# shellcheck source=../lib/integrations.sh
-source "$REPO_DIR/scripts/lib/integrations.sh"
 # shellcheck source=../lib/verify.sh
 source "$REPO_DIR/scripts/lib/verify.sh"
 # shellcheck source=../lib/summary.sh
