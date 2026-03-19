@@ -388,11 +388,11 @@ announce_prompt() {
 
 run_log_only() {
   if [[ "$STEP_OUTPUT_ONLY" == "1" ]]; then
-    "$@" >>"$LOG_FILE" 2>&1
+    "$@" </dev/null >>"$LOG_FILE" 2>&1
     return
   fi
 
-  "$@" 2>&1 | sed 's/^/│    /'
+  "$@" </dev/null 2>&1 | sed 's/^/│    /'
   return "${PIPESTATUS[0]}"
 }
 
