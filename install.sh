@@ -279,6 +279,10 @@ run_with_terminal_stdin() {
   "$@"
 }
 
+command_uses_terminal_stdin() {
+  [[ "${1:-}" == "sudo" ]]
+}
+
 collect_missing_packages() {
   local array_name="$1"
   shift
@@ -397,8 +401,18 @@ announce_prompt() {
 
 run_log_only() {
   if [[ "$STEP_OUTPUT_ONLY" == "1" ]]; then
+    if command_uses_terminal_stdin "${1:-}"; then
+      run_with_terminal_stdin "$@" >>"$LOG_FILE" 2>&1
+      return
+    fi
+
     "$@" </dev/null >>"$LOG_FILE" 2>&1
     return
+  fi
+
+  if command_uses_terminal_stdin "${1:-}"; then
+    run_with_terminal_stdin "$@" 2>&1 | sed 's/^/│    /'
+    return "${PIPESTATUS[0]}"
   fi
 
   "$@" </dev/null 2>&1 | sed 's/^/│    /'
@@ -2033,7 +2047,6 @@ main() {
   trap cleanup EXIT
   ensure_not_root
   acquire_lock
-  init_logging
   if [[ -f "$PACKAGE_FILE" ]]; then
     if [[ "$CHECK_ONLY" == "1" ]]; then
       set_step_total 3
@@ -2054,6 +2067,7 @@ main() {
   require_command sudo
   announce_prompt "Autenticando sudo..."
   run_with_terminal_stdin sudo -v
+  init_logging
 
   if [[ -f "$PACKAGE_FILE" ]]; then
     run_install
