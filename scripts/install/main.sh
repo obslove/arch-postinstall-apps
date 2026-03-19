@@ -21,8 +21,10 @@ source "$REPO_DIR/scripts/lib/verify.sh"
 source "$REPO_DIR/scripts/lib/flow.sh"
 
 main() {
-  init_context "$REPO_DIR"
+  config_init "$REPO_DIR"
   parse_cli_args "$@"
+  finalize_config
+  runtime_state_init
   trap cleanup EXIT
 
   ensure_not_root

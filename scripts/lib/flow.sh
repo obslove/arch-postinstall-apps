@@ -130,21 +130,14 @@ EOF
 }
 
 run_install() {
+  local package_list=()
   local package_name
 
-  official_packages=()
-  aur_packages=()
-  official_failed=()
-  aur_failed=()
-  support_packages=()
-  environment_packages=()
-  aur_helper_status="não preparado"
-  github_ssh_status="pendente"
-  desktop_integration_status="pendente"
+  execution_state_reset
   announce_step "Carregando configuração..."
-  load_packages
+  load_packages package_list
   if [[ "$CHECK_ONLY" != "1" ]]; then
-    set_step_total "$(calculate_install_step_total)"
+    set_step_total "$(calculate_install_step_total package_list)"
   fi
   if [[ "$CHECK_ONLY" == "1" ]]; then
     announce_step "Executando verificação sem alterações..."
@@ -172,7 +165,7 @@ run_install() {
     else
       github_ssh_status="ignorada por configuração"
     fi
-    verify_installation
+    verify_installation package_list
     print_summary
     if ((${#missing_commands[@]} > 0)); then
       announce_error "A verificação sem alterações encontrou itens ausentes."
@@ -202,7 +195,7 @@ run_install() {
     exit 1
   fi
 
-  if ! install_packages_in_order; then
+  if ! install_packages_in_order package_list; then
     print_summary
     exit 1
   fi
@@ -220,8 +213,8 @@ run_install() {
   announce_step "Configurando GitHub SSH..."
   setup_github_ssh
   announce_step "Validando instalação..."
-  verify_installation
-  if ! ensure_final_verification_passed; then
+  verify_installation package_list
+  if ! ensure_final_verification_passed package_list; then
     print_summary
     exit 1
   fi

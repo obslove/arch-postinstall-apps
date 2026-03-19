@@ -79,13 +79,16 @@ collect_version() {
 }
 
 verify_installation() {
+  local array_name="$1"
+  # shellcheck disable=SC2178
+  declare -n package_list="$array_name"
   local package_name
 
   verified_commands=()
   missing_commands=()
   version_info=()
 
-  for package_name in "${packages[@]}"; do
+  for package_name in "${package_list[@]}"; do
     case "$package_name" in
       codex)
         verify_command "codex" "codex"
@@ -152,6 +155,7 @@ verify_installation() {
 }
 
 attempt_final_repair_once() {
+  local array_name="$1"
   local item
   local repair_pacman_packages=()
   local repair_aur_packages=()
@@ -249,16 +253,18 @@ attempt_final_repair_once() {
     announce_warning "Não foi possível registrar o checkpoint da integração desktop após a correção automática."
   fi
 
-  verify_installation
+  verify_installation "$1"
   ((${#missing_commands[@]} == 0))
 }
 
 ensure_final_verification_passed() {
+  local array_name="$1"
+
   if ((${#missing_commands[@]} == 0)); then
     return 0
   fi
 
-  if attempt_final_repair_once; then
+  if attempt_final_repair_once "$array_name"; then
     return 0
   fi
 

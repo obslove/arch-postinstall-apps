@@ -1,20 +1,24 @@
 #!/usr/bin/env bash
 
 append_package() {
-  local package="$1"
+  local array_name="$1"
+  local package="$2"
   local existing
+  # shellcheck disable=SC2178
+  declare -n target_array="$array_name"
 
-  for existing in "${packages[@]}"; do
+  for existing in "${target_array[@]}"; do
     if [[ "$existing" == "$package" ]]; then
       return
     fi
   done
 
-  packages+=("$package")
+  target_array+=("$package")
 }
 
 load_package_file() {
   local package_path="$1"
+  local array_name="$2"
   local line
 
   if [[ ! -f "$package_path" ]]; then
@@ -29,19 +33,23 @@ load_package_file() {
     line="${line%"${line##*[![:space:]]}"}"
     [[ -n "$line" ]] || continue
     [[ "$line" =~ ^[[:space:]]*# ]] && continue
-    append_package "$line"
+    append_package "$array_name" "$line"
   done <"$package_path"
 }
 
 load_packages() {
+  local array_name="$1"
+  # shellcheck disable=SC2178
+  declare -n target_array="$array_name"
+
   [[ -f "$PACKAGE_FILE" ]] || {
     announce_error "Lista de pacotes não encontrada em $PACKAGE_FILE"
     exit 1
   }
 
-  packages=()
-  load_package_file "$PACKAGE_FILE"
-  load_package_file "$EXTRA_PACKAGE_FILE"
+  target_array=()
+  load_package_file "$PACKAGE_FILE" "$array_name"
+  load_package_file "$EXTRA_PACKAGE_FILE" "$array_name"
 }
 
 multilib_enabled() {
@@ -134,13 +142,16 @@ package_exists_in_official_repos() {
 }
 
 calculate_install_step_total() {
+  local array_name="$1"
+  # shellcheck disable=SC2178
+  declare -n package_list="$array_name"
   local package
   local total=8
   local has_codex=0
   local has_official=0
   local has_aur=0
 
-  for package in "${packages[@]}"; do
+  for package in "${package_list[@]}"; do
     if [[ "$package" == "codex" ]]; then
       has_codex=1
       continue
@@ -232,6 +243,9 @@ ensure_aur_helper() {
 }
 
 install_packages_in_order() {
+  local array_name="$1"
+  # shellcheck disable=SC2178
+  declare -n package_list="$array_name"
   local package
   local package_origin_status
   local shown_pacman_step=0
@@ -248,7 +262,7 @@ install_packages_in_order() {
   aur_packages=()
 
   if [[ "$STEP_OUTPUT_ONLY" == "1" ]]; then
-    for package in "${packages[@]}"; do
+    for package in "${package_list[@]}"; do
       [[ "$package" == "codex" ]] && continue
       if package_exists_in_official_repos "$package"; then
         official_target_count=$((official_target_count + 1))
@@ -263,7 +277,7 @@ install_packages_in_order() {
     done
   fi
 
-  for package in "${packages[@]}"; do
+  for package in "${package_list[@]}"; do
     case "$package" in
       codex)
         announce_step "Configurando Codex CLI..."

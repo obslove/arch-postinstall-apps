@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-init_context() {
+config_init() {
   local repo_dir="$1"
 
   REPO_DIR="$repo_dir"
@@ -28,17 +28,44 @@ init_context() {
   LOCK_DIR="${POSTINSTALL_LOCK_DIR:-$STATE_DIR/lock}"
   LOCK_HELD="${POSTINSTALL_LOCK_HELD:-0}"
   SYSTEM_UPDATED="${POSTINSTALL_BOOTSTRAP_UPDATED:-${POSTINSTALL_SYSTEM_UPDATED:-0}}"
+}
 
+finalize_config() {
+  readonly REPO_DIR
+  readonly SCRIPT_DIR
+  readonly PACKAGE_FILE
+  readonly EXTRA_PACKAGE_FILE
+  readonly BASHRC_FILE
+  readonly ZSHRC_FILE
+  readonly FISH_CONFIG_FILE
+  readonly REPO_HTTPS_URL
+  readonly REPO_SSH_URL
+  readonly REPOSITORIES_DIR
+  readonly INSTALL_DIR
+  readonly YAY_REPO_DIR
+  readonly YAY_SNAPSHOT_URL
+  readonly SSH_KEY_PATH
+  readonly GITHUB_SSH_KEY_NAME
+  readonly LOG_FILE
+  readonly SUMMARY_FILE
+  readonly CHECK_ONLY
+  readonly EXCLUSIVE_GITHUB_SSH_KEY
+  readonly SKIP_GITHUB_SSH
+  readonly STEP_OUTPUT_ONLY
+  readonly STATE_DIR
+  readonly LOCK_DIR
+  readonly SYSTEM_UPDATED
+}
+
+execution_state_reset() {
   official_packages=()
   aur_packages=()
   official_failed=()
   aur_failed=()
   support_packages=()
   environment_packages=()
-  packages=()
   aur_helper=""
   aur_helper_status="não preparado"
-  cleanup_paths=()
   verified_commands=()
   missing_commands=()
   version_info=()
@@ -47,6 +74,10 @@ init_context() {
   official_repo_metadata_ready=0
   github_ssh_status="pendente"
   desktop_integration_status="pendente"
+}
+
+runtime_state_init() {
+  cleanup_paths=()
   step_counter=0
   step_open=0
   step_total=0
@@ -67,6 +98,8 @@ init_context() {
     style_error=$'\033[1;31m'
     style_muted=$'\033[0;90m'
   fi
+
+  execution_state_reset
 }
 
 print_usage() {
