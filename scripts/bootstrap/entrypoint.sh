@@ -1,12 +1,6 @@
 # shellcheck shell=bash
 # shellcheck disable=SC2034
 # shellcheck source-path=SCRIPTDIR
-# shellcheck source=scripts/lib/ops.sh
-
-if false; then
-  source "$SCRIPT_DIR/scripts/lib/ops.sh"
-fi
-
 SELF_PATH="${BASH_SOURCE[0]:-$0}"
 SCRIPT_DIR="$(cd "$(dirname "$SELF_PATH")" && pwd)"
 LOCAL_MAIN="$SCRIPT_DIR/scripts/install/main.sh"
@@ -79,19 +73,19 @@ sync_repo() {
       return 1
     fi
 
-    if ops_git_fetch_origin "$INSTALL_DIR"; then
+    if retry_log_only git -C "$INSTALL_DIR" fetch origin; then
       fetched_origin=1
     else
       announce_warning "Falha ao buscar atualizações de origin. O script tentará usar a cópia local."
     fi
 
     if git -C "$INSTALL_DIR" show-ref --verify --quiet "refs/heads/main"; then
-      if ! ops_git_checkout_main "$INSTALL_DIR"; then
+      if ! run_log_only git -C "$INSTALL_DIR" checkout main; then
         announce_error "Não foi possível trocar para a branch local 'main'."
         return 1
       fi
     elif git -C "$INSTALL_DIR" show-ref --verify --quiet "refs/remotes/origin/main"; then
-      if ! ops_git_checkout_main_from_origin "$INSTALL_DIR"; then
+      if ! run_log_only git -C "$INSTALL_DIR" checkout -b main origin/main; then
         announce_error "Não foi possível criar a branch local 'main' a partir de origin."
         return 1
       fi
@@ -109,7 +103,7 @@ sync_repo() {
       return 0
     fi
 
-    if ! ops_git_pull_main_ff_only "$INSTALL_DIR"; then
+    if ! retry_log_only git -C "$INSTALL_DIR" pull --ff-only origin main; then
       announce_warning "Falha ao atualizar 'main' com 'git pull --ff-only'. O script continuará com a cópia atual."
     fi
     return 0
@@ -121,7 +115,7 @@ sync_repo() {
   fi
 
   announce_step "Clonando repositório..."
-  if ! ops_git_clone_main "$REPO_HTTPS_URL" "$INSTALL_DIR"; then
+  if ! retry_log_only git clone --branch main --single-branch "$REPO_HTTPS_URL" "$INSTALL_DIR"; then
     announce_error "Falha ao clonar 'main' de $REPO_HTTPS_URL."
     announce_error "Verifique acesso ao GitHub e se a branch existe no remoto."
     return 1
@@ -159,7 +153,7 @@ bootstrap_install_dependencies_step() {
     return 0
   fi
 
-  if ops_pacman_upgrade_and_install_needed "${missing_packages[@]}"; then
+  if retry_interactive_log_only sudo pacman -Syu --needed --noconfirm "${missing_packages[@]}"; then
     step_result_success "As dependências iniciais foram instaladas."
     return 0
   fi
@@ -200,7 +194,7 @@ main() {
   require_command pacman
   require_command sudo
   announce_prompt "Autenticando sudo..."
-  ops_sudo_auth
+  run_with_terminal_stdin sudo -v
   init_logging
 
   announce_step "Verificando dependências iniciais já instaladas..."

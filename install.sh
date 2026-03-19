@@ -84,7 +84,7 @@ parse_cli_args() {
 }
 # --- end: scripts/lib/cli.sh ---
 
-# --- begin: scripts/lib/shared.sh ---
+# --- begin: scripts/bootstrap/lib.sh ---
 # shellcheck shell=bash
 # shellcheck disable=SC2034
 
@@ -108,50 +108,16 @@ init_output_styles() {
   fi
 }
 
-step_result_reset() {
-  STEP_RESULT_STATUS=""
-  STEP_RESULT_MESSAGE=""
-  STEP_RESULT_SUMMARY_PRINTED=0
-}
-
-step_result_success() {
-  STEP_RESULT_STATUS="success"
-  STEP_RESULT_MESSAGE="${1:-}"
-}
-
-step_result_skipped() {
-  STEP_RESULT_STATUS="skipped"
-  STEP_RESULT_MESSAGE="${1:-}"
-}
-
-step_result_soft_fail() {
-  STEP_RESULT_STATUS="soft_fail"
-  STEP_RESULT_MESSAGE="${1:-}"
-}
-
-step_result_hard_fail() {
-  STEP_RESULT_STATUS="hard_fail"
-  STEP_RESULT_MESSAGE="${1:-}"
-}
+step_result_reset() { STEP_RESULT_STATUS=""; STEP_RESULT_MESSAGE=""; }
+step_result_success() { STEP_RESULT_STATUS="success"; STEP_RESULT_MESSAGE="${1:-}"; }
+step_result_skipped() { STEP_RESULT_STATUS="skipped"; STEP_RESULT_MESSAGE="${1:-}"; }
+step_result_hard_fail() { STEP_RESULT_STATUS="hard_fail"; STEP_RESULT_MESSAGE="${1:-}"; }
 
 ensure_not_root() {
   if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
     announce_error "Execute este script como usuário comum, e não como root."
     exit 1
   fi
-}
-
-checkpoint_file() {
-  printf '%s/checkpoints/%s.done\n' "$STATE_DIR" "$1"
-}
-
-has_checkpoint() {
-  [[ -f "$(checkpoint_file "$1")" ]]
-}
-
-mark_checkpoint() {
-  mkdir -p "$STATE_DIR/checkpoints"
-  touch "$(checkpoint_file "$1")"
 }
 
 acquire_lock() {
@@ -193,51 +159,7 @@ acquire_lock() {
   exit 1
 }
 
-register_cleanup_path() {
-  cleanup_paths+=("$1")
-}
-
-append_array_item() {
-  local array_name="$1"
-  local value="$2"
-  local existing
-  # shellcheck disable=SC2178
-  declare -n target_array="$array_name"
-
-  for existing in "${target_array[@]}"; do
-    [[ "$existing" == "$value" ]] && return 0
-  done
-
-  target_array+=("$value")
-}
-
-mark_support_package() {
-  append_array_item support_packages "$1"
-}
-
-mark_environment_package() {
-  append_array_item environment_packages "$1"
-}
-
-mark_verified_item() {
-  append_array_item verified_commands "$1"
-}
-
-mark_missing_item() {
-  append_array_item missing_commands "$1"
-}
-
-package_is_installed() {
-  pacman -Q "$1" >/dev/null 2>&1
-}
-
-github_ssh_expected() {
-  [[ "$SKIP_GITHUB_SSH" != "1" ]]
-}
-
-github_ssh_force_reconcile() {
-  [[ "$EXCLUSIVE_GITHUB_SSH_KEY" == "1" || -n "$GITHUB_SSH_KEY_NAME" ]]
-}
+register_cleanup_path() { cleanup_paths+=("$1"); }
 
 run_with_terminal_stdin() {
   if [[ -r /dev/tty ]]; then
@@ -257,7 +179,7 @@ collect_missing_packages() {
 
   target_array=()
   for package_name in "$@"; do
-    if ! package_is_installed "$package_name"; then
+    if ! pacman -Q "$package_name" >/dev/null 2>&1; then
       target_array+=("$package_name")
     fi
   done
@@ -341,7 +263,7 @@ announce_step() {
 
 announce_detail() {
   if [[ "$STEP_OUTPUT_ONLY" == "1" ]]; then
-    if [[ "$1" == *"Etapa ignorada."* || "$1" == Instalando\ via\ pacman:* || "$1" == Instalando\ via\ AUR:* ]]; then
+    if [[ "$1" == *"Etapa ignorada."* ]]; then
       write_log_only "$1"
       return 0
     fi
@@ -384,30 +306,6 @@ run_interactive_log_only() {
   return "${PIPESTATUS[0]}"
 }
 
-print_summary_section() {
-  local title="$1"
-  echo "│"
-  printf '│  %s\n' "$(style_text "$style_step" "$title")"
-}
-
-print_summary_item() {
-  local label="$1"
-  local value="$2"
-  local label_length=0
-  local padding_width=22
-
-  label_length="$(printf '%s' "$label" | wc -m | tr -d '[:space:]')"
-  if [[ -z "$label_length" ]]; then
-    label_length=0
-  fi
-  if (( label_length < padding_width )); then
-    printf '│  %s %s%*s %s\n' "$(style_text "$style_detail" "•")" "$label" "$((padding_width - label_length))" "" "$value"
-    return 0
-  fi
-
-  printf '│  %s %s %s\n' "$(style_text "$style_detail" "•")" "$label" "$value"
-}
-
 close_step_block() {
   if [[ "$step_open" != "1" ]]; then
     return 0
@@ -437,45 +335,12 @@ require_command() {
   fi
 }
 
-get_host_name() {
-  if command -v hostname >/dev/null 2>&1; then
-    hostname
-    return
-  fi
-
-  if command -v hostnamectl >/dev/null 2>&1; then
-    hostnamectl hostname 2>/dev/null
-    return
-  fi
-
-  if [[ -f /etc/hostname ]]; then
-    cat /etc/hostname
-    return
-  fi
-
-  uname -n
-}
-
-sanitize_label() {
-  printf '%s' "$1" | tr -cs '[:alnum:].@_-' '-'
-}
-
-is_wayland_session() {
-  [[ "${XDG_SESSION_TYPE:-}" == "wayland" || -n "${WAYLAND_DISPLAY:-}" ]]
-}
-
-is_hyprland_session() {
-  [[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]] || \
-    [[ "${XDG_CURRENT_DESKTOP:-}" == *Hyprland* ]] || \
-    [[ "${DESKTOP_SESSION:-}" == "hyprland" ]]
-}
-
-is_supported_session() {
-  is_wayland_session && is_hyprland_session
-}
-
 ensure_supported_session() {
-  if is_supported_session; then
+  if [[ "${XDG_SESSION_TYPE:-}" == "wayland" || -n "${WAYLAND_DISPLAY:-}" ]] && {
+    [[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]] || \
+      [[ "${XDG_CURRENT_DESKTOP:-}" == *Hyprland* ]] || \
+      [[ "${DESKTOP_SESSION:-}" == "hyprland" ]]
+  }; then
     return 0
   fi
 
@@ -490,87 +355,14 @@ ensure_arch() {
     exit 1
   fi
 }
-# --- end: scripts/lib/shared.sh ---
-
-# --- begin: scripts/lib/repo.sh ---
-# shellcheck shell=bash
-# shellcheck source-path=SCRIPTDIR
-# shellcheck source=scripts/lib/shellcheck-runtime.sh
-# shellcheck source=scripts/lib/ops.sh
-
-if false; then
-  source "$SCRIPT_DIR/scripts/lib/shellcheck-runtime.sh"
-  source "$SCRIPT_DIR/scripts/lib/ops.sh"
-fi
-
-build_ssh_key_name() {
-  local github_login=""
-
-  if [[ -n "$GITHUB_SSH_KEY_NAME" ]]; then
-    printf '%s\n' "$GITHUB_SSH_KEY_NAME"
-    return
-  fi
-
-  if command -v gh >/dev/null 2>&1; then
-    github_login="$(gh api user --jq '.login' 2>/dev/null || true)"
-    if [[ -n "$github_login" ]]; then
-      printf '%s\n' "$github_login"
-      return
-    fi
-  fi
-
-  printf '%s\n' "$USER"
-}
-
-current_public_ssh_key() {
-  [[ -f "${SSH_KEY_PATH}.pub" ]] || return 1
-  awk 'NR == 1 { print $1, $2 }' "${SSH_KEY_PATH}.pub"
-}
-
-find_current_github_ssh_key() {
-  local current_key
-
-  current_key="$(current_public_ssh_key)" || return 1
-  gh api user/keys --jq ".[] | select(.key == \"$current_key\") | [.id, .title] | @tsv"
-}
-
-github_has_expected_ssh_key_name() {
-  local key_data
-  local current_key_name=""
-
-  key_data="$(find_current_github_ssh_key 2>/dev/null || true)"
-  [[ -n "$key_data" ]] || return 1
-  IFS=$'\t' read -r _ current_key_name <<<"$key_data"
-  [[ "$current_key_name" == "$(build_ssh_key_name)" ]]
-}
-
-github_ssh_ready() {
-  [[ -f "${SSH_KEY_PATH}.pub" ]] || return 1
-  command -v gh >/dev/null 2>&1 || return 1
-  gh auth status >/dev/null 2>&1 || return 1
-  has_checkpoint "github_ssh" || return 1
-  github_has_expected_ssh_key_name
-}
-
-desired_repo_origin_url() {
-  if github_ssh_ready; then
-    printf '%s\n' "$REPO_SSH_URL"
-    return
-  fi
-
-  printf '%s\n' "$REPO_HTTPS_URL"
-}
 
 ensure_repo_origin_remote() {
   local repo_dir="$1"
   local current_origin_url=""
-  local desired_origin_url
-
-  desired_origin_url="$(desired_repo_origin_url)"
   current_origin_url="$(git -C "$repo_dir" remote get-url origin 2>/dev/null || true)"
 
   if [[ -z "$current_origin_url" ]]; then
-    ops_git_remote_add_origin "$repo_dir" "$desired_origin_url"
+    git -C "$repo_dir" remote add origin "$REPO_HTTPS_URL"
     return
   fi
 
@@ -579,8 +371,8 @@ ensure_repo_origin_remote() {
     return
   fi
 
-  if [[ "$current_origin_url" != "$desired_origin_url" ]]; then
-    ops_git_remote_set_origin "$repo_dir" "$desired_origin_url"
+  if [[ "$current_origin_url" != "$REPO_HTTPS_URL" ]]; then
+    git -C "$repo_dir" remote set-url origin "$REPO_HTTPS_URL"
   fi
 }
 
@@ -602,218 +394,12 @@ get_repo_branch() {
   [[ -n "$branch_name" ]] || return 1
   printf 'detached@%s\n' "$branch_name"
 }
-
-current_repo_origin_status() {
-  local repo_dir="$1"
-  local current_origin_url=""
-
-  current_origin_url="$(git -C "$repo_dir" remote get-url origin 2>/dev/null || true)"
-  case "$current_origin_url" in
-    "$REPO_SSH_URL")
-      printf '%s\n' "ssh"
-      ;;
-    "$REPO_HTTPS_URL")
-      printf '%s\n' "https"
-      ;;
-    "")
-      printf '%s\n' "ausente"
-      ;;
-    *)
-      printf '%s\n' "personalizado"
-      ;;
-  esac
-}
-
-current_repo_commit_short() {
-  local repo_dir="$1"
-  local commit_hash=""
-
-  commit_hash="$(git -C "$repo_dir" rev-parse --short HEAD 2>/dev/null || true)"
-  [[ -n "$commit_hash" ]] || {
-    printf '%s\n' "indisponível"
-    return 0
-  }
-
-  printf '%s\n' "$commit_hash"
-}
-# --- end: scripts/lib/repo.sh ---
-
-# --- begin: scripts/lib/ops.sh ---
-# shellcheck shell=bash
-# shellcheck source-path=SCRIPTDIR
-
-ops_sudo_auth() {
-  run_with_terminal_stdin sudo -v
-}
-
-ops_pacman_upgrade_and_install_needed() {
-  retry_interactive_log_only sudo pacman -Syu --needed --noconfirm "$@"
-}
-
-ops_pacman_upgrade_full() {
-  retry_interactive_log_only sudo pacman -Syu --noconfirm
-}
-
-ops_pacman_install_needed() {
-  retry_interactive_log_only sudo pacman -S --needed --noconfirm "$@"
-}
-
-ops_pacman_remove_recursive() {
-  retry_interactive_log_only sudo pacman -Rns --noconfirm "$@"
-}
-
-ops_pacman_refresh_databases() {
-  run_interactive_log_only sudo pacman -Syy --noconfirm
-}
-
-ops_backup_pacman_conf() {
-  local backup_path="$1"
-
-  sudo cp /etc/pacman.conf "$backup_path"
-}
-
-ops_enable_multilib_config() {
-  sudo sed -i \
-    '/^[[:space:]]*#\[multilib\][[:space:]]*$/,/^[[:space:]]*#Include = \/etc\/pacman.d\/mirrorlist[[:space:]]*$/ s/^[[:space:]]*#//' \
-    /etc/pacman.conf
-}
-
-ops_download_file() {
-  local source_url="$1"
-  local destination_path="$2"
-
-  retry curl -fsSL "$source_url" -o "$destination_path"
-}
-
-ops_extract_tar_gz() {
-  local archive_path="$1"
-  local destination_dir="$2"
-
-  tar -xzf "$archive_path" -C "$destination_dir"
-}
-
-ops_build_yay_package() {
-  local yay_dir="$1"
-
-  retry_log_only build_yay "$yay_dir"
-}
-
-ops_git_remote_add_origin() {
-  local repo_dir="$1"
-  local origin_url="$2"
-
-  git -C "$repo_dir" remote add origin "$origin_url"
-}
-
-ops_git_remote_set_origin() {
-  local repo_dir="$1"
-  local origin_url="$2"
-
-  git -C "$repo_dir" remote set-url origin "$origin_url"
-}
-
-ops_git_fetch_origin() {
-  local repo_dir="$1"
-
-  retry_log_only git -C "$repo_dir" fetch origin
-}
-
-ops_git_checkout_main() {
-  local repo_dir="$1"
-
-  run_log_only git -C "$repo_dir" checkout main
-}
-
-ops_git_checkout_main_from_origin() {
-  local repo_dir="$1"
-
-  run_log_only git -C "$repo_dir" checkout -b main origin/main
-}
-
-ops_git_pull_main_ff_only() {
-  local repo_dir="$1"
-
-  retry_log_only git -C "$repo_dir" pull --ff-only origin main
-}
-
-ops_git_clone_main() {
-  local repo_url="$1"
-  local repo_dir="$2"
-
-  retry_log_only git clone --branch main --single-branch "$repo_url" "$repo_dir"
-}
-
-ops_gh_auth_login() {
-  run_gh_auth_flow auth login --web --git-protocol ssh --scopes admin:public_key
-}
-
-ops_gh_auth_refresh_admin_public_key() {
-  run_gh_auth_flow auth refresh -h github.com -s admin:public_key
-}
-
-ops_gh_delete_ssh_key() {
-  local key_id="$1"
-
-  retry gh api --method DELETE "user/keys/$key_id"
-}
-
-ops_gh_create_ssh_key() {
-  local key_name="$1"
-  local public_key="$2"
-
-  retry gh api user/keys --method POST -f "title=$key_name" -f "key=$public_key" --jq '.id'
-}
-
-ops_npm_config_set_prefix() {
-  local prefix_path="$1"
-
-  run_log_only npm config set prefix "$prefix_path"
-}
-
-ops_npm_install_codex_cli() {
-  retry_log_only npm install -g @openai/codex
-}
-
-ops_ssh_regenerate_public_key() {
-  local private_key_path="$1"
-  local public_key_path="$2"
-
-  ssh-keygen -y -f "$private_key_path" >"$public_key_path"
-}
-
-ops_ssh_generate_key_pair() {
-  local key_comment="$1"
-  local key_path="$2"
-
-  ssh-keygen -t ed25519 -C "$key_comment" -f "$key_path" -N ""
-}
-
-ops_systemctl_user_daemon_reload() {
-  run_log_only systemctl --user daemon-reload
-}
-
-ops_systemctl_user_start() {
-  run_log_only systemctl --user start "$@"
-}
-
-ops_aur_install_needed() {
-  local helper_name="$1"
-  shift
-
-  retry_log_only "$helper_name" -S --needed --noconfirm "$@"
-}
-# --- end: scripts/lib/ops.sh ---
+# --- end: scripts/bootstrap/lib.sh ---
 
 # --- begin: scripts/bootstrap/entrypoint.sh ---
 # shellcheck shell=bash
 # shellcheck disable=SC2034
 # shellcheck source-path=SCRIPTDIR
-# shellcheck source=scripts/lib/ops.sh
-
-if false; then
-  source "$SCRIPT_DIR/scripts/lib/ops.sh"
-fi
-
 SELF_PATH="${BASH_SOURCE[0]:-$0}"
 SCRIPT_DIR="$(cd "$(dirname "$SELF_PATH")" && pwd)"
 LOCAL_MAIN="$SCRIPT_DIR/scripts/install/main.sh"
@@ -886,19 +472,19 @@ sync_repo() {
       return 1
     fi
 
-    if ops_git_fetch_origin "$INSTALL_DIR"; then
+    if retry_log_only git -C "$INSTALL_DIR" fetch origin; then
       fetched_origin=1
     else
       announce_warning "Falha ao buscar atualizações de origin. O script tentará usar a cópia local."
     fi
 
     if git -C "$INSTALL_DIR" show-ref --verify --quiet "refs/heads/main"; then
-      if ! ops_git_checkout_main "$INSTALL_DIR"; then
+      if ! run_log_only git -C "$INSTALL_DIR" checkout main; then
         announce_error "Não foi possível trocar para a branch local 'main'."
         return 1
       fi
     elif git -C "$INSTALL_DIR" show-ref --verify --quiet "refs/remotes/origin/main"; then
-      if ! ops_git_checkout_main_from_origin "$INSTALL_DIR"; then
+      if ! run_log_only git -C "$INSTALL_DIR" checkout -b main origin/main; then
         announce_error "Não foi possível criar a branch local 'main' a partir de origin."
         return 1
       fi
@@ -916,7 +502,7 @@ sync_repo() {
       return 0
     fi
 
-    if ! ops_git_pull_main_ff_only "$INSTALL_DIR"; then
+    if ! retry_log_only git -C "$INSTALL_DIR" pull --ff-only origin main; then
       announce_warning "Falha ao atualizar 'main' com 'git pull --ff-only'. O script continuará com a cópia atual."
     fi
     return 0
@@ -928,7 +514,7 @@ sync_repo() {
   fi
 
   announce_step "Clonando repositório..."
-  if ! ops_git_clone_main "$REPO_HTTPS_URL" "$INSTALL_DIR"; then
+  if ! retry_log_only git clone --branch main --single-branch "$REPO_HTTPS_URL" "$INSTALL_DIR"; then
     announce_error "Falha ao clonar 'main' de $REPO_HTTPS_URL."
     announce_error "Verifique acesso ao GitHub e se a branch existe no remoto."
     return 1
@@ -966,7 +552,7 @@ bootstrap_install_dependencies_step() {
     return 0
   fi
 
-  if ops_pacman_upgrade_and_install_needed "${missing_packages[@]}"; then
+  if retry_interactive_log_only sudo pacman -Syu --needed --noconfirm "${missing_packages[@]}"; then
     step_result_success "As dependências iniciais foram instaladas."
     return 0
   fi
@@ -1007,7 +593,7 @@ main() {
   require_command pacman
   require_command sudo
   announce_prompt "Autenticando sudo..."
-  ops_sudo_auth
+  run_with_terminal_stdin sudo -v
   init_logging
 
   announce_step "Verificando dependências iniciais já instaladas..."
