@@ -260,6 +260,10 @@ component_apply_aur_helper() {
   announce_detail "Usando helper AUR: $aur_helper"
 }
 
+component_verify_aur_helper() {
+  component_detect aur_helper
+}
+
 ensure_aur_helper() {
   component_apply aur_helper
 }

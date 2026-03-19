@@ -23,8 +23,10 @@ source "$REPO_DIR/scripts/lib/components/desktop.sh"
 source "$REPO_DIR/scripts/lib/components/github-ssh.sh"
 # shellcheck source=../lib/packages.sh
 source "$REPO_DIR/scripts/lib/packages.sh"
-# shellcheck source=../lib/verify.sh
-source "$REPO_DIR/scripts/lib/verify.sh"
+# shellcheck source=../lib/verification.sh
+source "$REPO_DIR/scripts/lib/verification.sh"
+# shellcheck source=../lib/repair.sh
+source "$REPO_DIR/scripts/lib/repair.sh"
 # shellcheck source=../lib/summary.sh
 source "$REPO_DIR/scripts/lib/summary.sh"
 # shellcheck source=../lib/pipeline.sh
