@@ -134,9 +134,7 @@ bash install.sh
 Para validar o script localmente:
 
 ```bash
-bash scripts/build-bootstrap.sh --check
-bash -n install.sh
-shellcheck install.sh
+bash scripts/check-repo.sh
 ```
 </details>
 
@@ -148,6 +146,7 @@ config/packages-extra.txt.example
 config/components.sh
 config/packages.txt
 install.sh
+scripts/check-repo.sh
 scripts/build-bootstrap.sh
 ```
 </details>
