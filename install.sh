@@ -5,6 +5,7 @@ set -euo pipefail
 SELF_PATH="${BASH_SOURCE[0]:-$0}"
 SCRIPT_DIR="$(cd "$(dirname "$SELF_PATH")" && pwd)"
 LOCAL_MAIN="$SCRIPT_DIR/scripts/install/main.sh"
+LOCAL_CLI="$SCRIPT_DIR/scripts/lib/cli.sh"
 
 if [[ -f "$SELF_PATH" && -f "$LOCAL_MAIN" ]]; then
   exec bash "$LOCAL_MAIN" "$@"
@@ -20,6 +21,9 @@ SSH_KEY_PATH="${SSH_KEY_PATH:-$HOME/.ssh/id_ed25519}"
 GITHUB_SSH_KEY_NAME=""
 LOG_FILE="${POSTINSTALL_LOG_FILE:-$HOME/Backups/arch-postinstall.log}"
 SUMMARY_FILE="${POSTINSTALL_SUMMARY_FILE:-$HOME/Backups/arch-postinstall-summary.txt}"
+CHECK_ONLY=0
+EXCLUSIVE_GITHUB_SSH_KEY=0
+SKIP_GITHUB_SSH=0
 STEP_OUTPUT_ONLY=1
 STATE_DIR="${POSTINSTALL_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/arch-postinstall-apps}"
 LOCK_DIR="${POSTINSTALL_LOCK_DIR:-$STATE_DIR/lock}"
@@ -53,8 +57,9 @@ if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
   style_muted=$'\033[0;90m'
 fi
 
-print_usage() {
-  cat <<'EOF'
+define_bootstrap_cli_fallback() {
+  print_usage() {
+    cat <<'EOF'
 Uso:
   bash install.sh [opções]
   curl -fsSL https://obslove.dev | bash -s -- [opções]
@@ -67,61 +72,72 @@ Opções:
   -v, --verbose           Desativa o modo resumido e mostra a saída completa.
   -h, --help              Exibe esta ajuda.
 EOF
-}
+  }
 
-parse_cli_args() {
-  while (($# > 0)); do
-    case "$1" in
-      -c|--check)
-        shift
-        ;;
-      -e|--exclusive-key)
-        shift
-        ;;
-      -n|--no-gh)
-        shift
-        ;;
-      -s|--ssh-name)
-        [[ $# -ge 2 ]] || {
-          printf 'Erro: faltou informar o valor de %s.\n' "$1" >&2
+  parse_cli_args() {
+    while (($# > 0)); do
+      case "$1" in
+        -c|--check)
+          CHECK_ONLY=1
+          shift
+          ;;
+        -e|--exclusive-key)
+          EXCLUSIVE_GITHUB_SSH_KEY=1
+          shift
+          ;;
+        -n|--no-gh)
+          SKIP_GITHUB_SSH=1
+          shift
+          ;;
+        -s|--ssh-name)
+          [[ $# -ge 2 ]] || {
+            printf 'Erro: faltou informar o valor de %s.\n' "$1" >&2
+            exit 1
+          }
+          GITHUB_SSH_KEY_NAME="$2"
+          shift 2
+          ;;
+        --ssh-name=*)
+          GITHUB_SSH_KEY_NAME="${1#*=}"
+          shift
+          ;;
+        -v|--verbose)
+          STEP_OUTPUT_ONLY=0
+          shift
+          ;;
+        -h|--help)
+          print_usage
+          exit 0
+          ;;
+        --)
+          shift
+          break
+          ;;
+        -*)
+          printf 'Erro: opção desconhecida: %s\n' "$1" >&2
+          printf 'Use --help para ver as opções disponíveis.\n' >&2
           exit 1
-        }
-        GITHUB_SSH_KEY_NAME="$2"
-        shift 2
-        ;;
-      --ssh-name=*)
-        GITHUB_SSH_KEY_NAME="${1#*=}"
-        shift
-        ;;
-      -v|--verbose)
-        STEP_OUTPUT_ONLY=0
-        shift
-        ;;
-      -h|--help)
-        print_usage
-        exit 0
-        ;;
-      --)
-        shift
-        break
-        ;;
-      -*)
-        printf 'Erro: opção desconhecida: %s\n' "$1" >&2
-        printf 'Use --help para ver as opções disponíveis.\n' >&2
-        exit 1
-        ;;
-      *)
-        printf 'Erro: argumento não reconhecido: %s\n' "$1" >&2
-        exit 1
-        ;;
-    esac
-  done
+          ;;
+        *)
+          printf 'Erro: argumento não reconhecido: %s\n' "$1" >&2
+          exit 1
+          ;;
+      esac
+    done
 
-  if (($# > 0)); then
-    printf 'Erro: argumentos extras não reconhecidos: %s\n' "$*" >&2
-    exit 1
-  fi
+    if (($# > 0)); then
+      printf 'Erro: argumentos extras não reconhecidos: %s\n' "$*" >&2
+      exit 1
+    fi
+  }
 }
+
+if [[ -f "$LOCAL_CLI" ]]; then
+  # shellcheck source=scripts/lib/cli.sh
+  source "$LOCAL_CLI"
+else
+  define_bootstrap_cli_fallback
+fi
 
 ensure_not_root() {
   if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
