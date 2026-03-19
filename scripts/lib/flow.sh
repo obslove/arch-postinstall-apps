@@ -2,9 +2,11 @@
 # shellcheck shell=bash
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=scripts/lib/shellcheck-runtime.sh
+# shellcheck source=scripts/lib/ops.sh
 
 if false; then
   source "$SCRIPT_DIR/scripts/lib/shellcheck-runtime.sh"
+  source "$SCRIPT_DIR/scripts/lib/ops.sh"
 fi
 
 print_summary() {
@@ -174,7 +176,7 @@ update_system_step() {
     return 0
   fi
 
-  if retry_interactive_log_only sudo pacman -Syu --noconfirm; then
+  if ops_pacman_upgrade_full; then
     step_result_success "A atualização completa do sistema foi concluída."
     return 0
   fi

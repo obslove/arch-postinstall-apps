@@ -3,9 +3,11 @@
 # shellcheck disable=SC2034
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=scripts/lib/shellcheck-runtime.sh
+# shellcheck source=scripts/lib/ops.sh
 
 if false; then
   source "$SCRIPT_DIR/scripts/lib/shellcheck-runtime.sh"
+  source "$SCRIPT_DIR/scripts/lib/ops.sh"
 fi
 
 confirm_exclusive_github_ssh_key() {
@@ -43,7 +45,7 @@ ensure_temp_clipboard_utility() {
   fi
 
   announce_detail "Instalando wl-clipboard temporariamente para copiar o código do GitHub..."
-  if ! retry_interactive_log_only sudo pacman -S --needed --noconfirm "${missing_packages[@]}"; then
+  if ! ops_pacman_install_needed "${missing_packages[@]}"; then
     announce_warning "Não foi possível instalar wl-clipboard. Continuando sem cópia automática."
     return 1
   fi
@@ -58,7 +60,7 @@ cleanup_temp_clipboard_utility() {
   fi
 
   announce_detail "Removendo $temp_clipboard_package instalado temporariamente..."
-  if ! retry_interactive_log_only sudo pacman -Rns --noconfirm "$temp_clipboard_package"; then
+  if ! ops_pacman_remove_recursive "$temp_clipboard_package"; then
     announce_warning "Não foi possível remover $temp_clipboard_package automaticamente."
     return 1
   fi
@@ -98,7 +100,7 @@ ensure_desktop_integration() {
 
   collect_missing_packages missing_packages "${DESKTOP_INTEGRATION_PACKAGES[@]}"
   announce_detail "Garantindo integração desktop..."
-  if ! retry_interactive_log_only sudo pacman -S --needed --noconfirm "${missing_packages[@]}"; then
+  if ! ops_pacman_install_needed "${missing_packages[@]}"; then
     desktop_integration_status="falhou"
     announce_error "Não foi possível instalar a integração desktop."
     return 1
@@ -125,7 +127,7 @@ run_gh_auth_flow() {
   fi
 
   if [[ -t 0 ]]; then
-    printf '\n' | gh "$@" "${clipboard_args[@]}"
+    printf '\n' | run_with_terminal_stdin gh "$@" "${clipboard_args[@]}"
     return
   fi
 
@@ -153,7 +155,7 @@ remove_other_github_ssh_keys() {
   while IFS=$'\t' read -r key_id _key_name _key_value; do
     [[ -n "$key_id" ]] || continue
     [[ "$key_id" == "$current_key_id" ]] && continue
-    if ! retry gh api --method DELETE "user/keys/$key_id"; then
+    if ! ops_gh_delete_ssh_key "$key_id"; then
       announce_warning "Não foi possível remover uma das chaves SSH antigas do GitHub."
       return 1
     fi
@@ -175,7 +177,7 @@ end"
   require_command npm
 
   announce_detail "Configurando o prefixo do npm em $HOME/Codex..."
-  if ! run_log_only npm config set prefix "$HOME/Codex"; then
+  if ! ops_npm_config_set_prefix "$HOME/Codex"; then
     announce_error "Não foi possível configurar o prefixo do npm para o Codex CLI."
     return 1
   fi
@@ -208,7 +210,7 @@ end"
   export PATH="$HOME/Codex/bin:$PATH"
 
   announce_detail "Instalando Codex CLI em $HOME/Codex..."
-  if ! retry_log_only npm install -g @openai/codex; then
+  if ! ops_npm_install_codex_cli; then
     announce_error "Não foi possível instalar o Codex CLI."
     return 1
   fi
@@ -231,7 +233,7 @@ ensure_ssh_key() {
   if [[ -f "$SSH_KEY_PATH" ]]; then
     if [[ ! -f "${SSH_KEY_PATH}.pub" ]]; then
       announce_detail "A chave pública SSH não foi encontrada. Recriando ${SSH_KEY_PATH}.pub..."
-      if ! ssh-keygen -y -f "$SSH_KEY_PATH" >"${SSH_KEY_PATH}.pub"; then
+      if ! ops_ssh_regenerate_public_key "$SSH_KEY_PATH" "${SSH_KEY_PATH}.pub"; then
         announce_error "Não foi possível recriar a chave pública SSH."
         return 1
       fi
@@ -248,7 +250,7 @@ ensure_ssh_key() {
   fi
 
   announce_detail "Criando chave SSH em $SSH_KEY_PATH..."
-  if ! ssh-keygen -t ed25519 -C "$key_comment" -f "$SSH_KEY_PATH" -N ""; then
+  if ! ops_ssh_generate_key_pair "$key_comment" "$SSH_KEY_PATH"; then
     announce_error "Não foi possível criar a chave SSH."
     return 1
   fi
@@ -263,7 +265,7 @@ ensure_github_auth() {
   fi
 
   announce_prompt "Autenticando no GitHub com gh..."
-  run_gh_auth_flow auth login --web --git-protocol ssh --scopes admin:public_key
+  ops_gh_auth_login
 }
 
 upload_ssh_key() {
@@ -287,7 +289,7 @@ upload_ssh_key() {
   key_name="$(build_ssh_key_name)"
   if ! existing_keys="$(gh api user/keys --jq '.[] | [.id, .title, .key] | @tsv' 2>/dev/null)"; then
     announce_detail "A permissão admin:public_key não está disponível no gh. A autenticação será renovada."
-    if ! run_gh_auth_flow auth refresh -h github.com -s admin:public_key; then
+    if ! ops_gh_auth_refresh_admin_public_key; then
       announce_warning "Não foi possível renovar o escopo admin:public_key no gh."
       return 1
     fi
@@ -310,7 +312,7 @@ upload_ssh_key() {
 
   if [[ -n "$current_key_id" && "$current_key_name" != "$key_name" ]]; then
     announce_detail "A chave SSH atual já existe no GitHub com outro título. Recriando com o nome correto..."
-    if ! retry gh api --method DELETE "user/keys/$current_key_id"; then
+    if ! ops_gh_delete_ssh_key "$current_key_id"; then
       announce_warning "Não foi possível remover a chave SSH antiga com título incorreto."
       return 1
     fi
@@ -319,7 +321,7 @@ upload_ssh_key() {
 
   if [[ -z "$current_key_id" ]]; then
     announce_detail "Enviando a chave SSH ao GitHub..."
-    if ! current_key_id="$(retry gh api user/keys --method POST -f "title=$key_name" -f "key=$current_key" --jq '.id')"; then
+    if ! current_key_id="$(ops_gh_create_ssh_key "$key_name" "$current_key")"; then
       announce_warning "Não foi possível enviar a chave SSH atual ao GitHub."
       return 1
     fi
@@ -382,7 +384,7 @@ setup_github_ssh() {
   announce_detail "Verificando dependências da etapa de GitHub SSH..."
   collect_missing_packages missing_packages "${GITHUB_SSH_SUPPORT_PACKAGES[@]}"
   if ((${#missing_packages[@]} > 0)); then
-    if ! retry_interactive_log_only sudo pacman -S --needed --noconfirm "${missing_packages[@]}"; then
+    if ! ops_pacman_install_needed "${missing_packages[@]}"; then
       github_ssh_status="ignorada por falha"
       announce_warning "Não foi possível instalar github-cli/openssh. A configuração do GitHub será ignorada."
       return

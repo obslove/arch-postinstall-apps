@@ -2,9 +2,11 @@
 # shellcheck shell=bash
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=scripts/lib/shellcheck-runtime.sh
+# shellcheck source=scripts/lib/ops.sh
 
 if false; then
   source "$SCRIPT_DIR/scripts/lib/shellcheck-runtime.sh"
+  source "$SCRIPT_DIR/scripts/lib/ops.sh"
 fi
 
 verify_command() {
@@ -64,8 +66,8 @@ start_desktop_user_services() {
     return 1
   fi
 
-  run_log_only systemctl --user daemon-reload || true
-  run_log_only systemctl --user start "${DESKTOP_USER_SERVICES[@]}"
+  ops_systemctl_user_daemon_reload || true
+  ops_systemctl_user_start "${DESKTOP_USER_SERVICES[@]}"
 }
 
 collect_version() {
@@ -278,7 +280,7 @@ attempt_final_repair_once() {
   collect_missing_packages pacman_missing_packages "${repair_pacman_packages[@]}"
   if ((${#pacman_missing_packages[@]} > 0)); then
     announce_detail "Reinstalando itens via pacman..."
-    if ! retry_interactive_log_only sudo pacman -S --needed --noconfirm "${pacman_missing_packages[@]}"; then
+    if ! ops_pacman_install_needed "${pacman_missing_packages[@]}"; then
       return 1
     fi
   fi
@@ -294,7 +296,7 @@ attempt_final_repair_once() {
       fi
 
       announce_detail "Reinstalando item via AUR: $aur_package"
-      if ! retry_log_only "$aur_helper" -S --needed --noconfirm "$aur_package"; then
+      if ! ops_aur_install_needed "$aur_helper" "$aur_package"; then
         return 1
       fi
     done

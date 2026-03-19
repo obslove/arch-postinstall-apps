@@ -11,6 +11,7 @@ FRAGMENTS=(
   "$REPO_DIR/scripts/lib/cli.sh"
   "$REPO_DIR/scripts/lib/shared.sh"
   "$REPO_DIR/scripts/lib/repo.sh"
+  "$REPO_DIR/scripts/lib/ops.sh"
   "$REPO_DIR/scripts/bootstrap/entrypoint.sh"
 )
 

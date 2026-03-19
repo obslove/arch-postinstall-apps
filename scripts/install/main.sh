@@ -11,6 +11,8 @@ REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 source "$REPO_DIR/scripts/lib/core.sh"
 # shellcheck source=../lib/repo.sh
 source "$REPO_DIR/scripts/lib/repo.sh"
+# shellcheck source=../lib/ops.sh
+source "$REPO_DIR/scripts/lib/ops.sh"
 # shellcheck source=../lib/packages.sh
 source "$REPO_DIR/scripts/lib/packages.sh"
 # shellcheck source=../lib/integrations.sh
@@ -40,7 +42,7 @@ main() {
   require_command pacman
   require_command sudo
   announce_prompt "Autenticando sudo..."
-  run_with_terminal_stdin sudo -v
+  ops_sudo_auth
   init_logging
 
   run_install

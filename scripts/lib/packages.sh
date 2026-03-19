@@ -3,9 +3,11 @@
 # shellcheck disable=SC2034
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=scripts/lib/shellcheck-runtime.sh
+# shellcheck source=scripts/lib/ops.sh
 
 if false; then
   source "$SCRIPT_DIR/scripts/lib/shellcheck-runtime.sh"
+  source "$SCRIPT_DIR/scripts/lib/ops.sh"
 fi
 
 append_package() {
@@ -76,17 +78,15 @@ ensure_multilib() {
   fi
 
   announce_detail "Habilitando o repositório multilib..."
-  sudo cp /etc/pacman.conf "/etc/pacman.conf.bak.$(date +%Y%m%d%H%M%S)"
-  sudo sed -i \
-    '/^[[:space:]]*#\[multilib\][[:space:]]*$/,/^[[:space:]]*#Include = \/etc\/pacman.d\/mirrorlist[[:space:]]*$/ s/^[[:space:]]*#//' \
-    /etc/pacman.conf
+  ops_backup_pacman_conf "/etc/pacman.conf.bak.$(date +%Y%m%d%H%M%S)"
+  ops_enable_multilib_config
 
   if ! multilib_enabled; then
     announce_error "Não foi possível habilitar multilib automaticamente."
     exit 1
   fi
 
-  if ! run_interactive_log_only sudo pacman -Syy --noconfirm; then
+  if ! ops_pacman_refresh_databases; then
     announce_error "Não foi possível sincronizar os bancos de dados do pacman após habilitar multilib."
     exit 1
   fi
@@ -187,7 +187,7 @@ install_yay() {
   mkdir -p "$REPOSITORIES_DIR"
   collect_missing_packages missing_packages "${AUR_HELPER_SUPPORT_PACKAGES[@]}"
   if ((${#missing_packages[@]} > 0)); then
-    if ! retry_interactive_log_only sudo pacman -S --needed --noconfirm "${missing_packages[@]}"; then
+    if ! ops_pacman_install_needed "${missing_packages[@]}"; then
       return 1
     fi
   fi
@@ -198,13 +198,13 @@ install_yay() {
   register_cleanup_path "$archive_file"
 
   announce_detail "Baixando snapshot do yay..."
-  if ! retry curl -fsSL "$YAY_SNAPSHOT_URL" -o "$archive_file"; then
+  if ! ops_download_file "$YAY_SNAPSHOT_URL" "$archive_file"; then
     return 1
   fi
 
   rm -rf "$YAY_REPO_DIR"
   announce_detail "Extraindo snapshot do yay em $YAY_REPO_DIR..."
-  if ! tar -xzf "$archive_file" -C "$REPOSITORIES_DIR"; then
+  if ! ops_extract_tar_gz "$archive_file" "$REPOSITORIES_DIR"; then
     return 1
   fi
 
@@ -213,7 +213,7 @@ install_yay() {
   fi
 
   if (( status == 0 )); then
-    if retry_log_only build_yay "$YAY_REPO_DIR"; then
+    if ops_build_yay_package "$YAY_REPO_DIR"; then
       aur_helper="yay"
       aur_helper_status="yay (instalado nesta execução)"
     else
@@ -257,7 +257,7 @@ install_codex_cli_component() {
   collect_missing_packages missing_packages "${CODEX_CLI_PACKAGES[@]}"
   if ((${#missing_packages[@]} > 0)); then
     announce_detail "Instalando dependências do Codex CLI..."
-    if ! retry_interactive_log_only sudo pacman -S --needed --noconfirm "${missing_packages[@]}"; then
+    if ! ops_pacman_install_needed "${missing_packages[@]}"; then
       append_array_item official_failed "codex"
       return 0
     fi
@@ -319,7 +319,7 @@ install_packages_in_order() {
         shown_pacman_step=1
       fi
       announce_detail "Instalando via pacman: $package"
-      if retry_interactive_log_only sudo pacman -S --needed --noconfirm "$package"; then
+      if ops_pacman_install_needed "$package"; then
         continue
       fi
 
@@ -346,7 +346,7 @@ install_packages_in_order() {
       shown_aur_step=1
     fi
     announce_detail "Instalando via AUR: $package"
-    if retry_log_only "$aur_helper" -S --needed --noconfirm "$package"; then
+    if ops_aur_install_needed "$aur_helper" "$package"; then
       continue
     fi
 

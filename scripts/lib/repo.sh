@@ -2,9 +2,11 @@
 # shellcheck shell=bash
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=scripts/lib/shellcheck-runtime.sh
+# shellcheck source=scripts/lib/ops.sh
 
 if false; then
   source "$SCRIPT_DIR/scripts/lib/shellcheck-runtime.sh"
+  source "$SCRIPT_DIR/scripts/lib/ops.sh"
 fi
 
 build_ssh_key_name() {
@@ -74,7 +76,7 @@ ensure_repo_origin_remote() {
   current_origin_url="$(git -C "$repo_dir" remote get-url origin 2>/dev/null || true)"
 
   if [[ -z "$current_origin_url" ]]; then
-    git -C "$repo_dir" remote add origin "$desired_origin_url"
+    ops_git_remote_add_origin "$repo_dir" "$desired_origin_url"
     return
   fi
 
@@ -84,7 +86,7 @@ ensure_repo_origin_remote() {
   fi
 
   if [[ "$current_origin_url" != "$desired_origin_url" ]]; then
-    git -C "$repo_dir" remote set-url origin "$desired_origin_url"
+    ops_git_remote_set_origin "$repo_dir" "$desired_origin_url"
   fi
 }
 
