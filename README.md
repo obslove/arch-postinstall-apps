@@ -55,8 +55,12 @@ O log completo fica em `~/Backups/arch-postinstall.log`, e o resumo final fica e
 O script separa o que é infraestrutura do próprio fluxo e o que é software principal do ambiente.
 
 <!-- packages:start -->
-- Dependências de suporte do script:
-  `git`, `base-devel`, `github-cli`, `openssh`
+- Dependências iniciais do fluxo local:
+  `git`, `base-devel`
+- Helper AUR padrão preparado pelo script:
+  `base-devel`, `yay`
+- Dependências da etapa de GitHub SSH:
+  `github-cli`, `openssh`
 - Apps principais da lista padrão:
   `zen-browser-bin`, `firefox`, `shellcheck`, `code`, `discord`, `spotify-launcher`, `steam`
 - Componentes usados para instalar e executar o Codex CLI:

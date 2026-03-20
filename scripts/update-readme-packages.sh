@@ -46,8 +46,12 @@ render_package_block() {
   done <"$PACKAGE_FILE"
 
   printf '%s\n' '<!-- packages:start -->'
-  printf '%s\n' '- Dependências de suporte do script:'
-  print_item_list SCRIPT_SUPPORT_PACKAGES
+  printf '%s\n' '- Dependências iniciais do fluxo local:'
+  print_item_list BOOTSTRAP_SUPPORT_PACKAGES
+  printf '%s\n' '- Helper AUR padrão preparado pelo script:'
+  print_item_list AUR_HELPER_README_ITEMS
+  printf '%s\n' '- Dependências da etapa de GitHub SSH:'
+  print_item_list GITHUB_SSH_SUPPORT_PACKAGES
   printf '%s\n' '- Apps principais da lista padrão:'
   print_item_list app_items
   if component_enabled "codex_cli"; then
