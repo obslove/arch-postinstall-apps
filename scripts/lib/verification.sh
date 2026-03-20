@@ -92,6 +92,10 @@ verify_installation() {
 
   state_reset_verification_results
 
+  for package_name in "${LOCAL_SUPPORT_PACKAGES[@]}"; do
+    verify_package "$package_name" "$package_name"
+  done
+
   for package_name in "${target_packages[@]}"; do
     case "$package_name" in
       nodejs)

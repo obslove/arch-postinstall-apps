@@ -52,6 +52,10 @@ readonly -a BOOTSTRAP_SUPPORT_PACKAGES=(
   base-devel
 )
 
+readonly -a LOCAL_SUPPORT_PACKAGES=(
+  shellcheck
+)
+
 readonly -a AUR_HELPER_SUPPORT_PACKAGES=(
   base-devel
 )

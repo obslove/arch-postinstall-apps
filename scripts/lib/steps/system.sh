@@ -59,6 +59,9 @@ pipeline_check_only_step() {
   for component_id in "${detection_component_ids[@]}"; do
     component_prepare_check_only_state "$component_id" || true
   done
+  for package_name in "${LOCAL_SUPPORT_PACKAGES[@]}"; do
+    state_add_support_package "$package_name"
+  done
   for package_name in "${DESKTOP_INTEGRATION_PACKAGES[@]}"; do
     state_add_environment_package "$package_name"
   done

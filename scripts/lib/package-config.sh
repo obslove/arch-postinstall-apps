@@ -69,6 +69,10 @@ calculate_install_step_total() {
   local has_official=0
   local has_aur=0
 
+  if ((${#LOCAL_SUPPORT_PACKAGES[@]} > 0)); then
+    total=$((total + 1))
+  fi
+
   for package in "${target_packages[@]}"; do
     if pacman -Si -- "$package" >/dev/null 2>&1; then
       has_official=1

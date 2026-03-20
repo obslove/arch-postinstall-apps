@@ -48,6 +48,8 @@ render_package_block() {
   printf '%s\n' '<!-- packages:start -->'
   printf '%s\n' '- Dependências iniciais do fluxo local:'
   print_item_list BOOTSTRAP_SUPPORT_PACKAGES
+  printf '%s\n' '- Ferramentas de suporte instaladas no fluxo local:'
+  print_item_list LOCAL_SUPPORT_PACKAGES
   printf '%s\n' '- Helper AUR padrão preparado pelo script:'
   print_item_list AUR_HELPER_README_ITEMS
   printf '%s\n' '- Dependências da etapa de GitHub SSH:'

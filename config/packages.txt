@@ -4,7 +4,6 @@
 
 zen-browser-bin
 firefox
-shellcheck
 code
 discord
 spotify-launcher

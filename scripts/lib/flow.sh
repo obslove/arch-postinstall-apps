@@ -78,6 +78,7 @@ define_runtime_pipeline() {
   pipeline_add_step "create_directories" "install" "pipeline_create_directories_step"
   pipeline_add_step "ensure_multilib" "install" "pipeline_ensure_multilib_step"
   pipeline_add_step "update_system" "install" "pipeline_update_system_step"
+  pipeline_add_step "install_local_support_packages" "install" "pipeline_install_local_support_packages_step"
   mapfile -t pre_package_component_ids < <(component_pre_package_pipeline_ids)
   for component_id in "${pre_package_component_ids[@]}"; do
     pipeline_function="$(component_pipeline_step_function "$component_id")"

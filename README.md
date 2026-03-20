@@ -57,12 +57,14 @@ O script separa o que é infraestrutura do próprio fluxo e o que é software pr
 <!-- packages:start -->
 - Dependências iniciais do fluxo local:
   `git`, `base-devel`
+- Ferramentas de suporte instaladas no fluxo local:
+  `shellcheck`
 - Helper AUR padrão preparado pelo script:
   `base-devel`, `yay`
 - Dependências da etapa de GitHub SSH:
   `github-cli`, `openssh`
 - Apps principais da lista padrão:
-  `zen-browser-bin`, `firefox`, `shellcheck`, `code`, `discord`, `spotify-launcher`, `steam`
+  `zen-browser-bin`, `firefox`, `code`, `discord`, `spotify-launcher`, `steam`
 - Componentes usados para instalar e executar o Codex CLI:
   `nodejs`, `npm`, `codex`
 - Dependências do ambiente gráfico:
