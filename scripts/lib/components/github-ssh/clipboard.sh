@@ -19,11 +19,14 @@ ensure_temp_clipboard_utility() {
     return 1
   fi
 
-  temp_clipboard_package="wl-clipboard"
+  state_set_temp_clipboard_package "wl-clipboard"
   return 0
 }
 
 cleanup_temp_clipboard_utility() {
+  local temp_clipboard_package=""
+
+  temp_clipboard_package="$(state_get_temp_clipboard_package)"
   if [[ -z "$temp_clipboard_package" ]]; then
     return 0
   fi
@@ -34,5 +37,5 @@ cleanup_temp_clipboard_utility() {
     return 1
   fi
 
-  temp_clipboard_package=""
+  state_set_temp_clipboard_package ""
 }

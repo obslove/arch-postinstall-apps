@@ -104,13 +104,6 @@ finalize_config() {
 
 execution_state_reset() {
   runtime_state_reset
-  aur_helper=""
-  aur_helper_status="não preparado"
-  temp_clipboard_package=""
-  official_repo_metadata_checked=0
-  official_repo_metadata_ready=0
-  github_ssh_status="$STATUS_PENDING"
-  desktop_integration_status="$STATUS_PENDING"
   step_result_reset
 }
 

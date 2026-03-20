@@ -14,19 +14,16 @@ fi
 
 detect_aur_helper() {
   if command -v yay >/dev/null 2>&1; then
-    aur_helper="yay"
-    aur_helper_status="yay (reutilizado)"
+    state_set_aur_helper "yay" "yay (reutilizado)"
     return 0
   fi
 
   if command -v paru >/dev/null 2>&1; then
-    aur_helper="paru"
-    aur_helper_status="paru (fallback)"
+    state_set_aur_helper "paru" "paru (fallback)"
     return 0
   fi
 
-  aur_helper=""
-  aur_helper_status="indisponível"
+  state_set_aur_helper "" "indisponível"
   return 1
 }
 
@@ -86,8 +83,7 @@ install_yay() {
 
   if (( status == 0 )); then
     if ops_build_yay_package "$YAY_REPO_DIR"; then
-      aur_helper="yay"
-      aur_helper_status="yay (instalado nesta execução)"
+      state_set_aur_helper "yay" "yay (instalado nesta execução)"
     else
       status=$?
     fi
@@ -97,17 +93,20 @@ install_yay() {
 }
 
 component_apply_aur_helper() {
+  local aur_helper_name=""
+
   if command -v yay >/dev/null 2>&1; then
-    aur_helper="yay"
-    aur_helper_status="yay (reutilizado)"
-    announce_detail "Usando helper AUR: $aur_helper"
+    state_set_aur_helper "yay" "yay (reutilizado)"
+    aur_helper_name="$(state_get_aur_helper_name)"
+    announce_detail "Usando helper AUR: $aur_helper_name"
     return 0
   fi
 
   announce_detail "O yay será instalado e usado como helper AUR padrão."
   if ! install_yay; then
     if detect_aur_helper; then
-      announce_warning "Não foi possível instalar o yay. O script usará o helper AUR disponível: $aur_helper."
+      aur_helper_name="$(state_get_aur_helper_name)"
+      announce_warning "Não foi possível instalar o yay. O script usará o helper AUR disponível: $aur_helper_name."
       return 0
     fi
 
@@ -115,9 +114,9 @@ component_apply_aur_helper() {
     return 1
   fi
 
-  aur_helper="yay"
-  aur_helper_status="yay (instalado nesta execução)"
-  announce_detail "Usando helper AUR: $aur_helper"
+  state_set_aur_helper "yay" "yay (instalado nesta execução)"
+  aur_helper_name="$(state_get_aur_helper_name)"
+  announce_detail "Usando helper AUR: $aur_helper_name"
 }
 
 component_verify_aur_helper() {

@@ -58,6 +58,7 @@ attempt_final_repair_once() {
   local repair_aur_packages=()
   local pacman_missing_packages=()
   local aur_package
+  local aur_helper_name=""
   local package_origin_status
   local should_repair_codex=0
   local should_repair_origin=0
@@ -128,7 +129,8 @@ attempt_final_repair_once() {
       fi
 
       announce_detail "Reinstalando item via AUR: $aur_package"
-      if ! ops_aur_install_needed "$aur_helper" "$aur_package"; then
+      aur_helper_name="$(state_get_aur_helper_name)"
+      if ! ops_aur_install_needed "$aur_helper_name" "$aur_package"; then
         return 1
       fi
     done

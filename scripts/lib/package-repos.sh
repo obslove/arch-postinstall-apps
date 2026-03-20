@@ -41,19 +41,19 @@ ensure_multilib() {
 }
 
 refresh_official_repo_index() {
-  if [[ "$official_repo_metadata_checked" == "1" ]]; then
-    [[ "$official_repo_metadata_ready" == "1" ]]
+  if state_official_repo_metadata_checked; then
+    state_official_repo_metadata_ready
     return
   fi
 
-  official_repo_metadata_checked=1
+  state_set_official_repo_metadata_checked
   if ! pacman -Slq >/dev/null 2>&1; then
-    official_repo_metadata_ready=0
+    state_set_official_repo_metadata_ready 0
     announce_error "Não foi possível carregar os metadados dos repositórios oficiais do pacman."
     return 1
   fi
 
-  official_repo_metadata_ready=1
+  state_set_official_repo_metadata_ready 1
 }
 
 package_exists_in_official_repos() {

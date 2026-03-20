@@ -46,7 +46,7 @@ component_apply_desktop_integration() {
   done
 
   if desktop_integration_ready; then
-    desktop_integration_status="$STATUS_SKIPPED_READY"
+    state_set_component_status desktop_integration "$STATUS_SKIPPED_READY"
     if ! component_has_checkpoint "desktop_integration" && ! component_mark_checkpoint_if_missing "desktop_integration"; then
       announce_warning "Não foi possível registrar o checkpoint da integração desktop."
     fi
@@ -57,18 +57,18 @@ component_apply_desktop_integration() {
   collect_missing_packages missing_packages "${DESKTOP_INTEGRATION_PACKAGES[@]}"
   announce_detail "Garantindo integração desktop..."
   if ! ops_pacman_install_needed "${missing_packages[@]}"; then
-    desktop_integration_status="$STATUS_HARD_FAILED"
+    state_set_component_status desktop_integration "$STATUS_HARD_FAILED"
     announce_error "Não foi possível instalar a integração desktop."
     return 1
   fi
 
   if ! mark_checkpoint "desktop_integration"; then
-    desktop_integration_status="$STATUS_HARD_FAILED"
+    state_set_component_status desktop_integration "$STATUS_HARD_FAILED"
     announce_error "Não foi possível registrar o checkpoint da integração desktop."
     return 1
   fi
 
-  desktop_integration_status="$STATUS_DONE"
+  state_set_component_status desktop_integration "$STATUS_DONE"
 }
 
 start_desktop_user_services() {

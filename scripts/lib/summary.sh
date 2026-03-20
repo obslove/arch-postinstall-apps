@@ -25,14 +25,20 @@ print_summary() {
   local version_line
   local github_ssh_status_text
   local desktop_integration_status_text
+  local github_component_status
+  local desktop_component_status
+  local aur_helper_status_text
 
   if [[ "$CHECK_ONLY" == "1" ]]; then
     execution_mode="verificação"
     changes_applied="não"
   fi
 
-  github_ssh_status_text="$(format_github_ssh_status "$github_ssh_status")"
-  desktop_integration_status_text="$(format_desktop_integration_status "$desktop_integration_status")"
+  github_component_status="$(state_get_component_status github_ssh)"
+  desktop_component_status="$(state_get_component_status desktop_integration)"
+  github_ssh_status_text="$(format_github_ssh_status "$github_component_status")"
+  desktop_integration_status_text="$(format_desktop_integration_status "$desktop_component_status")"
+  aur_helper_status_text="$(state_get_aur_helper_status)"
 
   host_name="$(get_host_name)"
   actual_branch="$(get_repo_branch "$SCRIPT_DIR" 2>/dev/null || printf '%s\n' "main")"
@@ -91,7 +97,7 @@ print_summary() {
     print_summary_item "GitHub SSH esperado:" "$(if github_ssh_expected; then echo sim; else echo não; fi)"
     print_summary_item "GitHub SSH:" "$github_ssh_status_text"
     print_summary_item "Integração desktop:" "$desktop_integration_status_text"
-    print_summary_item "Helper AUR:" "${aur_helper_status:-indisponível}"
+    print_summary_item "Helper AUR:" "$aur_helper_status_text"
     print_summary_section "Verificação"
     print_summary_item "Falhas pacman:" "${STATE_FAILED_OFFICIAL_PACKAGES[*]:-nenhuma}"
     print_summary_item "Falhas AUR:" "${STATE_FAILED_AUR_PACKAGES[*]:-nenhuma}"
@@ -130,7 +136,7 @@ Configurações explícitas: ${completed_actions[*]:-nenhuma}
 GitHub SSH esperado: $(if github_ssh_expected; then echo sim; else echo não; fi)
 GitHub SSH: $github_ssh_status_text
 Integração desktop: $desktop_integration_status_text
-Helper AUR: ${aur_helper_status:-indisponível}
+Helper AUR: $aur_helper_status_text
 Falhas pacman: ${STATE_FAILED_OFFICIAL_PACKAGES[*]:-nenhuma}
 Falhas AUR: ${STATE_FAILED_AUR_PACKAGES[*]:-nenhuma}
 Falhas parciais: ${STATE_SOFT_FAILURES[*]:-nenhuma}

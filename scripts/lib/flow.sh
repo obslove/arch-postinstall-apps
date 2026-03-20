@@ -97,10 +97,13 @@ install_packages_step() {
 }
 
 desktop_integration_step() {
+  local desktop_status=""
+
   step_result_reset
 
   if component_apply desktop_integration; then
-    case "$desktop_integration_status" in
+    desktop_status="$(state_get_component_status desktop_integration)"
+    case "$desktop_status" in
       "$STATUS_SKIPPED_READY")
         step_result_skipped "A integração desktop já estava pronta."
         ;;
@@ -115,10 +118,13 @@ desktop_integration_step() {
 }
 
 github_ssh_step() {
+  local github_status=""
+
   step_result_reset
   component_apply github_ssh
+  github_status="$(state_get_component_status github_ssh)"
 
-  case "$github_ssh_status" in
+  case "$github_status" in
     "$STATUS_DONE")
       step_result_success "O GitHub SSH foi configurado."
       ;;
@@ -135,7 +141,7 @@ github_ssh_step() {
       step_result_soft_fail "A configuração do GitHub SSH foi ignorada após uma falha."
       ;;
     *)
-      step_result_soft_fail "A configuração do GitHub SSH terminou com estado inesperado: $github_ssh_status"
+      step_result_soft_fail "A configuração do GitHub SSH terminou com estado inesperado: $github_status"
       ;;
   esac
 }
@@ -180,21 +186,21 @@ pipeline_check_only_step() {
   announce_step "Executando verificação sem alterações..."
   component_detect aur_helper || true
   if component_detect desktop_integration; then
-    desktop_integration_status="$STATUS_SKIPPED_READY"
+    state_set_component_status desktop_integration "$STATUS_SKIPPED_READY"
   else
-    desktop_integration_status="$STATUS_PENDING"
+    state_set_component_status desktop_integration "$STATUS_PENDING"
   fi
   for package_name in "${DESKTOP_INTEGRATION_PACKAGES[@]}"; do
     mark_environment_package "$package_name"
   done
   if github_ssh_expected; then
     if component_detect github_ssh; then
-      github_ssh_status="$STATUS_SKIPPED_READY"
+      state_set_component_status github_ssh "$STATUS_SKIPPED_READY"
     else
-      github_ssh_status="$STATUS_PENDING"
+      state_set_component_status github_ssh "$STATUS_PENDING"
     fi
   else
-    github_ssh_status="$STATUS_SKIPPED_DISABLED"
+    state_set_component_status github_ssh "$STATUS_SKIPPED_DISABLED"
   fi
   verify_installation "$array_name"
   print_summary

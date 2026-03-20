@@ -34,13 +34,6 @@ STATUS_SKIPPED_DISABLED=""
 STATUS_SKIPPED_DECLINED=""
 STATUS_SOFT_FAILED=""
 STATUS_HARD_FAILED=""
-official_repo_metadata_checked=0
-official_repo_metadata_ready=0
-github_ssh_status=""
-desktop_integration_status=""
-aur_helper=""
-aur_helper_status=""
-temp_clipboard_package=""
 step_counter=0
 step_open=0
 step_total=0
@@ -65,6 +58,13 @@ STATE_VERIFIED_ITEMS=()
 STATE_MISSING_ITEMS=()
 STATE_VERSION_LINES=()
 STATE_SOFT_FAILURES=()
+STATE_COMPONENT_STATUS_GITHUB_SSH=""
+STATE_COMPONENT_STATUS_DESKTOP_INTEGRATION=""
+STATE_AUR_HELPER_NAME=""
+STATE_AUR_HELPER_STATUS=""
+STATE_TEMP_CLIPBOARD_PACKAGE=""
+STATE_OFFICIAL_REPO_METADATA_CHECKED=0
+STATE_OFFICIAL_REPO_METADATA_READY=0
 cleanup_paths=()
 
 format_github_ssh_status() {
@@ -128,6 +128,50 @@ state_add_version_line() {
 }
 
 state_add_soft_failure() {
+  :
+}
+
+state_set_component_status() {
+  :
+}
+
+state_get_component_status() {
+  :
+}
+
+state_set_aur_helper() {
+  :
+}
+
+state_get_aur_helper_name() {
+  :
+}
+
+state_get_aur_helper_status() {
+  :
+}
+
+state_set_temp_clipboard_package() {
+  :
+}
+
+state_get_temp_clipboard_package() {
+  :
+}
+
+state_official_repo_metadata_checked() {
+  :
+}
+
+state_set_official_repo_metadata_checked() {
+  :
+}
+
+state_official_repo_metadata_ready() {
+  :
+}
+
+state_set_official_repo_metadata_ready() {
   :
 }
 

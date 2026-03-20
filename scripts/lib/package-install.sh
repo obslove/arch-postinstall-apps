@@ -27,6 +27,7 @@ install_packages_in_order() {
   # shellcheck disable=SC2178
   declare -n target_packages="$array_name"
   local package
+  local aur_helper_name=""
   local package_origin_status
   local shown_pacman_step=0
   local shown_aur_step=0
@@ -99,7 +100,8 @@ install_packages_in_order() {
       shown_aur_step=1
     fi
     announce_detail "Instalando via AUR: $package"
-    if ops_aur_install_needed "$aur_helper" "$package"; then
+    aur_helper_name="$(state_get_aur_helper_name)"
+    if ops_aur_install_needed "$aur_helper_name" "$package"; then
       continue
     fi
 
