@@ -60,7 +60,7 @@ pipeline_check_only_step() {
     state_set_component_status desktop_integration "$STATUS_PENDING"
   fi
   for package_name in "${DESKTOP_INTEGRATION_PACKAGES[@]}"; do
-    mark_environment_package "$package_name"
+    state_add_environment_package "$package_name"
   done
   if github_ssh_expected; then
     if component_detect github_ssh; then

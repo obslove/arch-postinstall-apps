@@ -42,7 +42,7 @@ component_apply_desktop_integration() {
 
   state_reset_environment_packages
   for package_name in "${DESKTOP_INTEGRATION_PACKAGES[@]}"; do
-    mark_environment_package "$package_name"
+    state_add_environment_package "$package_name"
   done
 
   if desktop_integration_ready; then
@@ -88,11 +88,11 @@ component_verify_desktop_integration() {
     case "$package_name" in
       xdg-utils)
         if command -v xdg-open >/dev/null 2>&1; then
-          mark_verified_item "xdg-utils"
+          state_add_verified_item "xdg-utils"
         elif command -v gio >/dev/null 2>&1; then
-          mark_verified_item "xdg-utils"
+          state_add_verified_item "xdg-utils"
         else
-          mark_missing_item "xdg-utils"
+          state_add_missing_item "xdg-utils"
         fi
         ;;
       pipewire|wireplumber)
@@ -105,9 +105,9 @@ component_verify_desktop_integration() {
   done
 
   if command -v wl-copy >/dev/null 2>&1 && command -v wl-paste >/dev/null 2>&1; then
-    mark_verified_item "clipboard"
+    state_add_verified_item "clipboard"
   elif package_is_installed "${TEMPORARY_CLIPBOARD_PACKAGES[0]}"; then
-    mark_missing_item "${TEMPORARY_CLIPBOARD_PACKAGES[0]}"
+    state_add_missing_item "${TEMPORARY_CLIPBOARD_PACKAGES[0]}"
   fi
 
   for service_name in "${DESKTOP_USER_SERVICES[@]}"; do
@@ -117,8 +117,8 @@ component_verify_desktop_integration() {
   if state_has_verified_item "${DESKTOP_USER_SERVICES[0]}" && \
     state_has_verified_item "${DESKTOP_USER_SERVICES[1]}" && \
     state_has_verified_item "${DESKTOP_USER_SERVICES[2]}"; then
-    mark_verified_item "screen-sharing-stack"
+    state_add_verified_item "screen-sharing-stack"
   else
-    mark_missing_item "screen-sharing-stack"
+    state_add_missing_item "screen-sharing-stack"
   fi
 }

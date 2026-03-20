@@ -35,8 +35,6 @@ source "$SHARED_LIB_DIR/process.sh"
 source "$SHARED_LIB_DIR/locking.sh"
 # shellcheck source=env.sh
 source "$SHARED_LIB_DIR/env.sh"
-# shellcheck source=shared.sh
-source "$SHARED_LIB_DIR/shared.sh"
 # shellcheck source=cli.sh
 source "$SHARED_LIB_DIR/cli.sh"
 # shellcheck source=status.sh

@@ -125,7 +125,7 @@ component_apply_github_ssh() {
 
   announce_detail "Registrando dependências da etapa de GitHub SSH..."
   for package_name in "${GITHUB_SSH_SUPPORT_PACKAGES[@]}"; do
-    mark_support_package "$package_name"
+    state_add_support_package "$package_name"
   done
   announce_detail "Verificando dependências da etapa de GitHub SSH..."
   collect_missing_packages missing_packages "${GITHUB_SSH_SUPPORT_PACKAGES[@]}"
@@ -191,8 +191,8 @@ component_verify_github_ssh() {
     esac
   done
   if [[ "$(current_repo_origin_status "$SCRIPT_DIR")" == "ssh" ]]; then
-    mark_verified_item "origin-ssh"
+    state_add_verified_item "origin-ssh"
   else
-    mark_missing_item "origin-ssh"
+    state_add_missing_item "origin-ssh"
   fi
 }

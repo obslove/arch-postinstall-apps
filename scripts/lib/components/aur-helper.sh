@@ -51,7 +51,7 @@ install_yay() {
   local status=0
 
   for package_name in "${AUR_HELPER_SUPPORT_PACKAGES[@]}"; do
-    mark_support_package "$package_name"
+    state_add_support_package "$package_name"
   done
   mkdir -p "$REPOSITORIES_DIR"
   collect_missing_packages missing_packages "${AUR_HELPER_SUPPORT_PACKAGES[@]}"

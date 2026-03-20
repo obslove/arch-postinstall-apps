@@ -15,7 +15,6 @@ readonly -a BOOTSTRAP_FRAGMENT_FILES=(
 
 readonly -a BOOTSTRAP_CHECK_FILES=(
   "scripts/bootstrap/bootstrap-modules.sh"
-  "scripts/bootstrap/lib.sh"
   "scripts/bootstrap/step-result.sh"
   "scripts/bootstrap/ui.sh"
   "scripts/bootstrap/process.sh"

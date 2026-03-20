@@ -18,11 +18,11 @@ verify_command() {
   local command_name="$2"
 
   if command -v "$command_name" >/dev/null 2>&1; then
-    mark_verified_item "$label"
+    state_add_verified_item "$label"
     return
   fi
 
-  mark_missing_item "$label"
+  state_add_missing_item "$label"
 }
 
 verify_package() {
@@ -30,11 +30,11 @@ verify_package() {
   local package_name="$2"
 
   if pacman -Q "$package_name" >/dev/null 2>&1; then
-    mark_verified_item "$label"
+    state_add_verified_item "$label"
     return
   fi
 
-  mark_missing_item "$label"
+  state_add_missing_item "$label"
 }
 
 user_service_exists() {
@@ -48,21 +48,21 @@ verify_user_service() {
   local service_name="$2"
 
   if ! command -v systemctl >/dev/null 2>&1; then
-    mark_missing_item "$label"
+    state_add_missing_item "$label"
     return
   fi
 
   if ! user_service_exists "$service_name"; then
-    mark_missing_item "$label"
+    state_add_missing_item "$label"
     return
   fi
 
   if systemctl --user --quiet is-active "$service_name"; then
-    mark_verified_item "$label"
+    state_add_verified_item "$label"
     return
   fi
 
-  mark_missing_item "$label"
+  state_add_missing_item "$label"
 }
 
 collect_version() {
