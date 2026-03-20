@@ -6,113 +6,37 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-SYNTAX_FILES=(
-  "$REPO_DIR/install.sh"
-  "$REPO_DIR/scripts/build-bootstrap.sh"
-  "$REPO_DIR/scripts/bootstrap/lib.sh"
-  "$REPO_DIR/scripts/bootstrap/step-result.sh"
-  "$REPO_DIR/scripts/bootstrap/ui.sh"
-  "$REPO_DIR/scripts/bootstrap/process.sh"
-  "$REPO_DIR/scripts/bootstrap/locking.sh"
-  "$REPO_DIR/scripts/bootstrap/env.sh"
-  "$REPO_DIR/scripts/bootstrap/repo.sh"
-  "$REPO_DIR/scripts/bootstrap/entrypoint.sh"
-  "$REPO_DIR/scripts/install/main.sh"
-  "$REPO_DIR/scripts/lib/cli.sh"
-  "$REPO_DIR/scripts/lib/components.sh"
-  "$REPO_DIR/scripts/lib/runtime-state.sh"
-  "$REPO_DIR/scripts/lib/status.sh"
-  "$REPO_DIR/scripts/lib/ops.sh"
-  "$REPO_DIR/scripts/lib/step-result.sh"
-  "$REPO_DIR/scripts/lib/ui.sh"
-  "$REPO_DIR/scripts/lib/process.sh"
-  "$REPO_DIR/scripts/lib/locking.sh"
-  "$REPO_DIR/scripts/lib/env.sh"
-  "$REPO_DIR/scripts/lib/package-config.sh"
-  "$REPO_DIR/scripts/lib/package-repos.sh"
-  "$REPO_DIR/scripts/lib/package-install.sh"
-  "$REPO_DIR/scripts/lib/shared.sh"
-  "$REPO_DIR/scripts/lib/core.sh"
-  "$REPO_DIR/scripts/lib/repo.sh"
-  "$REPO_DIR/scripts/lib/components/aur-helper.sh"
-  "$REPO_DIR/scripts/lib/components/codex.sh"
-  "$REPO_DIR/scripts/lib/components/desktop.sh"
-  "$REPO_DIR/scripts/lib/components/github-ssh/clipboard.sh"
-  "$REPO_DIR/scripts/lib/components/github-ssh/auth.sh"
-  "$REPO_DIR/scripts/lib/components/github-ssh/key.sh"
-  "$REPO_DIR/scripts/lib/components/github-ssh/publish.sh"
-  "$REPO_DIR/scripts/lib/components/github-ssh.sh"
-  "$REPO_DIR/scripts/lib/packages.sh"
-  "$REPO_DIR/scripts/lib/verification.sh"
-  "$REPO_DIR/scripts/lib/repair.sh"
-  "$REPO_DIR/scripts/lib/integrations.sh"
-  "$REPO_DIR/scripts/lib/verify.sh"
-  "$REPO_DIR/scripts/lib/summary.sh"
-  "$REPO_DIR/scripts/lib/pipeline.sh"
-  "$REPO_DIR/scripts/lib/steps/system.sh"
-  "$REPO_DIR/scripts/lib/steps/packages.sh"
-  "$REPO_DIR/scripts/lib/steps/desktop.sh"
-  "$REPO_DIR/scripts/lib/steps/github-ssh.sh"
-  "$REPO_DIR/scripts/lib/steps/verification.sh"
-  "$REPO_DIR/scripts/lib/flow.sh"
-  "$REPO_DIR/scripts/update-readme-packages.sh"
-  "$REPO_DIR/config/components.sh"
-)
+# shellcheck disable=SC1091
+source "$REPO_DIR/scripts/bootstrap/bootstrap-modules.sh"
+# shellcheck disable=SC1091
+source "$REPO_DIR/scripts/lib/runtime-modules.sh"
 
-SHELLCHECK_FILES=(
-  "$REPO_DIR/install.sh"
-  "$REPO_DIR/scripts/check-repo.sh"
-  "$REPO_DIR/scripts/build-bootstrap.sh"
-  "$REPO_DIR/scripts/bootstrap/lib.sh"
-  "$REPO_DIR/scripts/bootstrap/step-result.sh"
-  "$REPO_DIR/scripts/bootstrap/ui.sh"
-  "$REPO_DIR/scripts/bootstrap/process.sh"
-  "$REPO_DIR/scripts/bootstrap/locking.sh"
-  "$REPO_DIR/scripts/bootstrap/env.sh"
-  "$REPO_DIR/scripts/bootstrap/repo.sh"
-  "$REPO_DIR/scripts/bootstrap/entrypoint.sh"
-  "$REPO_DIR/scripts/install/main.sh"
-  "$REPO_DIR/scripts/lib/cli.sh"
-  "$REPO_DIR/scripts/lib/components.sh"
-  "$REPO_DIR/scripts/lib/runtime-state.sh"
-  "$REPO_DIR/scripts/lib/status.sh"
-  "$REPO_DIR/scripts/lib/ops.sh"
-  "$REPO_DIR/scripts/lib/shellcheck-runtime.sh"
-  "$REPO_DIR/scripts/lib/step-result.sh"
-  "$REPO_DIR/scripts/lib/ui.sh"
-  "$REPO_DIR/scripts/lib/process.sh"
-  "$REPO_DIR/scripts/lib/locking.sh"
-  "$REPO_DIR/scripts/lib/env.sh"
-  "$REPO_DIR/scripts/lib/package-config.sh"
-  "$REPO_DIR/scripts/lib/package-repos.sh"
-  "$REPO_DIR/scripts/lib/package-install.sh"
-  "$REPO_DIR/scripts/lib/core.sh"
-  "$REPO_DIR/scripts/lib/shared.sh"
-  "$REPO_DIR/scripts/lib/repo.sh"
-  "$REPO_DIR/scripts/lib/components/aur-helper.sh"
-  "$REPO_DIR/scripts/lib/components/codex.sh"
-  "$REPO_DIR/scripts/lib/components/desktop.sh"
-  "$REPO_DIR/scripts/lib/components/github-ssh/clipboard.sh"
-  "$REPO_DIR/scripts/lib/components/github-ssh/auth.sh"
-  "$REPO_DIR/scripts/lib/components/github-ssh/key.sh"
-  "$REPO_DIR/scripts/lib/components/github-ssh/publish.sh"
-  "$REPO_DIR/scripts/lib/components/github-ssh.sh"
-  "$REPO_DIR/scripts/lib/packages.sh"
-  "$REPO_DIR/scripts/lib/verification.sh"
-  "$REPO_DIR/scripts/lib/repair.sh"
-  "$REPO_DIR/scripts/lib/integrations.sh"
-  "$REPO_DIR/scripts/lib/verify.sh"
-  "$REPO_DIR/scripts/lib/summary.sh"
-  "$REPO_DIR/scripts/lib/pipeline.sh"
-  "$REPO_DIR/scripts/lib/steps/system.sh"
-  "$REPO_DIR/scripts/lib/steps/packages.sh"
-  "$REPO_DIR/scripts/lib/steps/desktop.sh"
-  "$REPO_DIR/scripts/lib/steps/github-ssh.sh"
-  "$REPO_DIR/scripts/lib/steps/verification.sh"
-  "$REPO_DIR/scripts/lib/flow.sh"
-  "$REPO_DIR/scripts/update-readme-packages.sh"
-  "$REPO_DIR/config/components.sh"
-)
+SYNTAX_FILES=()
+SHELLCHECK_FILES=()
+
+append_check_file() {
+  local array_name="$1"
+  local file_path="$2"
+  local existing
+  # shellcheck disable=SC2178
+  declare -n target_array="$array_name"
+
+  for existing in "${target_array[@]}"; do
+    [[ "$existing" == "$file_path" ]] && return 0
+  done
+
+  target_array+=("$file_path")
+}
+
+append_manifest_files() {
+  local target_array_name="$1"
+  shift
+  local relative_path
+
+  for relative_path in "$@"; do
+    append_check_file "$target_array_name" "$REPO_DIR/$relative_path"
+  done
+}
 
 check_help_output() {
   bash "$REPO_DIR/install.sh" --help | grep -Fq -- '--exclusive-key'
@@ -149,7 +73,27 @@ check_readme_commands() {
   grep -Fqx 'curl -fsSL https://obslove.dev | bash -s --' "$REPO_DIR/README.md"
 }
 
+build_check_file_lists() {
+  append_check_file SYNTAX_FILES "$REPO_DIR/install.sh"
+  append_check_file SYNTAX_FILES "$REPO_DIR/scripts/build-bootstrap.sh"
+  append_manifest_files SYNTAX_FILES "${BOOTSTRAP_CHECK_FILES[@]}"
+  append_check_file SYNTAX_FILES "$REPO_DIR/scripts/install/main.sh"
+  append_manifest_files SYNTAX_FILES "${RUNTIME_CHECK_FILES[@]}"
+  append_check_file SYNTAX_FILES "$REPO_DIR/scripts/update-readme-packages.sh"
+  append_check_file SYNTAX_FILES "$REPO_DIR/config/components.sh"
+
+  append_check_file SHELLCHECK_FILES "$REPO_DIR/install.sh"
+  append_check_file SHELLCHECK_FILES "$REPO_DIR/scripts/check-repo.sh"
+  append_check_file SHELLCHECK_FILES "$REPO_DIR/scripts/build-bootstrap.sh"
+  append_manifest_files SHELLCHECK_FILES "${BOOTSTRAP_CHECK_FILES[@]}"
+  append_check_file SHELLCHECK_FILES "$REPO_DIR/scripts/install/main.sh"
+  append_manifest_files SHELLCHECK_FILES "${RUNTIME_CHECK_FILES[@]}"
+  append_check_file SHELLCHECK_FILES "$REPO_DIR/scripts/update-readme-packages.sh"
+  append_check_file SHELLCHECK_FILES "$REPO_DIR/config/components.sh"
+}
+
 main() {
+  build_check_file_lists
   bash "$REPO_DIR/scripts/build-bootstrap.sh" --check
   bash "$REPO_DIR/scripts/update-readme-packages.sh" --check
   bash -n "${SYNTAX_FILES[@]}"

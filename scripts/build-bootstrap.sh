@@ -7,16 +7,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 OUTPUT_FILE="$REPO_DIR/install.sh"
 
-FRAGMENTS=(
-  "$REPO_DIR/scripts/lib/cli.sh"
-  "$REPO_DIR/scripts/bootstrap/step-result.sh"
-  "$REPO_DIR/scripts/bootstrap/ui.sh"
-  "$REPO_DIR/scripts/bootstrap/process.sh"
-  "$REPO_DIR/scripts/bootstrap/locking.sh"
-  "$REPO_DIR/scripts/bootstrap/env.sh"
-  "$REPO_DIR/scripts/bootstrap/repo.sh"
-  "$REPO_DIR/scripts/bootstrap/entrypoint.sh"
-)
+# shellcheck disable=SC1091
+source "$REPO_DIR/scripts/bootstrap/bootstrap-modules.sh"
 
 usage() {
   cat <<'EOF'
@@ -48,8 +40,8 @@ generate_bootstrap() {
 set -euo pipefail
 EOF
 
-  for fragment_path in "${FRAGMENTS[@]}"; do
-    append_fragment "$fragment_path"
+  for fragment_path in "${BOOTSTRAP_FRAGMENT_FILES[@]}"; do
+    append_fragment "$REPO_DIR/$fragment_path"
   done
 }
 
