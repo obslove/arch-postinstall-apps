@@ -38,11 +38,10 @@ Se ele for executado fora de um clone local do projeto, o próprio script verifi
 Durante uma execução normal, o script faz o seguinte:
 
 1. valida a sessão atual, autentica `sudo`, inicia o log e impede execuções simultâneas;
-2. cria os diretórios principais usados pelo ambiente;
-3. carrega [config/packages.txt](/home/ven/arch-postinstall-apps/config/packages.txt) e, se existir, [config/packages-extra.txt](/home/ven/arch-postinstall-apps/config/packages-extra.txt);
+2. carrega [config/packages.txt](/home/ven/arch-postinstall-apps/config/packages.txt) e, se existir, [config/packages-extra.txt](/home/ven/arch-postinstall-apps/config/packages-extra.txt);
+3. cria os diretórios principais usados pelo ambiente;
 4. habilita `multilib`, atualiza o sistema e prepara o `yay`;
-5. instala os apps da lista principal e as dependências declaradas dos componentes do setup;
-6. configura o Codex CLI em `~/Codex`;
+5. instala os apps da lista principal e, se o componente estiver habilitado, configura o Codex CLI em `~/Codex`;
 7. garante a integração desktop necessária para o ambiente gráfico;
 8. configura o GitHub SSH;
 9. valida o resultado, tenta uma correção automática única e grava o resumo final.
@@ -73,6 +72,8 @@ Para alterar a lista principal de apps, edite [config/packages.txt](/home/ven/ar
 Para alterar os componentes declarados do setup, edite [config/components.sh](/home/ven/arch-postinstall-apps/config/components.sh).
 
 Se existir [config/packages-extra.txt](/home/ven/arch-postinstall-apps/config/packages-extra.txt), o conteúdo dele também será carregado na mesma execução.
+
+No fluxo remoto via `curl`, o bootstrap também garante as dependências iniciais `ca-certificates`, `git` e `tar` antes de sincronizar o clone local do repositório.
 </details>
 
 <details>
@@ -98,7 +99,7 @@ curl -fsSL https://obslove.dev | bash -s --
 Flags:
 
 - `-c`, `--check`
-  Valida o ambiente sem instalar nem alterar o sistema.
+  Valida o ambiente sem executar a instalação do runtime. No fluxo via `curl`, o bootstrap ainda pode sincronizar o clone local e preparar dependências iniciais se elas estiverem ausentes.
 - `-e`, `--exclusive-key`
   Destrutiva: remove as outras chaves SSH da conta no GitHub e mantém apenas a chave atual, mesmo que o GitHub SSH já esteja configurado. Essa opção pede confirmação explícita no terminal.
 - `-n`, `--no-gh`
@@ -142,11 +143,16 @@ bash scripts/check-repo.sh
 <summary>Arquivos principais</summary>
 
 ```text
-config/packages-extra.txt.example
 config/components.sh
+config/packages-extra.txt.example
 config/packages.txt
 install.sh
-scripts/check-repo.sh
 scripts/build-bootstrap.sh
+scripts/bootstrap/bootstrap-modules.sh
+scripts/check-repo.sh
+scripts/install/main.sh
+scripts/lib/runtime-modules.sh
 ```
+
+`install.sh` é um artefato gerado a partir dos fragments em `scripts/bootstrap/` por `scripts/build-bootstrap.sh`.
 </details>

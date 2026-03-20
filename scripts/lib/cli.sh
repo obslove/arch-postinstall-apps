@@ -9,7 +9,7 @@ Uso:
   curl -fsSL https://obslove.dev | bash -s -- [opções]
 
 Opções:
-  -c, --check             Valida o ambiente sem instalar nem alterar o sistema.
+  -c, --check             Valida o runtime sem instalar apps; via curl, o bootstrap ainda pode sincronizar o clone e preparar dependências iniciais.
   -e, --exclusive-key     Destrutiva: remove as outras chaves SSH do GitHub e mantém só a atual.
   -n, --no-gh             Pula a etapa de GitHub SSH.
   -s, --ssh-name NOME     Define o nome da chave SSH enviada ao GitHub.
