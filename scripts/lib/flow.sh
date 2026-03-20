@@ -8,6 +8,11 @@
 # shellcheck source=scripts/lib/runtime-state.sh
 # shellcheck source=scripts/lib/summary.sh
 # shellcheck source=scripts/lib/pipeline.sh
+# shellcheck source=scripts/lib/steps/system.sh
+# shellcheck source=scripts/lib/steps/packages.sh
+# shellcheck source=scripts/lib/steps/desktop.sh
+# shellcheck source=scripts/lib/steps/github-ssh.sh
+# shellcheck source=scripts/lib/steps/verification.sh
 
 if false; then
   source "$SCRIPT_DIR/scripts/lib/shellcheck-runtime.sh"
@@ -17,6 +22,11 @@ if false; then
   source "$SCRIPT_DIR/scripts/lib/runtime-state.sh"
   source "$SCRIPT_DIR/scripts/lib/summary.sh"
   source "$SCRIPT_DIR/scripts/lib/pipeline.sh"
+  source "$SCRIPT_DIR/scripts/lib/steps/system.sh"
+  source "$SCRIPT_DIR/scripts/lib/steps/packages.sh"
+  source "$SCRIPT_DIR/scripts/lib/steps/desktop.sh"
+  source "$SCRIPT_DIR/scripts/lib/steps/github-ssh.sh"
+  source "$SCRIPT_DIR/scripts/lib/steps/verification.sh"
 fi
 
 handle_runtime_step_result_or_exit() {
@@ -48,225 +58,6 @@ handle_runtime_step_result_or_exit() {
       exit 1
       ;;
   esac
-}
-
-update_system_step() {
-  step_result_reset
-
-  if [[ "$SYSTEM_UPDATED" == "1" ]]; then
-    announce_detail "O sistema já foi atualizado no bootstrap. A nova atualização completa será ignorada."
-    step_result_skipped "A atualização completa do sistema foi ignorada porque já ocorreu no bootstrap."
-    return 0
-  fi
-
-  if ops_pacman_upgrade_full; then
-    step_result_success "A atualização completa do sistema foi concluída."
-    return 0
-  fi
-
-  step_result_hard_fail "Não foi possível concluir a atualização completa do sistema."
-}
-
-prepare_aur_helper_step() {
-  step_result_reset
-
-  if component_apply aur_helper; then
-    step_result_success "O helper AUR foi preparado."
-    return 0
-  fi
-
-  step_result_hard_fail "Não foi possível preparar o helper AUR padrão para a instalação."
-}
-
-install_packages_step() {
-  local array_name="$1"
-
-  step_result_reset
-
-  if ! install_packages_in_order "$array_name"; then
-    step_result_hard_fail "Falha ao executar a instalação dos pacotes configurados."
-    return 0
-  fi
-
-  if state_has_package_failures; then
-    step_result_hard_fail "A instalação terminou com falhas em pacotes configurados."
-    return 0
-  fi
-
-  step_result_success "Os pacotes configurados foram tratados."
-}
-
-desktop_integration_step() {
-  local desktop_status=""
-
-  step_result_reset
-
-  if component_apply desktop_integration; then
-    desktop_status="$(state_get_component_status desktop_integration)"
-    case "$desktop_status" in
-      "$STATUS_SKIPPED_READY")
-        step_result_skipped "A integração desktop já estava pronta."
-        ;;
-      *)
-        step_result_success "A integração desktop foi concluída."
-        ;;
-    esac
-    return 0
-  fi
-
-  step_result_hard_fail "A integração desktop falhou. A etapa do GitHub SSH não foi executada."
-}
-
-github_ssh_step() {
-  local github_status=""
-
-  step_result_reset
-  component_apply github_ssh
-  github_status="$(state_get_component_status github_ssh)"
-
-  case "$github_status" in
-    "$STATUS_DONE")
-      step_result_success "O GitHub SSH foi configurado."
-      ;;
-    "$STATUS_SKIPPED_DISABLED")
-      step_result_skipped "A configuração do GitHub SSH foi desativada por opção."
-      ;;
-    "$STATUS_SKIPPED_READY")
-      step_result_skipped "O GitHub SSH já estava configurado."
-      ;;
-    "$STATUS_SKIPPED_DECLINED")
-      step_result_skipped "A remoção exclusiva de chaves SSH do GitHub foi cancelada."
-      ;;
-    "$STATUS_SOFT_FAILED")
-      step_result_soft_fail "A configuração do GitHub SSH foi ignorada após uma falha."
-      ;;
-    *)
-      step_result_soft_fail "A configuração do GitHub SSH terminou com estado inesperado: $github_status"
-      ;;
-  esac
-}
-
-final_verification_step() {
-  local array_name="$1"
-
-  step_result_reset
-  verify_installation "$array_name"
-
-  if ensure_final_verification_passed "$array_name"; then
-    step_result_success "A verificação final foi concluída."
-    return 0
-  fi
-
-  step_result_hard_fail "A verificação final encontrou itens ausentes após a instalação."
-}
-
-pipeline_load_configuration_step() {
-  local array_name="$1"
-
-  step_result_reset
-  announce_step "Carregando configuração..."
-  if ! load_packages "$array_name"; then
-    step_result_hard_fail "Não foi possível carregar a configuração de pacotes."
-    handle_runtime_step_result_or_exit
-    return 0
-  fi
-
-  if [[ "$CHECK_ONLY" != "1" ]]; then
-    set_step_total "$(calculate_install_step_total "$array_name")"
-  fi
-
-  step_result_success "A configuração de pacotes foi carregada."
-}
-
-pipeline_check_only_step() {
-  local array_name="$1"
-  local package_name
-
-  step_result_reset
-  announce_step "Executando verificação sem alterações..."
-  component_detect aur_helper || true
-  if component_detect desktop_integration; then
-    state_set_component_status desktop_integration "$STATUS_SKIPPED_READY"
-  else
-    state_set_component_status desktop_integration "$STATUS_PENDING"
-  fi
-  for package_name in "${DESKTOP_INTEGRATION_PACKAGES[@]}"; do
-    mark_environment_package "$package_name"
-  done
-  if github_ssh_expected; then
-    if component_detect github_ssh; then
-      state_set_component_status github_ssh "$STATUS_SKIPPED_READY"
-    else
-      state_set_component_status github_ssh "$STATUS_PENDING"
-    fi
-  else
-    state_set_component_status github_ssh "$STATUS_SKIPPED_DISABLED"
-  fi
-  verify_installation "$array_name"
-  print_summary
-  STEP_RESULT_SUMMARY_PRINTED=1
-  if state_has_missing_items; then
-    step_result_hard_fail "A verificação sem alterações encontrou itens ausentes."
-    handle_runtime_step_result_or_exit
-    return 0
-  fi
-
-  step_result_success "A verificação sem alterações foi concluída."
-}
-
-pipeline_create_directories_step() {
-  create_directories
-}
-
-pipeline_ensure_multilib_step() {
-  step_result_reset
-
-  if ! ensure_multilib; then
-    step_result_hard_fail "Não foi possível preparar o repositório multilib."
-    handle_runtime_step_result_or_exit
-    return 0
-  fi
-
-  step_result_success "O repositório multilib foi preparado."
-}
-
-pipeline_update_system_step() {
-  announce_step "Atualizando o sistema..."
-  update_system_step
-  handle_runtime_step_result_or_exit
-}
-
-pipeline_prepare_aur_helper_step() {
-  announce_step "Preparando helper AUR..."
-  prepare_aur_helper_step
-  handle_runtime_step_result_or_exit
-}
-
-pipeline_install_packages_step() {
-  local array_name="$1"
-
-  install_packages_step "$array_name"
-  handle_runtime_step_result_or_exit
-}
-
-pipeline_desktop_integration_step() {
-  announce_step "Ajustando integração desktop..."
-  desktop_integration_step
-  handle_runtime_step_result_or_exit
-}
-
-pipeline_github_ssh_step() {
-  announce_step "Configurando GitHub SSH..."
-  github_ssh_step
-  handle_runtime_step_result_or_exit
-}
-
-pipeline_final_verification_step() {
-  local array_name="$1"
-
-  announce_step "Validando instalação..."
-  final_verification_step "$array_name"
-  handle_runtime_step_result_or_exit
 }
 
 define_runtime_pipeline() {

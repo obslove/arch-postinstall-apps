@@ -37,6 +37,16 @@ source "$REPO_DIR/scripts/lib/repair.sh"
 source "$REPO_DIR/scripts/lib/summary.sh"
 # shellcheck source=../lib/pipeline.sh
 source "$REPO_DIR/scripts/lib/pipeline.sh"
+# shellcheck source=../lib/steps/system.sh
+source "$REPO_DIR/scripts/lib/steps/system.sh"
+# shellcheck source=../lib/steps/packages.sh
+source "$REPO_DIR/scripts/lib/steps/packages.sh"
+# shellcheck source=../lib/steps/desktop.sh
+source "$REPO_DIR/scripts/lib/steps/desktop.sh"
+# shellcheck source=../lib/steps/github-ssh.sh
+source "$REPO_DIR/scripts/lib/steps/github-ssh.sh"
+# shellcheck source=../lib/steps/verification.sh
+source "$REPO_DIR/scripts/lib/steps/verification.sh"
 # shellcheck source=../lib/flow.sh
 source "$REPO_DIR/scripts/lib/flow.sh"
 
