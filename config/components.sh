@@ -50,14 +50,12 @@ readonly -a COMPONENT_CHECKPOINT_SUMMARY_IDS=(
 readonly -a SCRIPT_SUPPORT_PACKAGES=(
   git
   base-devel
-  yay
   github-cli
   openssh
 )
 
 readonly -a AUR_HELPER_SUPPORT_PACKAGES=(
   base-devel
-  yay
 )
 
 readonly -a GITHUB_SSH_SUPPORT_PACKAGES=(

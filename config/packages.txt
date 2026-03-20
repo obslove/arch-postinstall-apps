@@ -3,7 +3,7 @@
 # Componentes declarados do setup ficam em `config/components.sh`.
 
 zen-browser-bin
-google-chrome
+firefox
 shellcheck
 code
 discord

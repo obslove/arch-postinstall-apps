@@ -56,9 +56,9 @@ O script separa o que é infraestrutura do próprio fluxo e o que é software pr
 
 <!-- packages:start -->
 - Dependências de suporte do script:
-  `git`, `base-devel`, `yay`, `github-cli`, `openssh`
+  `git`, `base-devel`, `github-cli`, `openssh`
 - Apps principais da lista padrão:
-  `zen-browser-bin`, `google-chrome`, `shellcheck`, `code`, `discord`, `spotify-launcher`, `steam`
+  `zen-browser-bin`, `firefox`, `shellcheck`, `code`, `discord`, `spotify-launcher`, `steam`
 - Componentes usados para instalar e executar o Codex CLI:
   `nodejs`, `npm`, `codex`
 - Dependências do ambiente gráfico:

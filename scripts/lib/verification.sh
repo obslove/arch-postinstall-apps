@@ -115,5 +115,5 @@ verify_installation() {
   collect_version "gh" gh --version
   collect_version "codex" codex --version
   collect_version "zen-browser" zen-browser --version
-  collect_version "google-chrome-stable" google-chrome-stable --version
+  collect_version "firefox" firefox --version
 }
