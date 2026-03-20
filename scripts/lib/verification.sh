@@ -87,6 +87,7 @@ verify_installation() {
   local array_name="$1"
   # shellcheck disable=SC2178
   declare -n target_packages="$array_name"
+  local verification_component_ids=()
   local package_name
 
   state_reset_verification_results
@@ -102,14 +103,12 @@ verify_installation() {
     esac
   done
 
-  component_verify aur_helper
-  component_verify desktop_integration
-  if component_enabled "codex_cli"; then
-    component_verify codex_cli
-  fi
-  if github_ssh_expected; then
-    component_verify github_ssh
-  fi
+  mapfile -t verification_component_ids < <(component_verification_ids)
+  for package_name in "${verification_component_ids[@]}"; do
+    if component_is_expected "$package_name"; then
+      component_verify "$package_name"
+    fi
+  done
 
   collect_version "node" node --version
   collect_version "npm" npm --version

@@ -19,26 +19,23 @@ print_summary() {
   local actual_commit
   local repo_path
   local origin_status="indisponível"
+  local checkpoint_component_ids=()
+  local status_component_ids=()
   local completed_actions=()
   local execution_mode="instalação"
   local changes_applied="sim"
   local version_line
-  local github_ssh_status_text
-  local desktop_integration_status_text
-  local github_component_status
-  local desktop_component_status
-  local aur_helper_status_text
+  local component_id
+  local component_label
+  local component_status_text
 
   if [[ "$CHECK_ONLY" == "1" ]]; then
     execution_mode="verificação"
     changes_applied="não"
   fi
 
-  github_component_status="$(state_get_component_status github_ssh)"
-  desktop_component_status="$(state_get_component_status desktop_integration)"
-  github_ssh_status_text="$(format_github_ssh_status "$github_component_status")"
-  desktop_integration_status_text="$(format_desktop_integration_status "$desktop_component_status")"
-  aur_helper_status_text="$(state_get_aur_helper_status)"
+  mapfile -t checkpoint_component_ids < <(component_checkpoint_summary_ids)
+  mapfile -t status_component_ids < <(component_summary_status_ids)
 
   host_name="$(get_host_name)"
   actual_branch="$(get_repo_branch "$SCRIPT_DIR" 2>/dev/null || printf '%s\n' "main")"
@@ -46,15 +43,11 @@ print_summary() {
   repo_path="$SCRIPT_DIR"
   origin_status="$(current_repo_origin_status "$SCRIPT_DIR")"
 
-  if component_has_checkpoint "codex_cli"; then
-    completed_actions+=("codex_cli")
-  fi
-  if component_has_checkpoint "desktop_integration"; then
-    completed_actions+=("desktop_integration")
-  fi
-  if component_has_checkpoint "github_ssh"; then
-    completed_actions+=("github_ssh")
-  fi
+  for component_id in "${checkpoint_component_ids[@]}"; do
+    if component_has_checkpoint "$component_id"; then
+      completed_actions+=("$component_id")
+    fi
+  done
 
   close_step_block
 
@@ -64,8 +57,11 @@ print_summary() {
     print_summary_section "Resultado"
     print_summary_item "Modo:" "$execution_mode"
     print_summary_item "Alterações aplicadas:" "$changes_applied"
-    print_summary_item "GitHub SSH:" "$github_ssh_status_text"
-    print_summary_item "Integração desktop:" "$desktop_integration_status_text"
+    for component_id in "${status_component_ids[@]}"; do
+      component_label="$(component_summary_label "$component_id")"
+      component_status_text="$(component_summary_status_text "$component_id")"
+      print_summary_item "$component_label:" "$component_status_text"
+    done
     print_summary_section "Repositório"
     print_summary_item "Commit:" "$actual_commit"
     print_summary_section "Arquivos"
@@ -95,9 +91,11 @@ print_summary() {
     print_summary_item "Ambiente gráfico:" "${STATE_ENVIRONMENT_PACKAGES[*]:-nenhuma}"
     print_summary_item "Configurações explícitas:" "${completed_actions[*]:-nenhuma}"
     print_summary_item "GitHub SSH esperado:" "$(if github_ssh_expected; then echo sim; else echo não; fi)"
-    print_summary_item "GitHub SSH:" "$github_ssh_status_text"
-    print_summary_item "Integração desktop:" "$desktop_integration_status_text"
-    print_summary_item "Helper AUR:" "$aur_helper_status_text"
+    for component_id in "${status_component_ids[@]}"; do
+      component_label="$(component_summary_label "$component_id")"
+      component_status_text="$(component_summary_status_text "$component_id")"
+      print_summary_item "$component_label:" "$component_status_text"
+    done
     print_summary_section "Verificação"
     print_summary_item "Falhas pacman:" "${STATE_FAILED_OFFICIAL_PACKAGES[*]:-nenhuma}"
     print_summary_item "Falhas AUR:" "${STATE_FAILED_AUR_PACKAGES[*]:-nenhuma}"
@@ -134,9 +132,11 @@ Dependências de suporte tratadas: ${STATE_SUPPORT_PACKAGES[*]:-nenhuma}
 Dependências do ambiente gráfico tratadas: ${STATE_ENVIRONMENT_PACKAGES[*]:-nenhuma}
 Configurações explícitas: ${completed_actions[*]:-nenhuma}
 GitHub SSH esperado: $(if github_ssh_expected; then echo sim; else echo não; fi)
-GitHub SSH: $github_ssh_status_text
-Integração desktop: $desktop_integration_status_text
-Helper AUR: $aur_helper_status_text
+$(for component_id in "${status_component_ids[@]}"; do
+    component_label="$(component_summary_label "$component_id")"
+    component_status_text="$(component_summary_status_text "$component_id")"
+    printf '%s: %s\n' "$component_label" "$component_status_text"
+  done)
 Falhas pacman: ${STATE_FAILED_OFFICIAL_PACKAGES[*]:-nenhuma}
 Falhas AUR: ${STATE_FAILED_AUR_PACKAGES[*]:-nenhuma}
 Falhas parciais: ${STATE_SOFT_FAILURES[*]:-nenhuma}
@@ -145,9 +145,11 @@ Ausentes: ${STATE_MISSING_ITEMS[*]:-nenhum}
 Versões:
 $(if ((${#STATE_VERSION_LINES[@]} == 0)); then echo "- nenhuma"; else printf '%s\n' "${STATE_VERSION_LINES[@]/#/- }"; fi)
 Checkpoints:
-- codex_cli: $(if component_has_checkpoint "codex_cli"; then echo concluido; else echo pendente; fi)
-- desktop_integration: $(if component_has_checkpoint "desktop_integration"; then echo concluido; else echo pendente; fi)
-- github_ssh: $(if component_has_checkpoint "github_ssh"; then echo concluido; else echo pendente; fi)
+$(for component_id in "${checkpoint_component_ids[@]}"; do
+    printf -- '- %s: %s\n' \
+      "$component_id" \
+      "$(if component_has_checkpoint "$component_id"; then echo concluido; else echo pendente; fi)"
+  done)
 EOF
 
   if [[ "$SCRIPT_DIR" != "$INSTALL_DIR" ]]; then

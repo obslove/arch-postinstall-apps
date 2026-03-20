@@ -49,28 +49,19 @@ pipeline_load_configuration_step() {
 
 pipeline_check_only_step() {
   local array_name="$1"
+  local detection_component_ids=()
+  local component_id
   local package_name
 
   step_result_reset
   announce_step "Executando verificação sem alterações..."
-  component_detect aur_helper || true
-  if component_detect desktop_integration; then
-    state_set_component_status desktop_integration "$STATUS_SKIPPED_READY"
-  else
-    state_set_component_status desktop_integration "$STATUS_PENDING"
-  fi
+  mapfile -t detection_component_ids < <(component_check_only_detection_ids)
+  for component_id in "${detection_component_ids[@]}"; do
+    component_prepare_check_only_state "$component_id" || true
+  done
   for package_name in "${DESKTOP_INTEGRATION_PACKAGES[@]}"; do
     state_add_environment_package "$package_name"
   done
-  if github_ssh_expected; then
-    if component_detect github_ssh; then
-      state_set_component_status github_ssh "$STATUS_SKIPPED_READY"
-    else
-      state_set_component_status github_ssh "$STATUS_PENDING"
-    fi
-  else
-    state_set_component_status github_ssh "$STATUS_SKIPPED_DISABLED"
-  fi
   verify_installation "$array_name"
   print_summary
   STEP_RESULT_SUMMARY_PRINTED=1

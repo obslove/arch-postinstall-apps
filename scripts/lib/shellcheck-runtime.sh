@@ -75,6 +75,58 @@ format_desktop_integration_status() {
   :
 }
 
+component_registry_ids() {
+  :
+}
+
+component_pre_package_pipeline_ids() {
+  :
+}
+
+component_post_package_pipeline_ids() {
+  :
+}
+
+component_check_only_detection_ids() {
+  :
+}
+
+component_verification_ids() {
+  :
+}
+
+component_summary_status_ids() {
+  :
+}
+
+component_checkpoint_summary_ids() {
+  :
+}
+
+component_summary_label() {
+  :
+}
+
+component_is_expected() {
+  :
+}
+
+component_has_runtime_status() {
+  :
+}
+
+component_pipeline_step_function() {
+  :
+}
+
+component_summary_status_text() {
+  :
+}
+
+component_prepare_check_only_state() {
+  :
+}
+
 runtime_state_reset() {
   :
 }

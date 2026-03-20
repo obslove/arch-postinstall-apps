@@ -62,6 +62,10 @@ handle_runtime_step_result_or_exit() {
 
 define_runtime_pipeline() {
   local array_name="$1"
+  local pre_package_component_ids=()
+  local post_package_component_ids=()
+  local component_id
+  local pipeline_function
 
   pipeline_reset
   pipeline_add_step "load_configuration" "all" "pipeline_load_configuration_step" "$array_name"
@@ -74,10 +78,17 @@ define_runtime_pipeline() {
   pipeline_add_step "create_directories" "install" "pipeline_create_directories_step"
   pipeline_add_step "ensure_multilib" "install" "pipeline_ensure_multilib_step"
   pipeline_add_step "update_system" "install" "pipeline_update_system_step"
-  pipeline_add_step "prepare_aur_helper" "install" "pipeline_prepare_aur_helper_step"
+  mapfile -t pre_package_component_ids < <(component_pre_package_pipeline_ids)
+  for component_id in "${pre_package_component_ids[@]}"; do
+    pipeline_function="$(component_pipeline_step_function "$component_id")"
+    pipeline_add_step "$component_id" "install" "$pipeline_function"
+  done
   pipeline_add_step "install_packages" "install" "pipeline_install_packages_step" "$array_name"
-  pipeline_add_step "desktop_integration" "install" "pipeline_desktop_integration_step"
-  pipeline_add_step "github_ssh" "install" "pipeline_github_ssh_step"
+  mapfile -t post_package_component_ids < <(component_post_package_pipeline_ids)
+  for component_id in "${post_package_component_ids[@]}"; do
+    pipeline_function="$(component_pipeline_step_function "$component_id")"
+    pipeline_add_step "$component_id" "install" "$pipeline_function"
+  done
   pipeline_add_step "final_verification" "install" "pipeline_final_verification_step" "$array_name"
 }
 
