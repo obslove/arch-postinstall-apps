@@ -85,7 +85,7 @@ check_cloudflare_deploy_files() {
   test -f "$REPO_DIR/cloudflare/bootstrap-worker/src/index.js"
   test -f "$REPO_DIR/cloudflare/bootstrap-worker/wrangler.toml"
   node --check "$REPO_DIR/cloudflare/bootstrap-worker/src/index.js"
-  grep -Fqx 'name = "obslove-bootstrap"' "$REPO_DIR/cloudflare/bootstrap-worker/wrangler.toml"
+  grep -Fqx 'name = "obslove"' "$REPO_DIR/cloudflare/bootstrap-worker/wrangler.toml"
   grep -Fqx 'main = "src/index.js"' "$REPO_DIR/cloudflare/bootstrap-worker/wrangler.toml"
   grep -Fqx 'compatibility_date = "2026-03-21"' "$REPO_DIR/cloudflare/bootstrap-worker/wrangler.toml"
   grep -Fqx 'workers_dev = false' "$REPO_DIR/cloudflare/bootstrap-worker/wrangler.toml"
