@@ -78,6 +78,12 @@ register_module_file "scripts/lib/repo.sh" \
   bootstrap-fragment bootstrap-check runtime-entrypoint runtime-check
 register_module_file "scripts/bootstrap/repo-sync.sh" \
   bootstrap-fragment bootstrap-check
+register_module_file "scripts/bootstrap/steps/system.sh" \
+  bootstrap-fragment bootstrap-check
+register_module_file "scripts/bootstrap/steps/packages.sh" \
+  bootstrap-fragment bootstrap-check
+register_module_file "scripts/bootstrap/steps/repo.sh" \
+  bootstrap-fragment bootstrap-check
 register_module_file "scripts/bootstrap/entrypoint.sh" \
   bootstrap-fragment bootstrap-check
 

@@ -13,6 +13,9 @@
 # shellcheck source=scripts/lib/ops.sh
 # shellcheck source=scripts/lib/repo.sh
 # shellcheck source=scripts/bootstrap/repo-sync.sh
+# shellcheck source=scripts/bootstrap/steps/system.sh
+# shellcheck source=scripts/bootstrap/steps/packages.sh
+# shellcheck source=scripts/bootstrap/steps/repo.sh
 
 if false; then
   source "$SCRIPT_DIR/scripts/lib/cli.sh"
@@ -27,6 +30,9 @@ if false; then
   source "$SCRIPT_DIR/scripts/lib/ops.sh"
   source "$SCRIPT_DIR/scripts/lib/repo.sh"
   source "$SCRIPT_DIR/scripts/bootstrap/repo-sync.sh"
+  source "$SCRIPT_DIR/scripts/bootstrap/steps/system.sh"
+  source "$SCRIPT_DIR/scripts/bootstrap/steps/packages.sh"
+  source "$SCRIPT_DIR/scripts/bootstrap/steps/repo.sh"
 fi
 
 SELF_PATH="${BASH_SOURCE[0]:-$0}"
@@ -72,104 +78,6 @@ handle_bootstrap_step_result_or_exit() {
       exit 1
       ;;
   esac
-}
-
-bootstrap_validate_environment_step() {
-  step_result_reset
-
-  if ! ensure_arch; then
-    step_result_hard_fail "Este bootstrap só pode ser executado em Arch Linux."
-    return 0
-  fi
-
-  if ! ensure_supported_session; then
-    step_result_hard_fail "A sessão atual não é compatível com o bootstrap."
-    return 0
-  fi
-
-  if ! require_command pacman; then
-    step_result_hard_fail "O comando 'pacman' é obrigatório para continuar."
-    return 0
-  fi
-
-  if ! require_command sudo; then
-    step_result_hard_fail "O comando 'sudo' é obrigatório para continuar."
-    return 0
-  fi
-
-  announce_prompt "Autenticando sudo..."
-  if ! run_with_terminal_stdin sudo -v; then
-    step_result_hard_fail "Não foi possível autenticar o sudo."
-    return 0
-  fi
-
-  init_logging
-  step_result_success "O ambiente de bootstrap foi validado."
-}
-
-bootstrap_check_dependencies_step() {
-  local array_name="$1"
-  # shellcheck disable=SC2178
-  declare -n missing_packages="$array_name"
-
-  step_result_reset
-
-  if ((${#missing_packages[@]} == 0)); then
-    announce_detail "As dependências iniciais já estão disponíveis."
-    step_result_success "As dependências iniciais já estavam disponíveis."
-    return 0
-  fi
-
-  announce_detail "${#missing_packages[@]} dependência(s) inicial(is) ainda não instalada(s)."
-  step_result_success "As dependências iniciais foram avaliadas."
-}
-
-bootstrap_install_dependencies_step() {
-  local array_name="${1:-BOOTSTRAP_MISSING_PACKAGES}"
-  # shellcheck disable=SC2178
-  declare -n missing_packages="$array_name"
-
-  step_result_reset
-
-  if ((${#missing_packages[@]} == 0)); then
-    announce_detail "As dependências iniciais já estão disponíveis. Etapa ignorada."
-    step_result_skipped "As dependências iniciais já estavam disponíveis."
-    return 0
-  fi
-
-  if retry_interactive_log_only sudo pacman -Syu --needed --noconfirm "${missing_packages[@]}"; then
-    BOOTSTRAP_SYSTEM_UPDATED=1
-    step_result_success "As dependências iniciais foram instaladas."
-    return 0
-  fi
-
-  step_result_hard_fail "Não foi possível instalar as dependências iniciais."
-}
-
-bootstrap_sync_repo_step() {
-  step_result_reset
-
-  if ! require_command git; then
-    step_result_hard_fail "O comando 'git' é obrigatório para sincronizar o repositório."
-    return 0
-  fi
-
-  if ! require_command curl; then
-    step_result_hard_fail "O comando 'curl' é obrigatório para sincronizar o repositório."
-    return 0
-  fi
-
-  if ! require_command tar; then
-    step_result_hard_fail "O comando 'tar' é obrigatório para sincronizar o repositório."
-    return 0
-  fi
-
-  if sync_repo; then
-    step_result_success "O repositório gerenciado foi sincronizado."
-    return 0
-  fi
-
-  step_result_hard_fail "Não foi possível sincronizar o repositório gerenciado."
 }
 
 main() {
