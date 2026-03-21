@@ -164,6 +164,14 @@ ops_systemctl_user_start() {
   run_log_only systemctl --user start "$@"
 }
 
+ops_systemctl_start() {
+  run_log_only sudo systemctl start "$@"
+}
+
+ops_systemctl_enable() {
+  run_log_only sudo systemctl enable "$@"
+}
+
 ops_aur_install_needed() {
   local helper_name="$1"
   shift

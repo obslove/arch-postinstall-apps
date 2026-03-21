@@ -787,6 +787,14 @@ ops_systemctl_user_start() {
   :
 }
 
+ops_systemctl_start() {
+  :
+}
+
+ops_systemctl_enable() {
+  :
+}
+
 ops_aur_install_needed() {
   :
 }
@@ -1016,6 +1024,10 @@ refresh_official_repo_index() {
 }
 
 package_exists_in_official_repos() {
+  :
+}
+
+run_package_post_install_hook() {
   :
 }
 

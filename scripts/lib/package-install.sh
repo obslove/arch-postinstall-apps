@@ -18,6 +18,18 @@ if false; then
   source "$SCRIPT_DIR/scripts/lib/components/aur-helper.sh"
 fi
 
+run_package_post_install_hook() {
+  local package_name="$1"
+
+  case "$package_name" in
+    mullvad-vpn)
+      announce_detail "Ativando serviço do Mullvad..."
+      ops_systemctl_start mullvad-daemon || return 1
+      ops_systemctl_enable mullvad-daemon || return 1
+      ;;
+  esac
+}
+
 install_official_packages_in_order() {
   local array_name="$1"
   local official_packages=()
@@ -54,6 +66,11 @@ install_official_packages_in_order() {
     state_add_main_official_package "$package_name"
     announce_detail "Instalando via pacman: $package_name"
     if ops_pacman_install_needed "$package_name"; then
+      if ! run_package_post_install_hook "$package_name"; then
+        announce_warning "O pacote '$package_name' foi tratado, mas a ativação pós-instalação falhou."
+        state_add_official_failure "$package_name"
+        continue
+      fi
       if [[ "$package_previously_installed" == "0" ]]; then
         report_add_changed_main_official_package "$package_name"
       fi
