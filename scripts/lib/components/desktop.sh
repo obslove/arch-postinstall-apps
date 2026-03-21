@@ -88,37 +88,37 @@ component_verify_desktop_integration() {
     case "$package_name" in
       xdg-utils)
         if command -v xdg-open >/dev/null 2>&1; then
-          state_add_verified_item "xdg-utils"
+          state_add_verified_item "xdg-utils" "xdg-utils" "command" "pacman_package" "xdg-utils"
         elif command -v gio >/dev/null 2>&1; then
-          state_add_verified_item "xdg-utils"
+          state_add_verified_item "xdg-utils" "xdg-utils" "command" "pacman_package" "xdg-utils"
         else
-          state_add_missing_item "xdg-utils"
+          state_add_missing_item "xdg-utils" "xdg-utils" "command" "pacman_package" "xdg-utils"
         fi
         ;;
       pipewire|wireplumber)
-        verify_command "$package_name" "$package_name"
+        verify_command "$package_name" "$package_name" "$package_name" "pacman_package" "$package_name"
         ;;
       *)
-        verify_package "$package_name" "$package_name"
+        verify_package "$package_name" "$package_name" "$package_name" "pacman_package" "$package_name"
         ;;
     esac
   done
 
   if command -v wl-copy >/dev/null 2>&1 && command -v wl-paste >/dev/null 2>&1; then
-    state_add_verified_item "clipboard"
+    state_add_verified_item "clipboard" "clipboard" "command" "none" ""
   elif package_is_installed "${TEMPORARY_CLIPBOARD_PACKAGES[0]}"; then
-    state_add_missing_item "${TEMPORARY_CLIPBOARD_PACKAGES[0]}"
+    state_add_missing_item "${TEMPORARY_CLIPBOARD_PACKAGES[0]}" "${TEMPORARY_CLIPBOARD_PACKAGES[0]}" "package" "pacman_package" "${TEMPORARY_CLIPBOARD_PACKAGES[0]}"
   fi
 
   for service_name in "${DESKTOP_USER_SERVICES[@]}"; do
-    verify_user_service "$service_name" "$service_name"
+    verify_user_service "$service_name" "$service_name" "$service_name" "service_start" "$service_name"
   done
 
   if state_has_verified_item "${DESKTOP_USER_SERVICES[0]}" && \
     state_has_verified_item "${DESKTOP_USER_SERVICES[1]}" && \
     state_has_verified_item "${DESKTOP_USER_SERVICES[2]}"; then
-    state_add_verified_item "screen-sharing-stack"
+    state_add_verified_item "screen-sharing-stack" "screen-sharing-stack" "composite" "service_start" "desktop_user_services"
   else
-    state_add_missing_item "screen-sharing-stack"
+    state_add_missing_item "screen-sharing-stack" "screen-sharing-stack" "composite" "service_start" "desktop_user_services"
   fi
 }

@@ -78,8 +78,15 @@ STATE_FAILED_OFFICIAL_PACKAGES=()
 STATE_FAILED_AUR_PACKAGES=()
 STATE_SUPPORT_PACKAGES=()
 STATE_ENVIRONMENT_PACKAGES=()
+STATE_VERIFIED_ITEM_IDS=()
 STATE_VERIFIED_ITEMS=()
+STATE_MISSING_ITEM_IDS=()
 STATE_MISSING_ITEMS=()
+STATE_VERIFICATION_LABELS=()
+STATE_VERIFICATION_KINDS=()
+STATE_VERIFICATION_REPAIR_STRATEGIES=()
+STATE_VERIFICATION_TARGETS=()
+STATE_VERIFICATION_STATUSES=()
 STATE_VERSION_LINES=()
 STATE_SOFT_FAILURES=()
 STATE_COMPONENT_STATUSES=()
@@ -207,6 +214,14 @@ state_add_missing_item() {
   :
 }
 
+state_record_verification_item() {
+  :
+}
+
+state_remove_array_item() {
+  :
+}
+
 state_add_version_line() {
   :
 }
@@ -268,5 +283,21 @@ state_has_missing_items() {
 }
 
 state_has_verified_item() {
+  :
+}
+
+state_get_verification_label() {
+  :
+}
+
+state_get_verification_kind() {
+  :
+}
+
+state_get_verification_repair_strategy() {
+  :
+}
+
+state_get_verification_target() {
   :
 }

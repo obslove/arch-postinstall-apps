@@ -110,12 +110,12 @@ component_verify_codex_cli() {
   for package_name in "${CODEX_CLI_PACKAGES[@]}"; do
     case "$package_name" in
       nodejs)
-        verify_command "nodejs" "node"
+        verify_command "nodejs" "nodejs" "node" "pacman_package" "nodejs"
         ;;
       *)
-        verify_package "$package_name" "$package_name"
+        verify_package "$package_name" "$package_name" "$package_name" "pacman_package" "$package_name"
         ;;
     esac
   done
-  verify_command "codex" "codex"
+  verify_command "codex" "codex" "codex" "codex_cli_setup" "codex_cli"
 }

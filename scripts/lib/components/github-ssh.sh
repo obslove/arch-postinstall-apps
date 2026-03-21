@@ -183,16 +183,16 @@ component_verify_github_ssh() {
   for package_name in "${GITHUB_SSH_SUPPORT_PACKAGES[@]}"; do
     case "$package_name" in
       github-cli)
-        verify_command "github-cli" "gh"
+        verify_command "github-cli" "github-cli" "gh" "pacman_package" "github-cli"
         ;;
       openssh)
-        verify_command "openssh" "ssh-keygen"
+        verify_command "openssh" "openssh" "ssh-keygen" "pacman_package" "openssh"
         ;;
     esac
   done
   if [[ "$(current_repo_origin_status "$SCRIPT_DIR")" == "ssh" ]]; then
-    state_add_verified_item "origin-ssh"
+    state_add_verified_item "origin-ssh" "origin-ssh" "repo" "repo_origin_ssh" "$SCRIPT_DIR"
   else
-    state_add_missing_item "origin-ssh"
+    state_add_missing_item "origin-ssh" "origin-ssh" "repo" "repo_origin_ssh" "$SCRIPT_DIR"
   fi
 }

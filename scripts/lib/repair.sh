@@ -21,39 +21,12 @@ if false; then
   source "$SCRIPT_DIR/scripts/lib/components/desktop.sh"
 fi
 
-repair_missing_item_as_pacman_package() {
-  local item="$1"
-  local package_name
-
-  for package_name in "${GITHUB_SSH_SUPPORT_PACKAGES[@]}"; do
-    [[ "$item" == "$package_name" ]] && return 0
-  done
-
-  for package_name in "${DESKTOP_INTEGRATION_PACKAGES[@]}"; do
-    [[ "$item" == "$package_name" ]] && return 0
-  done
-
-  for package_name in "${TEMPORARY_CLIPBOARD_PACKAGES[@]}"; do
-    [[ "$item" == "$package_name" ]] && return 0
-  done
-
-  return 1
-}
-
-repair_missing_item_requires_service_start() {
-  local item="$1"
-  local service_name
-
-  for service_name in "${DESKTOP_USER_SERVICES[@]}"; do
-    [[ "$item" == "$service_name" ]] && return 0
-  done
-
-  [[ "$item" == "screen-sharing-stack" ]]
-}
-
 attempt_final_repair_once() {
   local array_name="$1"
-  local item
+  local verification_id
+  local verification_label=""
+  local repair_strategy=""
+  local repair_target=""
   local repair_pacman_packages=()
   local repair_aur_packages=()
   local pacman_missing_packages=()
@@ -69,45 +42,59 @@ attempt_final_repair_once() {
   fi
 
   announce_step "Tentando corrigir itens ausentes..."
-  for item in "${STATE_MISSING_ITEMS[@]}"; do
-    case "$item" in
-      codex)
+  for verification_id in "${STATE_MISSING_ITEM_IDS[@]}"; do
+    verification_label="$(state_get_verification_label "$verification_id")"
+    repair_strategy="$(state_get_verification_repair_strategy "$verification_id")"
+    repair_target="$(state_get_verification_target "$verification_id")"
+
+    case "$repair_strategy" in
+      none|"")
+        continue
+        ;;
+      pacman_package)
+        [[ -n "$repair_target" ]] || {
+          announce_error "Item ausente sem alvo de reparo via pacman: $verification_label"
+          return 1
+        }
+        append_array_item repair_pacman_packages "$repair_target"
+        ;;
+      package_classify)
+        [[ -n "$repair_target" ]] || {
+          announce_error "Item ausente sem alvo classificável para reparo: $verification_label"
+          return 1
+        }
+        if package_exists_in_official_repos "$repair_target"; then
+          package_origin_status=0
+        else
+          package_origin_status=$?
+        fi
+
+        if [[ "$package_origin_status" == "0" ]]; then
+          append_array_item repair_pacman_packages "$repair_target"
+          continue
+        fi
+
+        if [[ "$package_origin_status" == "2" ]]; then
+          announce_error "Não foi possível classificar o item ausente '$verification_label' para a correção automática."
+          return 1
+        fi
+
+        append_array_item repair_aur_packages "$repair_target"
+        ;;
+      service_start)
+        should_start_services=1
+        ;;
+      codex_cli_setup)
         should_repair_codex=1
         ;;
-      origin-ssh)
+      repo_origin_ssh)
         should_repair_origin=1
         ;;
-    esac
-
-    if repair_missing_item_as_pacman_package "$item"; then
-      append_array_item repair_pacman_packages "$item"
-      continue
-    fi
-
-    if repair_missing_item_requires_service_start "$item"; then
-      should_start_services=1
-      continue
-    fi
-
-    if [[ "$item" == "codex" || "$item" == "origin-ssh" ]]; then
-      continue
-    fi
-
-    if package_exists_in_official_repos "$item"; then
-      package_origin_status=0
-    else
-      package_origin_status=$?
-    fi
-
-    if [[ "$package_origin_status" == "0" ]]; then
-      append_array_item repair_pacman_packages "$item"
-    else
-      if [[ "$package_origin_status" == "2" ]]; then
-        announce_error "Não foi possível classificar o item ausente '$item' para a correção automática."
+      *)
+        announce_error "Estratégia de reparo desconhecida para '$verification_label': $repair_strategy"
         return 1
-      fi
-      append_array_item repair_aur_packages "$item"
-    fi
+        ;;
+    esac
   done
 
   collect_missing_packages pacman_missing_packages "${repair_pacman_packages[@]}"

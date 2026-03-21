@@ -14,27 +14,33 @@ if false; then
 fi
 
 verify_command() {
-  local label="$1"
-  local command_name="$2"
+  local verification_id="$1"
+  local display_label="$2"
+  local command_name="$3"
+  local repair_strategy="${4:-none}"
+  local repair_target="${5:-}"
 
   if command -v "$command_name" >/dev/null 2>&1; then
-    state_add_verified_item "$label"
+    state_add_verified_item "$verification_id" "$display_label" "command" "$repair_strategy" "$repair_target"
     return
   fi
 
-  state_add_missing_item "$label"
+  state_add_missing_item "$verification_id" "$display_label" "command" "$repair_strategy" "$repair_target"
 }
 
 verify_package() {
-  local label="$1"
-  local package_name="$2"
+  local verification_id="$1"
+  local display_label="$2"
+  local package_name="$3"
+  local repair_strategy="${4:-package_classify}"
+  local repair_target="${5:-$package_name}"
 
   if pacman -Q "$package_name" >/dev/null 2>&1; then
-    state_add_verified_item "$label"
+    state_add_verified_item "$verification_id" "$display_label" "package" "$repair_strategy" "$repair_target"
     return
   fi
 
-  state_add_missing_item "$label"
+  state_add_missing_item "$verification_id" "$display_label" "package" "$repair_strategy" "$repair_target"
 }
 
 user_service_exists() {
@@ -44,25 +50,28 @@ user_service_exists() {
 }
 
 verify_user_service() {
-  local label="$1"
-  local service_name="$2"
+  local verification_id="$1"
+  local display_label="$2"
+  local service_name="$3"
+  local repair_strategy="${4:-service_start}"
+  local repair_target="${5:-$service_name}"
 
   if ! command -v systemctl >/dev/null 2>&1; then
-    state_add_missing_item "$label"
+    state_add_missing_item "$verification_id" "$display_label" "service" "$repair_strategy" "$repair_target"
     return
   fi
 
   if ! user_service_exists "$service_name"; then
-    state_add_missing_item "$label"
+    state_add_missing_item "$verification_id" "$display_label" "service" "$repair_strategy" "$repair_target"
     return
   fi
 
   if systemctl --user --quiet is-active "$service_name"; then
-    state_add_verified_item "$label"
+    state_add_verified_item "$verification_id" "$display_label" "service" "$repair_strategy" "$repair_target"
     return
   fi
 
-  state_add_missing_item "$label"
+  state_add_missing_item "$verification_id" "$display_label" "service" "$repair_strategy" "$repair_target"
 }
 
 collect_version() {
@@ -93,16 +102,16 @@ verify_installation() {
   state_reset_verification_results
 
   for package_name in "${LOCAL_SUPPORT_PACKAGES[@]}"; do
-    verify_package "$package_name" "$package_name"
+    verify_package "$package_name" "$package_name" "$package_name" "pacman_package" "$package_name"
   done
 
   for package_name in "${target_packages[@]}"; do
     case "$package_name" in
       nodejs)
-        verify_command "nodejs" "node"
+        verify_command "nodejs" "nodejs" "node" "package_classify" "nodejs"
         ;;
       *)
-        verify_package "$package_name" "$package_name"
+        verify_package "$package_name" "$package_name" "$package_name" "package_classify" "$package_name"
         ;;
     esac
   done
