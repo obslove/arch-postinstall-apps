@@ -173,16 +173,16 @@ config_finalize() {
 load_bootstrap_invocation_context() {
   config_init_bootstrap
   parse_cli_args "$@"
-  finalize_config
+  config_finalize
 }
 
 load_runtime_invocation_context() {
   local repo_dir="$1"
   shift
 
-  config_init "$repo_dir"
+  config_init_runtime "$repo_dir"
   parse_cli_args "$@"
-  finalize_config
+  config_finalize
 }
 
 append_runtime_invocation_env() {
