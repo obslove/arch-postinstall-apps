@@ -1,58 +1,62 @@
 # Arch Postinstall Apps
 
-Script de bootstrap e pós-instalação para Arch Linux, direcionado a ambientes Wayland com Hyprland.
+Bootstrap e pós-instalação declarativa para Arch Linux, focada em Wayland com Hyprland.
 
-Ele automatiza a preparação do sistema, instala os pacotes definidos no repositório, configura o Codex CLI, ajusta a integração desktop e prepara o acesso ao GitHub por SSH.
+O projeto mantém o fluxo remoto `curl -fsSL https://obslove.dev | bash`, sincroniza o clone gerenciado em `~/Repositories/arch-postinstall-apps`, instala os apps por categoria, prepara o ambiente e fecha a máquina com integração desktop, Codex CLI e GitHub SSH.
 
 ## Instalação rápida
 
 Execute como usuário comum. Não use `sudo bash`.
 
-O modo padrão usa saída resumida. Use `-v` para ver a saída detalhada no terminal.
+Fluxo padrão:
 
 ```bash
 curl -fsSL https://obslove.dev | bash
 ```
 
-Com opções:
+Fluxo com opções:
 
 ```bash
 curl -fsSL https://obslove.dev | bash -s -- -s "meu-dispositivo"
 ```
 
-<details>
-<summary>Requisitos e alvo</summary>
+O modo padrão usa saída resumida. Use `-v` para ver a saída detalhada no terminal.
 
-Este script foi ajustado para o seguinte cenário:
+## O que o script faz
 
-- Arch Linux
-- sessão Wayland com Hyprland
-- `curl` disponível
-
-Se ele for executado fora de um clone local do projeto, o próprio script verifica as dependências iniciais, clona ou atualiza `~/Repositories/arch-postinstall-apps` e continua a execução a partir desse clone.
-</details>
-
-<details>
-<summary>Fluxo da instalação</summary>
-
-Durante uma execução normal, o script faz o seguinte:
+Durante uma execução normal, o projeto:
 
 1. valida a sessão atual, autentica `sudo`, inicia o log e impede execuções simultâneas;
 2. carrega [config/packages.txt](config/packages.txt) por categorias e, se existir, `config/packages-extra.txt`;
 3. cria os diretórios principais usados pelo ambiente;
 4. habilita `multilib`, atualiza o sistema e prepara o `yay`;
 5. instala os apps da lista principal e, se o componente estiver habilitado, configura o Codex CLI em `~/Codex`;
-7. garante a integração desktop necessária para o ambiente gráfico;
-8. configura o GitHub SSH;
-9. valida o resultado, tenta uma correção automática única e grava o resumo final.
+6. garante a integração desktop necessária para o ambiente gráfico;
+7. configura o GitHub SSH;
+8. valida o resultado, tenta uma correção automática única e grava o resumo final.
 
-O log completo fica em `~/Backups/arch-postinstall.log`, e o resumo final fica em `~/Backups/arch-postinstall-summary.txt`.
-</details>
+Arquivos gerados pela execução:
 
-<details>
-<summary>Pacotes e dependências</summary>
+- log completo: `~/Backups/arch-postinstall.log`
+- resumo final: `~/Backups/arch-postinstall-summary.txt`
 
-O script separa o que é infraestrutura do próprio fluxo e o que é software principal do ambiente.
+## Alvo do projeto
+
+Este setup foi ajustado para o seguinte cenário:
+
+- Arch Linux
+- sessão Wayland com Hyprland
+- `curl` disponível
+
+Se ele for executado fora de um clone local do projeto, o bootstrap remoto instala as dependências iniciais necessárias, clona ou atualiza `~/Repositories/arch-postinstall-apps` e continua a partir desse clone.
+
+## Pacotes e dependências
+
+O projeto separa claramente:
+
+- infraestrutura do próprio fluxo;
+- dependências dos componentes;
+- apps principais da máquina, agrupados por categoria.
 
 <!-- packages:start -->
 - Dependências iniciais do fluxo local:
@@ -79,17 +83,13 @@ O script separa o que é infraestrutura do próprio fluxo e o que é software pr
   `wl-clipboard`
 <!-- packages:end -->
 
-Para alterar a lista principal de apps por categoria, edite [config/packages.txt](config/packages.txt).
+Arquivos de configuração principais:
 
-Para alterar os componentes declarados do setup, edite [config/components.sh](config/components.sh).
+- lista principal por categoria: [config/packages.txt](config/packages.txt)
+- lista extra opcional com o mesmo formato: `config/packages-extra.txt`
+- componentes declarados do setup: [config/components.sh](config/components.sh)
 
-Se existir `config/packages-extra.txt`, o conteúdo dele também será carregado na mesma execução usando o mesmo formato por categorias.
-
-No fluxo remoto via `curl`, o bootstrap também garante as dependências iniciais `ca-certificates`, `git` e `tar` antes de sincronizar o clone local do repositório.
-</details>
-
-<details>
-<summary>Interação necessária</summary>
+## Interação esperada
 
 Mesmo com a automação, algumas etapas ainda podem exigir interação:
 
@@ -97,10 +97,8 @@ Mesmo com a automação, algumas etapas ainda podem exigir interação:
 - login no GitHub via `gh auth login`;
 - renovação de escopo com `gh auth refresh`, se faltar `admin:public_key`;
 - algum prompt eventual do `yay` em casos específicos.
-</details>
 
-<details>
-<summary>Opções disponíveis</summary>
+## Opções disponíveis
 
 Comando base:
 
@@ -117,7 +115,7 @@ Flags:
 - `-n`, `--no-gh`
   Pula a etapa de configuração do GitHub SSH.
 - `-s`, `--ssh-name NOME`
-  Define o nome da chave SSH enviada ao GitHub e força a reconciliação desse nome.
+  Define explicitamente o nome da chave SSH enviada ao GitHub. Sem essa flag, o script reutiliza a chave existente sem reconciliar o título automaticamente.
 - `-v`, `--verbose`
   Desativa o modo resumido e mostra a saída completa no terminal.
 - `-h`, `--help`
@@ -133,39 +131,40 @@ curl -fsSL https://obslove.dev | bash -s -- -s "meu-dispositivo"
 curl -fsSL https://obslove.dev | bash -s -- -v
 curl -fsSL https://obslove.dev | bash -s -- -c -n -s "meu-dispositivo"
 ```
-</details>
 
-<details>
-<summary>Uso local</summary>
+## Uso local
 
-Para executar diretamente a partir de um clone local:
+Executar a partir de um clone local:
 
 ```bash
 bash install.sh
 ```
 
-Para validar o script localmente:
+Validar o repositório localmente:
 
 ```bash
 bash scripts/check-repo.sh
 ```
-</details>
 
-<details>
-<summary>Publicação do bootstrap</summary>
+## Publicação do bootstrap
 
-O conteúdo servido em `https://obslove.dev` é verificado pelo repositório em [scripts/check-published-bootstrap.sh](scripts/check-published-bootstrap.sh) e pode ser publicado por GitHub Actions via [deploy-bootstrap.yml](.github/workflows/deploy-bootstrap.yml).
+O conteúdo servido em `https://obslove.dev` é tratado como parte do sistema.
 
-O deploy usa um Worker Cloudflare definido em `cloudflare/bootstrap-worker/`, que responde na raiz de `obslove.dev` e encaminha o conteúdo de `main/install.sh`.
+O repositório mantém:
 
-Para o deploy automático funcionar, o repositório precisa dos secrets:
+- verificação de consistência publicada em [scripts/check-published-bootstrap.sh](scripts/check-published-bootstrap.sh);
+- workflow de verificação em [.github/workflows/published-bootstrap.yml](.github/workflows/published-bootstrap.yml);
+- workflow de deploy em [.github/workflows/deploy-bootstrap.yml](.github/workflows/deploy-bootstrap.yml);
+- Worker Cloudflare em `cloudflare/bootstrap-worker/`.
+
+O endpoint publicado deve sempre refletir `main/install.sh`.
+
+Secrets necessários no GitHub:
 
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_ACCOUNT_ID`
-</details>
 
-<details>
-<summary>Arquivos principais</summary>
+## Arquivos principais
 
 ```text
 config/components.sh
@@ -180,4 +179,3 @@ scripts/lib/runtime-modules.sh
 ```
 
 `install.sh` é um artefato gerado a partir dos fragments em `scripts/bootstrap/` por `scripts/build-bootstrap.sh`.
-</details>
