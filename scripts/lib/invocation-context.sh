@@ -43,8 +43,8 @@ append_runtime_invocation_env() {
 
 exec_runtime_with_invocation_context() {
   local runtime_entrypoint="$1"
-  local env_assignments=()
+  local runtime_env_assignments=()
 
-  append_runtime_invocation_env env_assignments
-  exec env "${env_assignments[@]}" bash "$runtime_entrypoint"
+  append_runtime_invocation_env runtime_env_assignments
+  exec env "${runtime_env_assignments[@]}" bash "$runtime_entrypoint"
 }
