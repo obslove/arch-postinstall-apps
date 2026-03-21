@@ -73,6 +73,11 @@ load_configuration_step() {
     return 0
   fi
 
+  if ! report_requested_main_packages "$array_name"; then
+    step_result_hard_fail "Não foi possível classificar a lista principal de pacotes."
+    return 0
+  fi
+
   if [[ "$CHECK_ONLY" != "1" ]]; then
     if ! append_runtime_install_pipeline "$array_name"; then
       step_result_hard_fail "Não foi possível montar o pipeline de instalação."
@@ -96,10 +101,10 @@ check_only_step() {
     component_prepare_check_only_state "$component_id" || true
   done
   for package_name in "${LOCAL_SUPPORT_PACKAGES[@]}"; do
-    state_add_support_package "$package_name"
+    report_add_requested_support_package "$package_name"
   done
   for package_name in "${DESKTOP_INTEGRATION_PACKAGES[@]}"; do
-    state_add_environment_package "$package_name"
+    report_add_requested_environment_package "$package_name"
   done
   verify_installation "$array_name"
   print_summary

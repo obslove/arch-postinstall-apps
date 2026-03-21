@@ -70,6 +70,7 @@ branch_name=""
 commit_hash=""
 SHARED_LIB_DIR=""
 COMPONENT_CONFIG_FILE=""
+created_any=""
 checkpoint_key=""
 summary_formatter=""
 archive_file=""
@@ -84,6 +85,7 @@ line=""
 target_packages=""
 package_origin=""
 source_packages=""
+package_previously_installed=""
 output=""
 verification_label=""
 repair_strategy=""
@@ -126,6 +128,21 @@ DESKTOP_INTEGRATION_PACKAGES=()
 DESKTOP_USER_SERVICES=()
 TEMPORARY_CLIPBOARD_PACKAGES=()
 COMPONENT_IDS=()
+REPORT_REQUESTED_MAIN_OFFICIAL_PACKAGES=()
+REPORT_REQUESTED_MAIN_AUR_PACKAGES=()
+REPORT_REUSED_MAIN_OFFICIAL_PACKAGES=()
+REPORT_REUSED_MAIN_AUR_PACKAGES=()
+REPORT_CHANGED_MAIN_OFFICIAL_PACKAGES=()
+REPORT_CHANGED_MAIN_AUR_PACKAGES=()
+REPORT_REQUESTED_SUPPORT_PACKAGES=()
+REPORT_REUSED_SUPPORT_PACKAGES=()
+REPORT_CHANGED_SUPPORT_PACKAGES=()
+REPORT_REQUESTED_ENVIRONMENT_PACKAGES=()
+REPORT_REUSED_ENVIRONMENT_PACKAGES=()
+REPORT_CHANGED_ENVIRONMENT_PACKAGES=()
+REPORT_CHANGE_MARKERS=()
+REPORT_COMPONENT_OUTCOMES=()
+REPORT_COMPONENT_CHANGED_FLAGS=()
 PIPELINE_STEP_IDS=()
 PIPELINE_STEP_MODES=()
 PIPELINE_STEP_TITLES=()
@@ -140,8 +157,6 @@ STATE_MAIN_OFFICIAL_PACKAGES=()
 STATE_MAIN_AUR_PACKAGES=()
 STATE_FAILED_OFFICIAL_PACKAGES=()
 STATE_FAILED_AUR_PACKAGES=()
-STATE_SUPPORT_PACKAGES=()
-STATE_ENVIRONMENT_PACKAGES=()
 STATE_VERIFIED_ITEM_IDS=()
 STATE_VERIFIED_ITEMS=()
 STATE_MISSING_ITEM_IDS=()
@@ -170,6 +185,8 @@ declare -Ag COMPONENT_CHECKPOINT_FLAGS=()
 declare -Ag COMPONENT_CHECK_ONLY_DETECTION_FLAGS=()
 declare -Ag COMPONENT_VERIFICATION_FLAGS=()
 declare -Ag COMPONENT_SUMMARY_STATUS_FLAGS=()
+declare -Ag REPORT_COMPONENT_OUTCOMES=()
+declare -Ag REPORT_COMPONENT_CHANGED_FLAGS=()
 declare -Ag STEP_DEFINITION_MODES=()
 declare -Ag STEP_DEFINITION_TITLES=()
 declare -Ag STEP_DEFINITION_FUNCTIONS=()
@@ -294,6 +311,78 @@ config_init_bootstrap() {
 }
 
 config_finalize() {
+  :
+}
+
+execution_report_reset() {
+  :
+}
+
+report_mark_change() {
+  :
+}
+
+report_has_changes() {
+  :
+}
+
+report_add_requested_main_official_package() {
+  :
+}
+
+report_add_reused_main_official_package() {
+  :
+}
+
+report_add_changed_main_official_package() {
+  :
+}
+
+report_add_requested_main_aur_package() {
+  :
+}
+
+report_add_reused_main_aur_package() {
+  :
+}
+
+report_add_changed_main_aur_package() {
+  :
+}
+
+report_add_requested_support_package() {
+  :
+}
+
+report_add_reused_support_package() {
+  :
+}
+
+report_add_changed_support_package() {
+  :
+}
+
+report_add_requested_environment_package() {
+  :
+}
+
+report_add_reused_environment_package() {
+  :
+}
+
+report_add_changed_environment_package() {
+  :
+}
+
+report_reset_environment_packages() {
+  :
+}
+
+report_set_component_outcome() {
+  :
+}
+
+report_get_component_outcome() {
   :
 }
 
@@ -897,6 +986,10 @@ collect_packages_by_origin() {
   :
 }
 
+report_requested_main_packages() {
+  :
+}
+
 multilib_enabled() {
   :
 }
@@ -1037,10 +1130,6 @@ state_reset_package_results() {
   :
 }
 
-state_reset_environment_packages() {
-  :
-}
-
 state_reset_verification_results() {
   :
 }
@@ -1058,14 +1147,6 @@ state_add_official_failure() {
 }
 
 state_add_aur_failure() {
-  :
-}
-
-state_add_support_package() {
-  :
-}
-
-state_add_environment_package() {
   :
 }
 

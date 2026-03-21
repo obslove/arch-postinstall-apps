@@ -6,6 +6,7 @@
 # shellcheck source=scripts/lib/status.sh
 # shellcheck source=scripts/lib/runtime-config.sh
 # shellcheck source=scripts/lib/runtime-state.sh
+# shellcheck source=scripts/lib/execution-report.sh
 # shellcheck source=scripts/lib/step-result.sh
 # shellcheck source=scripts/lib/ui.sh
 # shellcheck source=scripts/lib/process.sh
@@ -17,6 +18,7 @@ if false; then
   source "$SCRIPT_DIR/scripts/lib/status.sh"
   source "$SCRIPT_DIR/scripts/lib/runtime-config.sh"
   source "$SCRIPT_DIR/scripts/lib/runtime-state.sh"
+  source "$SCRIPT_DIR/scripts/lib/execution-report.sh"
   source "$SCRIPT_DIR/scripts/lib/step-result.sh"
   source "$SCRIPT_DIR/scripts/lib/ui.sh"
   source "$SCRIPT_DIR/scripts/lib/process.sh"
@@ -29,6 +31,8 @@ SHARED_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 source "$SHARED_LIB_DIR/runtime-config.sh"
 # shellcheck source=runtime-state.sh
 source "$SHARED_LIB_DIR/runtime-state.sh"
+# shellcheck source=execution-report.sh
+source "$SHARED_LIB_DIR/execution-report.sh"
 # shellcheck source=step-result.sh
 source "$SHARED_LIB_DIR/step-result.sh"
 # shellcheck source=ui.sh
@@ -57,6 +61,7 @@ finalize_config() {
 
 execution_state_reset() {
   runtime_state_reset
+  execution_report_reset
   step_result_reset
 }
 
@@ -67,6 +72,10 @@ runtime_state_init() {
   step_total=0
   init_output_styles
   execution_state_reset
+
+  if [[ "$SYSTEM_UPDATED" == "1" ]]; then
+    report_mark_change "bootstrap_system_update"
+  fi
 }
 
 record_soft_failure() {
@@ -77,13 +86,30 @@ record_soft_failure() {
 }
 
 create_directories() {
-  mkdir -p \
-    "$HOME/Backups" \
-    "$HOME/Codex" \
-    "$HOME/Dots" \
-    "$HOME/Pictures/Screenshots" \
-    "$HOME/Pictures/Wallpapers" \
-    "$HOME/Projects" \
-    "$REPOSITORIES_DIR" \
+  local target_dir
+  local created_any=0
+  local target_dirs=(
+    "$HOME/Backups"
+    "$HOME/Codex"
+    "$HOME/Dots"
+    "$HOME/Pictures/Screenshots"
+    "$HOME/Pictures/Wallpapers"
+    "$HOME/Projects"
+    "$REPOSITORIES_DIR"
     "$HOME/Videos"
+  )
+
+  for target_dir in "${target_dirs[@]}"; do
+    if [[ ! -d "$target_dir" ]]; then
+      created_any=1
+      break
+    fi
+  done
+
+  mkdir -p \
+    "${target_dirs[@]}"
+
+  if [[ "$created_any" == "1" ]]; then
+    report_mark_change "directories"
+  fi
 }

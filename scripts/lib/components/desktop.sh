@@ -40,13 +40,17 @@ component_apply_desktop_integration() {
   local package_name
   local missing_packages=()
 
-  state_reset_environment_packages
+  report_reset_environment_packages
   for package_name in "${DESKTOP_INTEGRATION_PACKAGES[@]}"; do
-    state_add_environment_package "$package_name"
+    report_add_requested_environment_package "$package_name"
   done
 
   if desktop_integration_ready; then
     state_set_component_status desktop_integration "$STATUS_SKIPPED_READY"
+    report_set_component_outcome "desktop_integration" "reused" "0"
+    for package_name in "${DESKTOP_INTEGRATION_PACKAGES[@]}"; do
+      report_add_reused_environment_package "$package_name"
+    done
     if ! component_has_checkpoint "desktop_integration" && ! component_mark_checkpoint_if_missing "desktop_integration"; then
       announce_warning "Não foi possível registrar o checkpoint da integração desktop."
     fi
@@ -58,17 +62,28 @@ component_apply_desktop_integration() {
   announce_detail "Garantindo integração desktop..."
   if ! ops_pacman_install_needed "${missing_packages[@]}"; then
     state_set_component_status desktop_integration "$STATUS_HARD_FAILED"
+    report_set_component_outcome "desktop_integration" "failed" "0"
     announce_error "Não foi possível instalar a integração desktop."
     return 1
   fi
 
+  for package_name in "${DESKTOP_INTEGRATION_PACKAGES[@]}"; do
+    if ! config_array_contains missing_packages "$package_name"; then
+      report_add_reused_environment_package "$package_name"
+    fi
+  done
+  for package_name in "${missing_packages[@]}"; do
+    report_add_changed_environment_package "$package_name"
+  done
   if ! mark_checkpoint "desktop_integration"; then
     state_set_component_status desktop_integration "$STATUS_HARD_FAILED"
+    report_set_component_outcome "desktop_integration" "failed" "0"
     announce_error "Não foi possível registrar o checkpoint da integração desktop."
     return 1
   fi
 
   state_set_component_status desktop_integration "$STATUS_DONE"
+  report_set_component_outcome "desktop_integration" "changed" "1"
 }
 
 start_desktop_user_services() {

@@ -6,8 +6,6 @@ STATE_MAIN_OFFICIAL_PACKAGES=()
 STATE_MAIN_AUR_PACKAGES=()
 STATE_FAILED_OFFICIAL_PACKAGES=()
 STATE_FAILED_AUR_PACKAGES=()
-STATE_SUPPORT_PACKAGES=()
-STATE_ENVIRONMENT_PACKAGES=()
 STATE_VERIFIED_ITEM_IDS=()
 STATE_VERIFIED_ITEMS=()
 STATE_MISSING_ITEM_IDS=()
@@ -33,8 +31,6 @@ runtime_state_reset() {
   STATE_MAIN_AUR_PACKAGES=()
   STATE_FAILED_OFFICIAL_PACKAGES=()
   STATE_FAILED_AUR_PACKAGES=()
-  STATE_SUPPORT_PACKAGES=()
-  STATE_ENVIRONMENT_PACKAGES=()
   STATE_VERIFIED_ITEM_IDS=()
   STATE_VERIFIED_ITEMS=()
   STATE_MISSING_ITEM_IDS=()
@@ -64,12 +60,6 @@ state_reset_package_results() {
   STATE_MAIN_AUR_PACKAGES=()
   STATE_FAILED_OFFICIAL_PACKAGES=()
   STATE_FAILED_AUR_PACKAGES=()
-  STATE_SUPPORT_PACKAGES=()
-  STATE_ENVIRONMENT_PACKAGES=()
-}
-
-state_reset_environment_packages() {
-  STATE_ENVIRONMENT_PACKAGES=()
 }
 
 state_reset_verification_results() {
@@ -99,14 +89,6 @@ state_add_official_failure() {
 
 state_add_aur_failure() {
   append_array_item STATE_FAILED_AUR_PACKAGES "$1"
-}
-
-state_add_support_package() {
-  append_array_item STATE_SUPPORT_PACKAGES "$1"
-}
-
-state_add_environment_package() {
-  append_array_item STATE_ENVIRONMENT_PACKAGES "$1"
 }
 
 state_remove_array_item() {

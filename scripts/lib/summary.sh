@@ -23,7 +23,7 @@ print_summary() {
   local status_component_ids=()
   local completed_actions=()
   local execution_mode="instalação"
-  local changes_applied="sim"
+  local changes_applied="não"
   local version_line
   local component_id
   local component_label
@@ -32,6 +32,8 @@ print_summary() {
   if [[ "$CHECK_ONLY" == "1" ]]; then
     execution_mode="verificação"
     changes_applied="não"
+  elif report_has_changes; then
+    changes_applied="sim"
   fi
 
   mapfile -t checkpoint_component_ids < <(component_checkpoint_summary_ids)
@@ -85,10 +87,14 @@ print_summary() {
     print_summary_item "Commit:" "$actual_commit"
     print_summary_item "Origin:" "$origin_status"
     print_summary_section "Pacotes e configuração"
-    print_summary_item "Lista principal via pacman:" "${STATE_MAIN_OFFICIAL_PACKAGES[*]:-nenhum}"
-    print_summary_item "Lista principal via AUR:" "${STATE_MAIN_AUR_PACKAGES[*]:-nenhum}"
-    print_summary_item "Dependências de suporte:" "${STATE_SUPPORT_PACKAGES[*]:-nenhuma}"
-    print_summary_item "Ambiente gráfico:" "${STATE_ENVIRONMENT_PACKAGES[*]:-nenhuma}"
+    print_summary_item "Lista principal via pacman:" "${REPORT_REQUESTED_MAIN_OFFICIAL_PACKAGES[*]:-nenhum}"
+    print_summary_item "Alterados via pacman:" "${REPORT_CHANGED_MAIN_OFFICIAL_PACKAGES[*]:-nenhum}"
+    print_summary_item "Lista principal via AUR:" "${REPORT_REQUESTED_MAIN_AUR_PACKAGES[*]:-nenhum}"
+    print_summary_item "Alterados via AUR:" "${REPORT_CHANGED_MAIN_AUR_PACKAGES[*]:-nenhum}"
+    print_summary_item "Suporte alterado:" "${REPORT_CHANGED_SUPPORT_PACKAGES[*]:-nenhuma}"
+    print_summary_item "Suporte reutilizado:" "${REPORT_REUSED_SUPPORT_PACKAGES[*]:-nenhuma}"
+    print_summary_item "Ambiente alterado:" "${REPORT_CHANGED_ENVIRONMENT_PACKAGES[*]:-nenhuma}"
+    print_summary_item "Ambiente reutilizado:" "${REPORT_REUSED_ENVIRONMENT_PACKAGES[*]:-nenhuma}"
     print_summary_item "Configurações explícitas:" "${completed_actions[*]:-nenhuma}"
     print_summary_item "GitHub SSH esperado:" "$(if github_ssh_expected; then echo sim; else echo não; fi)"
     for component_id in "${status_component_ids[@]}"; do
@@ -126,10 +132,14 @@ Repositório: $repo_path
 Branch: $actual_branch
 Commit: $actual_commit
 Origin: $origin_status
-Itens da lista principal tratados via pacman: ${STATE_MAIN_OFFICIAL_PACKAGES[*]:-nenhum}
-Itens da lista principal tratados via AUR: ${STATE_MAIN_AUR_PACKAGES[*]:-nenhum}
-Dependências de suporte tratadas: ${STATE_SUPPORT_PACKAGES[*]:-nenhuma}
-Dependências do ambiente gráfico tratadas: ${STATE_ENVIRONMENT_PACKAGES[*]:-nenhuma}
+Itens da lista principal declarados via pacman: ${REPORT_REQUESTED_MAIN_OFFICIAL_PACKAGES[*]:-nenhum}
+Itens da lista principal alterados via pacman: ${REPORT_CHANGED_MAIN_OFFICIAL_PACKAGES[*]:-nenhum}
+Itens da lista principal declarados via AUR: ${REPORT_REQUESTED_MAIN_AUR_PACKAGES[*]:-nenhum}
+Itens da lista principal alterados via AUR: ${REPORT_CHANGED_MAIN_AUR_PACKAGES[*]:-nenhum}
+Dependências de suporte alteradas: ${REPORT_CHANGED_SUPPORT_PACKAGES[*]:-nenhuma}
+Dependências de suporte reutilizadas: ${REPORT_REUSED_SUPPORT_PACKAGES[*]:-nenhuma}
+Dependências do ambiente gráfico alteradas: ${REPORT_CHANGED_ENVIRONMENT_PACKAGES[*]:-nenhuma}
+Dependências do ambiente gráfico reutilizadas: ${REPORT_REUSED_ENVIRONMENT_PACKAGES[*]:-nenhuma}
 Configurações explícitas: ${completed_actions[*]:-nenhuma}
 GitHub SSH esperado: $(if github_ssh_expected; then echo sim; else echo não; fi)
 $(for component_id in "${status_component_ids[@]}"; do

@@ -94,15 +94,18 @@ component_checkpoint_key_github_ssh() {
 component_apply_github_ssh() {
   local github_ssh_already_ready=0
   local missing_packages=()
+  local package_name
 
   if ! github_ssh_expected; then
     state_set_component_status github_ssh "$STATUS_SKIPPED_DISABLED"
+    report_set_component_outcome "github_ssh" "disabled" "0"
     announce_detail "A configuração do GitHub SSH foi desativada por opção."
     return
   fi
 
   if ! confirm_exclusive_github_ssh_key; then
     state_set_component_status github_ssh "$STATUS_SKIPPED_DECLINED"
+    report_set_component_outcome "github_ssh" "declined" "0"
     return
   fi
 
@@ -116,6 +119,7 @@ component_apply_github_ssh() {
 
   if [[ "$github_ssh_already_ready" == "1" ]]; then
     state_set_component_status github_ssh "$STATUS_SKIPPED_READY"
+    report_set_component_outcome "github_ssh" "reused" "0"
     if ! ensure_repo_origin_remote "$SCRIPT_DIR" "$REPO_SSH_URL"; then
       announce_warning "Não foi possível ajustar o remoto do repositório para SSH."
     fi
@@ -125,28 +129,39 @@ component_apply_github_ssh() {
 
   announce_detail "Registrando dependências da etapa de GitHub SSH..."
   for package_name in "${GITHUB_SSH_SUPPORT_PACKAGES[@]}"; do
-    state_add_support_package "$package_name"
+    report_add_requested_support_package "$package_name"
   done
   announce_detail "Verificando dependências da etapa de GitHub SSH..."
   collect_missing_packages missing_packages "${GITHUB_SSH_SUPPORT_PACKAGES[@]}"
   if ((${#missing_packages[@]} > 0)); then
     if ! ops_pacman_install_needed "${missing_packages[@]}"; then
       state_set_component_status github_ssh "$STATUS_SOFT_FAILED"
+      report_set_component_outcome "github_ssh" "soft_failed" "0"
       announce_warning "Não foi possível instalar github-cli/openssh. A configuração do GitHub será ignorada."
       return
     fi
+    for package_name in "${missing_packages[@]}"; do
+      report_add_changed_support_package "$package_name"
+    done
   else
     announce_detail "As dependências do GitHub SSH já estão disponíveis."
   fi
+  for package_name in "${GITHUB_SSH_SUPPORT_PACKAGES[@]}"; do
+    if ! config_array_contains missing_packages "$package_name"; then
+      report_add_reused_support_package "$package_name"
+    fi
+  done
 
   if ! command -v gh >/dev/null 2>&1 || ! command -v ssh-keygen >/dev/null 2>&1; then
     state_set_component_status github_ssh "$STATUS_SOFT_FAILED"
+    report_set_component_outcome "github_ssh" "soft_failed" "0"
     announce_warning "github-cli ou ssh-keygen está indisponível. A configuração do GitHub será ignorada."
     return
   fi
 
   if ! ensure_ssh_key; then
     state_set_component_status github_ssh "$STATUS_SOFT_FAILED"
+    report_set_component_outcome "github_ssh" "soft_failed" "0"
     announce_warning "Não foi possível preparar a chave SSH local. A configuração do GitHub será ignorada."
     return
   fi
@@ -154,6 +169,7 @@ component_apply_github_ssh() {
   if ! ensure_github_auth; then
     cleanup_temp_clipboard_utility || true
     state_set_component_status github_ssh "$STATUS_SOFT_FAILED"
+    report_set_component_outcome "github_ssh" "soft_failed" "0"
     announce_warning "A autenticação do GitHub não foi concluída. O envio da chave SSH será ignorado."
     return
   fi
@@ -161,6 +177,7 @@ component_apply_github_ssh() {
   if ! upload_ssh_key; then
     cleanup_temp_clipboard_utility || true
     state_set_component_status github_ssh "$STATUS_SOFT_FAILED"
+    report_set_component_outcome "github_ssh" "soft_failed" "0"
     announce_warning "Não foi possível enviar a chave SSH para o GitHub."
     return
   fi
@@ -168,10 +185,12 @@ component_apply_github_ssh() {
   cleanup_temp_clipboard_utility || true
   if ! mark_checkpoint "github_ssh"; then
     state_set_component_status github_ssh "$STATUS_SOFT_FAILED"
+    report_set_component_outcome "github_ssh" "soft_failed" "0"
     announce_warning "A chave SSH foi configurada, mas o checkpoint do GitHub SSH não pôde ser registrado."
     return
   fi
   state_set_component_status github_ssh "$STATUS_DONE"
+  report_set_component_outcome "github_ssh" "changed" "1"
   if ! ensure_repo_origin_remote "$SCRIPT_DIR" "$REPO_SSH_URL"; then
     announce_warning "A chave SSH foi configurada, mas não foi possível ajustar o remoto do repositório para SSH."
   fi

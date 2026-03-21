@@ -24,11 +24,14 @@ install_local_support_packages_step() {
   fi
 
   for package_name in "${LOCAL_SUPPORT_PACKAGES[@]}"; do
-    state_add_support_package "$package_name"
+    report_add_requested_support_package "$package_name"
   done
 
   collect_missing_packages missing_packages "${LOCAL_SUPPORT_PACKAGES[@]}"
   if ((${#missing_packages[@]} == 0)); then
+    for package_name in "${LOCAL_SUPPORT_PACKAGES[@]}"; do
+      report_add_reused_support_package "$package_name"
+    done
     step_result_success "As ferramentas de suporte local já estavam disponíveis."
     return 0
   fi
@@ -38,6 +41,14 @@ install_local_support_packages_step() {
     return 0
   fi
 
+  for package_name in "${LOCAL_SUPPORT_PACKAGES[@]}"; do
+    if ! config_array_contains missing_packages "$package_name"; then
+      report_add_reused_support_package "$package_name"
+    fi
+  done
+  for package_name in "${missing_packages[@]}"; do
+    report_add_changed_support_package "$package_name"
+  done
   step_result_success "As ferramentas de suporte local foram instaladas."
 }
 
