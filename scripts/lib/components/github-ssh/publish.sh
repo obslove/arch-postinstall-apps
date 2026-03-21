@@ -38,6 +38,7 @@ upload_ssh_key() {
   local key_name_from_api
   local key_value
   local key_name
+  local should_reconcile_key_name=0
 
   if ! current_key="$(current_public_ssh_key)"; then
     announce_warning "A chave pública SSH atual não está disponível."
@@ -48,6 +49,9 @@ upload_ssh_key() {
     return 1
   fi
   key_name="$(build_ssh_key_name)"
+  if github_ssh_explicit_name_requested; then
+    should_reconcile_key_name=1
+  fi
   if ! existing_keys="$(ops_gh_list_ssh_keys_tsv 2>/dev/null)"; then
     announce_detail "A permissão admin:public_key não está disponível no gh. A autenticação será renovada."
     if ! ops_gh_auth_refresh_admin_public_key; then
@@ -71,7 +75,7 @@ upload_ssh_key() {
     fi
   done <<<"$existing_keys"
 
-  if [[ -n "$current_key_id" && "$current_key_name" != "$key_name" ]]; then
+  if [[ "$should_reconcile_key_name" == "1" && -n "$current_key_id" && "$current_key_name" != "$key_name" ]]; then
     announce_detail "A chave SSH atual já existe no GitHub com outro título. Recriando com o nome correto..."
     if ! ops_gh_delete_ssh_key "$current_key_id"; then
       announce_warning "Não foi possível remover a chave SSH antiga com título incorreto."

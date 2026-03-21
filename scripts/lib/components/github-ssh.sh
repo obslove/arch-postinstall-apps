@@ -53,6 +53,10 @@ build_ssh_key_name() {
   printf '%s\n' "$USER"
 }
 
+github_ssh_explicit_name_requested() {
+  [[ -n "$GITHUB_SSH_KEY_NAME" ]]
+}
+
 current_public_ssh_key() {
   [[ -f "${SSH_KEY_PATH}.pub" ]] || return 1
   awk 'NR == 1 { print $1, $2 }' "${SSH_KEY_PATH}.pub"
@@ -83,6 +87,10 @@ find_current_github_ssh_key() {
 github_has_expected_ssh_key_name() {
   local key_data
   local current_key_name=""
+
+  if ! github_ssh_explicit_name_requested; then
+    return 0
+  fi
 
   key_data="$(find_current_github_ssh_key 2>/dev/null || true)"
   [[ -n "$key_data" ]] || return 1

@@ -120,6 +120,7 @@ temp_clipboard_package=""
 ssh_dir=""
 key_comment=""
 key_name=""
+should_reconcile_key_name=""
 current_key_id=""
 current_key_name=""
 
@@ -919,6 +920,10 @@ component_verify_desktop_integration() {
 }
 
 build_ssh_key_name() {
+  :
+}
+
+github_ssh_explicit_name_requested() {
   :
 }
 
