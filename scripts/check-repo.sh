@@ -83,10 +83,13 @@ check_readme_links() {
 check_cloudflare_deploy_files() {
   test -f "$REPO_DIR/.github/workflows/deploy-bootstrap.yml"
   test -f "$REPO_DIR/cloudflare/bootstrap-worker/src/index.js"
-  test -f "$REPO_DIR/cloudflare/bootstrap-worker/wrangler.jsonc"
+  test -f "$REPO_DIR/cloudflare/bootstrap-worker/wrangler.toml"
   node --check "$REPO_DIR/cloudflare/bootstrap-worker/src/index.js"
-  node -e 'JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"))' \
-    "$REPO_DIR/cloudflare/bootstrap-worker/wrangler.jsonc"
+  grep -Fqx 'name = "obslove-bootstrap"' "$REPO_DIR/cloudflare/bootstrap-worker/wrangler.toml"
+  grep -Fqx 'main = "src/index.js"' "$REPO_DIR/cloudflare/bootstrap-worker/wrangler.toml"
+  grep -Fqx 'compatibility_date = "2026-03-21"' "$REPO_DIR/cloudflare/bootstrap-worker/wrangler.toml"
+  grep -Fqx 'workers_dev = false' "$REPO_DIR/cloudflare/bootstrap-worker/wrangler.toml"
+  grep -Fq 'pattern = "obslove.dev/*"' "$REPO_DIR/cloudflare/bootstrap-worker/wrangler.toml"
 }
 
 build_check_file_lists() {
