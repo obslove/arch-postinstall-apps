@@ -15,6 +15,51 @@ require_command() {
   fi
 }
 
+canonicalize_path() {
+  if ! command -v realpath >/dev/null 2>&1; then
+    announce_error "Comando obrigatório não encontrado: realpath"
+    return 1
+  fi
+
+  realpath -m -- "$1"
+}
+
+require_exact_path() {
+  local label="$1"
+  local actual_path="$2"
+  local expected_path="$3"
+  local resolved_actual=""
+  local resolved_expected=""
+
+  [[ -n "$actual_path" && -n "$expected_path" ]] || {
+    announce_error "Caminho inválido para $label."
+    return 1
+  }
+
+  resolved_actual="$(canonicalize_path "$actual_path")" || return 1
+  resolved_expected="$(canonicalize_path "$expected_path")" || return 1
+
+  if [[ "$resolved_actual" != "$resolved_expected" ]]; then
+    announce_error "$label fora do caminho gerenciado esperado: $actual_path"
+    announce_error "Esperado: $resolved_expected"
+    return 1
+  fi
+}
+
+validate_managed_paths() {
+  local expected_repositories_dir="$HOME/Repositories"
+  local expected_install_dir="$expected_repositories_dir/arch-postinstall-apps"
+  local expected_yay_repo_dir="$expected_repositories_dir/yay"
+  local expected_state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/arch-postinstall-apps"
+  local expected_lock_dir="$expected_state_dir/lock"
+
+  require_exact_path "REPOSITORIES_DIR" "$REPOSITORIES_DIR" "$expected_repositories_dir" || exit 1
+  require_exact_path "INSTALL_DIR" "$INSTALL_DIR" "$expected_install_dir" || exit 1
+  require_exact_path "YAY_REPO_DIR" "$YAY_REPO_DIR" "$expected_yay_repo_dir" || exit 1
+  require_exact_path "STATE_DIR" "$STATE_DIR" "$expected_state_dir" || exit 1
+  require_exact_path "LOCK_DIR" "$LOCK_DIR" "$expected_lock_dir" || exit 1
+}
+
 get_host_name() {
   if command -v hostname >/dev/null 2>&1; then
     hostname

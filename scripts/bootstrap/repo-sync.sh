@@ -1,45 +1,6 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 
-ensure_repo_origin_remote() {
-  local repo_dir="$1"
-  local current_origin_url=""
-  current_origin_url="$(git -C "$repo_dir" remote get-url origin 2>/dev/null || true)"
-
-  if [[ -z "$current_origin_url" ]]; then
-    git -C "$repo_dir" remote add origin "$REPO_HTTPS_URL"
-    return
-  fi
-
-  if [[ "$current_origin_url" != "$REPO_HTTPS_URL" && "$current_origin_url" != "$REPO_SSH_URL" ]]; then
-    announce_detail "Foi detectado um remoto origin personalizado em $repo_dir. A configuração atual será mantida."
-    return
-  fi
-
-  if [[ "$current_origin_url" != "$REPO_HTTPS_URL" ]]; then
-    git -C "$repo_dir" remote set-url origin "$REPO_HTTPS_URL"
-  fi
-}
-
-get_repo_branch() {
-  local repo_dir="$1"
-  local branch_name=""
-
-  if ! git -C "$repo_dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    return 1
-  fi
-
-  branch_name="$(git -C "$repo_dir" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
-  if [[ -n "$branch_name" ]]; then
-    printf '%s\n' "$branch_name"
-    return 0
-  fi
-
-  branch_name="$(git -C "$repo_dir" rev-parse --short HEAD 2>/dev/null || true)"
-  [[ -n "$branch_name" ]] || return 1
-  printf 'detached@%s\n' "$branch_name"
-}
-
 repo_is_dirty() {
   ! git -C "$INSTALL_DIR" diff --quiet --no-ext-diff || \
     ! git -C "$INSTALL_DIR" diff --cached --quiet --no-ext-diff || \
@@ -66,7 +27,7 @@ sync_repo() {
       return 0
     fi
 
-    if ! ensure_repo_origin_remote "$INSTALL_DIR"; then
+    if ! ensure_repo_origin_remote "$INSTALL_DIR" "$REPO_HTTPS_URL"; then
       announce_error "Não foi possível ajustar o remoto origin do clone gerenciado."
       return 1
     fi

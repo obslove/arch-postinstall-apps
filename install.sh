@@ -84,17 +84,38 @@ parse_cli_args() {
 }
 # --- end: scripts/lib/cli.sh ---
 
-# --- begin: scripts/bootstrap/step-result.sh ---
+# --- begin: scripts/lib/step-result.sh ---
 # shellcheck shell=bash
 # shellcheck disable=SC2034
 
-step_result_reset() { STEP_RESULT_STATUS=""; STEP_RESULT_MESSAGE=""; }
-step_result_success() { STEP_RESULT_STATUS="success"; STEP_RESULT_MESSAGE="${1:-}"; }
-step_result_skipped() { STEP_RESULT_STATUS="skipped"; STEP_RESULT_MESSAGE="${1:-}"; }
-step_result_hard_fail() { STEP_RESULT_STATUS="hard_fail"; STEP_RESULT_MESSAGE="${1:-}"; }
-# --- end: scripts/bootstrap/step-result.sh ---
+step_result_reset() {
+  STEP_RESULT_STATUS=""
+  STEP_RESULT_MESSAGE=""
+  STEP_RESULT_SUMMARY_PRINTED=0
+}
 
-# --- begin: scripts/bootstrap/ui.sh ---
+step_result_success() {
+  STEP_RESULT_STATUS="success"
+  STEP_RESULT_MESSAGE="${1:-}"
+}
+
+step_result_skipped() {
+  STEP_RESULT_STATUS="skipped"
+  STEP_RESULT_MESSAGE="${1:-}"
+}
+
+step_result_soft_fail() {
+  STEP_RESULT_STATUS="soft_fail"
+  STEP_RESULT_MESSAGE="${1:-}"
+}
+
+step_result_hard_fail() {
+  STEP_RESULT_STATUS="hard_fail"
+  STEP_RESULT_MESSAGE="${1:-}"
+}
+# --- end: scripts/lib/step-result.sh ---
+
+# --- begin: scripts/lib/ui.sh ---
 # shellcheck shell=bash
 # shellcheck disable=SC2034
 
@@ -187,7 +208,7 @@ announce_step() {
 
 announce_detail() {
   if [[ "$STEP_OUTPUT_ONLY" == "1" ]]; then
-    if [[ "$1" == *"Etapa ignorada."* ]]; then
+    if [[ "$1" == *"Etapa ignorada."* || "$1" == Instalando\ via\ pacman:* || "$1" == Instalando\ via\ AUR:* ]]; then
       write_log_only "$1"
       return 0
     fi
@@ -210,6 +231,30 @@ announce_prompt() {
   emit_notice "?" "$style_step" "$1"
 }
 
+print_summary_section() {
+  local title="$1"
+  echo "│"
+  printf '│  %s\n' "$(style_text "$style_step" "$title")"
+}
+
+print_summary_item() {
+  local label="$1"
+  local value="$2"
+  local label_length=0
+  local padding_width=22
+
+  label_length="$(printf '%s' "$label" | wc -m | tr -d '[:space:]')"
+  if [[ -z "$label_length" ]]; then
+    label_length=0
+  fi
+  if (( label_length < padding_width )); then
+    printf '│  %s %s%*s %s\n' "$(style_text "$style_detail" "•")" "$label" "$((padding_width - label_length))" "" "$value"
+    return 0
+  fi
+
+  printf '│  %s %s %s\n' "$(style_text "$style_detail" "•")" "$label" "$value"
+}
+
 close_step_block() {
   if [[ "$step_open" != "1" ]]; then
     return 0
@@ -219,10 +264,28 @@ close_step_block() {
   printf '\n'
   step_open=0
 }
-# --- end: scripts/bootstrap/ui.sh ---
+# --- end: scripts/lib/ui.sh ---
 
-# --- begin: scripts/bootstrap/process.sh ---
+# --- begin: scripts/lib/process.sh ---
 # shellcheck shell=bash
+
+append_array_item() {
+  local array_name="$1"
+  local value="$2"
+  local existing
+  # shellcheck disable=SC2178
+  declare -n target_array="$array_name"
+
+  for existing in "${target_array[@]}"; do
+    [[ "$existing" == "$value" ]] && return 0
+  done
+
+  target_array+=("$value")
+}
+
+package_is_installed() {
+  pacman -Q "$1" >/dev/null 2>&1
+}
 
 run_with_terminal_stdin() {
   if [[ -r /dev/tty ]]; then
@@ -242,7 +305,7 @@ collect_missing_packages() {
 
   target_array=()
   for package_name in "$@"; do
-    if ! pacman -Q "$package_name" >/dev/null 2>&1; then
+    if ! package_is_installed "$package_name"; then
       target_array+=("$package_name")
     fi
   done
@@ -279,12 +342,27 @@ retry_log_only() {
 retry_interactive_log_only() {
   run_interactive_log_only "$@"
 }
-# --- end: scripts/bootstrap/process.sh ---
+# --- end: scripts/lib/process.sh ---
 
-# --- begin: scripts/bootstrap/locking.sh ---
+# --- begin: scripts/lib/locking.sh ---
 # shellcheck shell=bash
 
-register_cleanup_path() { cleanup_paths+=("$1"); }
+checkpoint_file() {
+  printf '%s/checkpoints/%s.done\n' "$STATE_DIR" "$1"
+}
+
+has_checkpoint() {
+  [[ -f "$(checkpoint_file "$1")" ]]
+}
+
+mark_checkpoint() {
+  mkdir -p "$STATE_DIR/checkpoints"
+  touch "$(checkpoint_file "$1")"
+}
+
+register_cleanup_path() {
+  cleanup_paths+=("$1")
+}
 
 acquire_lock() {
   local existing_pid=""
@@ -308,7 +386,7 @@ acquire_lock() {
 
   if [[ -z "$existing_pid" ]] || ! kill -0 "$existing_pid" 2>/dev/null; then
     announce_warning "Foi detectado um lock órfão. Limpando a execução anterior."
-    rm -rf "$LOCK_DIR"
+    rm -rf -- "$LOCK_DIR"
     if mkdir "$LOCK_DIR" 2>/dev/null; then
       printf '%s\n' "$$" >"$LOCK_DIR/pid"
       register_cleanup_path "$LOCK_DIR"
@@ -330,12 +408,12 @@ cleanup() {
 
   for path in "${cleanup_paths[@]}"; do
     [[ -n "$path" ]] || continue
-    rm -rf "$path"
+    rm -rf -- "$path"
   done
 }
-# --- end: scripts/bootstrap/locking.sh ---
+# --- end: scripts/lib/locking.sh ---
 
-# --- begin: scripts/bootstrap/env.sh ---
+# --- begin: scripts/lib/env.sh ---
 # shellcheck shell=bash
 
 ensure_not_root() {
@@ -352,12 +430,90 @@ require_command() {
   fi
 }
 
+canonicalize_path() {
+  if ! command -v realpath >/dev/null 2>&1; then
+    announce_error "Comando obrigatório não encontrado: realpath"
+    return 1
+  fi
+
+  realpath -m -- "$1"
+}
+
+require_exact_path() {
+  local label="$1"
+  local actual_path="$2"
+  local expected_path="$3"
+  local resolved_actual=""
+  local resolved_expected=""
+
+  [[ -n "$actual_path" && -n "$expected_path" ]] || {
+    announce_error "Caminho inválido para $label."
+    return 1
+  }
+
+  resolved_actual="$(canonicalize_path "$actual_path")" || return 1
+  resolved_expected="$(canonicalize_path "$expected_path")" || return 1
+
+  if [[ "$resolved_actual" != "$resolved_expected" ]]; then
+    announce_error "$label fora do caminho gerenciado esperado: $actual_path"
+    announce_error "Esperado: $resolved_expected"
+    return 1
+  fi
+}
+
+validate_managed_paths() {
+  local expected_repositories_dir="$HOME/Repositories"
+  local expected_install_dir="$expected_repositories_dir/arch-postinstall-apps"
+  local expected_yay_repo_dir="$expected_repositories_dir/yay"
+  local expected_state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/arch-postinstall-apps"
+  local expected_lock_dir="$expected_state_dir/lock"
+
+  require_exact_path "REPOSITORIES_DIR" "$REPOSITORIES_DIR" "$expected_repositories_dir" || exit 1
+  require_exact_path "INSTALL_DIR" "$INSTALL_DIR" "$expected_install_dir" || exit 1
+  require_exact_path "YAY_REPO_DIR" "$YAY_REPO_DIR" "$expected_yay_repo_dir" || exit 1
+  require_exact_path "STATE_DIR" "$STATE_DIR" "$expected_state_dir" || exit 1
+  require_exact_path "LOCK_DIR" "$LOCK_DIR" "$expected_lock_dir" || exit 1
+}
+
+get_host_name() {
+  if command -v hostname >/dev/null 2>&1; then
+    hostname
+    return
+  fi
+
+  if command -v hostnamectl >/dev/null 2>&1; then
+    hostnamectl hostname 2>/dev/null
+    return
+  fi
+
+  if [[ -f /etc/hostname ]]; then
+    cat /etc/hostname
+    return
+  fi
+
+  uname -n
+}
+
+sanitize_label() {
+  printf '%s' "$1" | tr -cs '[:alnum:].@_-' '-'
+}
+
+is_wayland_session() {
+  [[ "${XDG_SESSION_TYPE:-}" == "wayland" || -n "${WAYLAND_DISPLAY:-}" ]]
+}
+
+is_hyprland_session() {
+  [[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]] || \
+    [[ "${XDG_CURRENT_DESKTOP:-}" == *Hyprland* ]] || \
+    [[ "${DESKTOP_SESSION:-}" == "hyprland" ]]
+}
+
+is_supported_session() {
+  is_wayland_session && is_hyprland_session
+}
+
 ensure_supported_session() {
-  if [[ "${XDG_SESSION_TYPE:-}" == "wayland" || -n "${WAYLAND_DISPLAY:-}" ]] && {
-    [[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]] || \
-      [[ "${XDG_CURRENT_DESKTOP:-}" == *Hyprland* ]] || \
-      [[ "${DESKTOP_SESSION:-}" == "hyprland" ]]
-  }; then
+  if is_supported_session; then
     return 0
   fi
 
@@ -372,18 +528,201 @@ ensure_arch() {
     exit 1
   fi
 }
-# --- end: scripts/bootstrap/env.sh ---
 
-# --- begin: scripts/bootstrap/repo.sh ---
+github_ssh_expected() {
+  [[ "$SKIP_GITHUB_SSH" != "1" ]]
+}
+
+github_ssh_force_reconcile() {
+  [[ "$EXCLUSIVE_GITHUB_SSH_KEY" == "1" || -n "$GITHUB_SSH_KEY_NAME" ]]
+}
+# --- end: scripts/lib/env.sh ---
+
+# --- begin: scripts/lib/ops.sh ---
 # shellcheck shell=bash
+# shellcheck source-path=SCRIPTDIR
+
+ops_sudo_auth() {
+  run_with_terminal_stdin sudo -v
+}
+
+ops_pacman_upgrade_and_install_needed() {
+  retry_interactive_log_only sudo pacman -Syu --needed --noconfirm "$@"
+}
+
+ops_pacman_upgrade_full() {
+  retry_interactive_log_only sudo pacman -Syu --noconfirm
+}
+
+ops_pacman_install_needed() {
+  retry_interactive_log_only sudo pacman -S --needed --noconfirm "$@"
+}
+
+ops_pacman_remove_recursive() {
+  retry_interactive_log_only sudo pacman -Rns --noconfirm "$@"
+}
+
+ops_pacman_refresh_databases() {
+  run_interactive_log_only sudo pacman -Syy --noconfirm
+}
+
+ops_backup_pacman_conf() {
+  local backup_path="$1"
+
+  sudo cp /etc/pacman.conf "$backup_path"
+}
+
+ops_enable_multilib_config() {
+  sudo sed -i \
+    '/^[[:space:]]*#\[multilib\][[:space:]]*$/,/^[[:space:]]*#Include = \/etc\/pacman.d\/mirrorlist[[:space:]]*$/ s/^[[:space:]]*#//' \
+    /etc/pacman.conf
+}
+
+ops_download_file() {
+  local source_url="$1"
+  local destination_path="$2"
+
+  retry curl -fsSL "$source_url" -o "$destination_path"
+}
+
+ops_extract_tar_gz() {
+  local archive_path="$1"
+  local destination_dir="$2"
+
+  tar -xzf "$archive_path" -C "$destination_dir"
+}
+
+ops_build_yay_package() {
+  local yay_dir="$1"
+
+  retry_log_only build_yay "$yay_dir"
+}
+
+ops_git_remote_add_origin() {
+  local repo_dir="$1"
+  local origin_url="$2"
+
+  git -C "$repo_dir" remote add origin "$origin_url"
+}
+
+ops_git_remote_set_origin() {
+  local repo_dir="$1"
+  local origin_url="$2"
+
+  git -C "$repo_dir" remote set-url origin "$origin_url"
+}
+
+ops_git_fetch_origin() {
+  local repo_dir="$1"
+
+  retry_log_only git -C "$repo_dir" fetch origin
+}
+
+ops_git_checkout_main() {
+  local repo_dir="$1"
+
+  run_log_only git -C "$repo_dir" checkout main
+}
+
+ops_git_checkout_main_from_origin() {
+  local repo_dir="$1"
+
+  run_log_only git -C "$repo_dir" checkout -b main origin/main
+}
+
+ops_git_pull_main_ff_only() {
+  local repo_dir="$1"
+
+  retry_log_only git -C "$repo_dir" pull --ff-only origin main
+}
+
+ops_git_clone_main() {
+  local repo_url="$1"
+  local repo_dir="$2"
+
+  retry_log_only git clone --branch main --single-branch "$repo_url" "$repo_dir"
+}
+
+ops_gh_auth_login() {
+  run_gh_auth_flow auth login --web --git-protocol ssh --scopes admin:public_key
+}
+
+ops_gh_auth_refresh_admin_public_key() {
+  run_gh_auth_flow auth refresh -h github.com -s admin:public_key
+}
+
+ops_gh_delete_ssh_key() {
+  local key_id="$1"
+
+  retry gh api --method DELETE "user/keys/$key_id"
+}
+
+ops_gh_create_ssh_key() {
+  local key_name="$1"
+  local public_key="$2"
+
+  retry gh api user/keys --method POST -f "title=$key_name" -f "key=$public_key" --jq '.id'
+}
+
+ops_npm_config_set_prefix() {
+  local prefix_path="$1"
+
+  run_log_only npm config set prefix "$prefix_path"
+}
+
+ops_npm_install_codex_cli() {
+  retry_log_only npm install -g @openai/codex
+}
+
+ops_ssh_regenerate_public_key() {
+  local private_key_path="$1"
+  local public_key_path="$2"
+
+  ssh-keygen -y -f "$private_key_path" >"$public_key_path"
+}
+
+ops_ssh_generate_key_pair() {
+  local key_comment="$1"
+  local key_path="$2"
+
+  ssh-keygen -t ed25519 -C "$key_comment" -f "$key_path" -N ""
+}
+
+ops_systemctl_user_daemon_reload() {
+  run_log_only systemctl --user daemon-reload
+}
+
+ops_systemctl_user_start() {
+  run_log_only systemctl --user start "$@"
+}
+
+ops_aur_install_needed() {
+  local helper_name="$1"
+  shift
+
+  retry_log_only "$helper_name" -S --needed --noconfirm "$@"
+}
+# --- end: scripts/lib/ops.sh ---
+
+# --- begin: scripts/lib/repo.sh ---
+# shellcheck shell=bash
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=scripts/lib/shellcheck-runtime.sh
+# shellcheck source=scripts/lib/ops.sh
+
+if false; then
+  source "$SCRIPT_DIR/scripts/lib/shellcheck-runtime.sh"
+  source "$SCRIPT_DIR/scripts/lib/ops.sh"
+fi
 
 ensure_repo_origin_remote() {
   local repo_dir="$1"
+  local desired_origin_url="${2:-$REPO_HTTPS_URL}"
   local current_origin_url=""
   current_origin_url="$(git -C "$repo_dir" remote get-url origin 2>/dev/null || true)"
 
   if [[ -z "$current_origin_url" ]]; then
-    git -C "$repo_dir" remote add origin "$REPO_HTTPS_URL"
+    ops_git_remote_add_origin "$repo_dir" "$desired_origin_url"
     return
   fi
 
@@ -392,8 +731,8 @@ ensure_repo_origin_remote() {
     return
   fi
 
-  if [[ "$current_origin_url" != "$REPO_HTTPS_URL" ]]; then
-    git -C "$repo_dir" remote set-url origin "$REPO_HTTPS_URL"
+  if [[ "$current_origin_url" != "$desired_origin_url" ]]; then
+    ops_git_remote_set_origin "$repo_dir" "$desired_origin_url"
   fi
 }
 
@@ -415,6 +754,44 @@ get_repo_branch() {
   [[ -n "$branch_name" ]] || return 1
   printf 'detached@%s\n' "$branch_name"
 }
+
+current_repo_origin_status() {
+  local repo_dir="$1"
+  local current_origin_url=""
+
+  current_origin_url="$(git -C "$repo_dir" remote get-url origin 2>/dev/null || true)"
+  case "$current_origin_url" in
+    "$REPO_SSH_URL")
+      printf '%s\n' "ssh"
+      ;;
+    "$REPO_HTTPS_URL")
+      printf '%s\n' "https"
+      ;;
+    "")
+      printf '%s\n' "ausente"
+      ;;
+    *)
+      printf '%s\n' "personalizado"
+      ;;
+  esac
+}
+
+current_repo_commit_short() {
+  local repo_dir="$1"
+  local commit_hash=""
+
+  commit_hash="$(git -C "$repo_dir" rev-parse --short HEAD 2>/dev/null || true)"
+  [[ -n "$commit_hash" ]] || {
+    printf '%s\n' "indisponível"
+    return 0
+  }
+
+  printf '%s\n' "$commit_hash"
+}
+# --- end: scripts/lib/repo.sh ---
+
+# --- begin: scripts/bootstrap/repo-sync.sh ---
+# shellcheck shell=bash
 
 repo_is_dirty() {
   ! git -C "$INSTALL_DIR" diff --quiet --no-ext-diff || \
@@ -442,7 +819,7 @@ sync_repo() {
       return 0
     fi
 
-    if ! ensure_repo_origin_remote "$INSTALL_DIR"; then
+    if ! ensure_repo_origin_remote "$INSTALL_DIR" "$REPO_HTTPS_URL"; then
       announce_error "Não foi possível ajustar o remoto origin do clone gerenciado."
       return 1
     fi
@@ -495,26 +872,32 @@ sync_repo() {
     return 1
   fi
 }
-# --- end: scripts/bootstrap/repo.sh ---
+# --- end: scripts/bootstrap/repo-sync.sh ---
 
 # --- begin: scripts/bootstrap/entrypoint.sh ---
 # shellcheck shell=bash
 # shellcheck disable=SC2034
 # shellcheck source-path=SCRIPTDIR
-# shellcheck source=scripts/bootstrap/step-result.sh
-# shellcheck source=scripts/bootstrap/ui.sh
-# shellcheck source=scripts/bootstrap/process.sh
-# shellcheck source=scripts/bootstrap/locking.sh
-# shellcheck source=scripts/bootstrap/env.sh
-# shellcheck source=scripts/bootstrap/repo.sh
+# shellcheck source=scripts/lib/cli.sh
+# shellcheck source=scripts/lib/step-result.sh
+# shellcheck source=scripts/lib/ui.sh
+# shellcheck source=scripts/lib/process.sh
+# shellcheck source=scripts/lib/locking.sh
+# shellcheck source=scripts/lib/env.sh
+# shellcheck source=scripts/lib/ops.sh
+# shellcheck source=scripts/lib/repo.sh
+# shellcheck source=scripts/bootstrap/repo-sync.sh
 
 if false; then
-  source "$SCRIPT_DIR/scripts/bootstrap/step-result.sh"
-  source "$SCRIPT_DIR/scripts/bootstrap/ui.sh"
-  source "$SCRIPT_DIR/scripts/bootstrap/process.sh"
-  source "$SCRIPT_DIR/scripts/bootstrap/locking.sh"
-  source "$SCRIPT_DIR/scripts/bootstrap/env.sh"
-  source "$SCRIPT_DIR/scripts/bootstrap/repo.sh"
+  source "$SCRIPT_DIR/scripts/lib/cli.sh"
+  source "$SCRIPT_DIR/scripts/lib/step-result.sh"
+  source "$SCRIPT_DIR/scripts/lib/ui.sh"
+  source "$SCRIPT_DIR/scripts/lib/process.sh"
+  source "$SCRIPT_DIR/scripts/lib/locking.sh"
+  source "$SCRIPT_DIR/scripts/lib/env.sh"
+  source "$SCRIPT_DIR/scripts/lib/ops.sh"
+  source "$SCRIPT_DIR/scripts/lib/repo.sh"
+  source "$SCRIPT_DIR/scripts/bootstrap/repo-sync.sh"
 fi
 
 SELF_PATH="${BASH_SOURCE[0]:-$0}"
@@ -613,6 +996,7 @@ main() {
   local bootstrap_missing_packages=()
 
   parse_cli_args "$@"
+  validate_managed_paths
   trap cleanup EXIT
 
   ensure_not_root

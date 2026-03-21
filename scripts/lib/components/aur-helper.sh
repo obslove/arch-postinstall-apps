@@ -71,7 +71,7 @@ install_yay() {
     return 1
   fi
 
-  rm -rf "$YAY_REPO_DIR"
+  rm -rf -- "$YAY_REPO_DIR"
   announce_detail "Extraindo snapshot do yay em $YAY_REPO_DIR..."
   if ! ops_extract_tar_gz "$archive_file" "$REPOSITORIES_DIR"; then
     return 1

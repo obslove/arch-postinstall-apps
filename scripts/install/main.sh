@@ -17,6 +17,7 @@ main() {
   parse_cli_args "$@"
   finalize_config
   runtime_state_init
+  validate_managed_paths
   trap cleanup EXIT
 
   ensure_not_root

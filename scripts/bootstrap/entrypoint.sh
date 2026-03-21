@@ -1,20 +1,26 @@
 # shellcheck shell=bash
 # shellcheck disable=SC2034
 # shellcheck source-path=SCRIPTDIR
-# shellcheck source=scripts/bootstrap/step-result.sh
-# shellcheck source=scripts/bootstrap/ui.sh
-# shellcheck source=scripts/bootstrap/process.sh
-# shellcheck source=scripts/bootstrap/locking.sh
-# shellcheck source=scripts/bootstrap/env.sh
-# shellcheck source=scripts/bootstrap/repo.sh
+# shellcheck source=scripts/lib/cli.sh
+# shellcheck source=scripts/lib/step-result.sh
+# shellcheck source=scripts/lib/ui.sh
+# shellcheck source=scripts/lib/process.sh
+# shellcheck source=scripts/lib/locking.sh
+# shellcheck source=scripts/lib/env.sh
+# shellcheck source=scripts/lib/ops.sh
+# shellcheck source=scripts/lib/repo.sh
+# shellcheck source=scripts/bootstrap/repo-sync.sh
 
 if false; then
-  source "$SCRIPT_DIR/scripts/bootstrap/step-result.sh"
-  source "$SCRIPT_DIR/scripts/bootstrap/ui.sh"
-  source "$SCRIPT_DIR/scripts/bootstrap/process.sh"
-  source "$SCRIPT_DIR/scripts/bootstrap/locking.sh"
-  source "$SCRIPT_DIR/scripts/bootstrap/env.sh"
-  source "$SCRIPT_DIR/scripts/bootstrap/repo.sh"
+  source "$SCRIPT_DIR/scripts/lib/cli.sh"
+  source "$SCRIPT_DIR/scripts/lib/step-result.sh"
+  source "$SCRIPT_DIR/scripts/lib/ui.sh"
+  source "$SCRIPT_DIR/scripts/lib/process.sh"
+  source "$SCRIPT_DIR/scripts/lib/locking.sh"
+  source "$SCRIPT_DIR/scripts/lib/env.sh"
+  source "$SCRIPT_DIR/scripts/lib/ops.sh"
+  source "$SCRIPT_DIR/scripts/lib/repo.sh"
+  source "$SCRIPT_DIR/scripts/bootstrap/repo-sync.sh"
 fi
 
 SELF_PATH="${BASH_SOURCE[0]:-$0}"
@@ -113,6 +119,7 @@ main() {
   local bootstrap_missing_packages=()
 
   parse_cli_args "$@"
+  validate_managed_paths
   trap cleanup EXIT
 
   ensure_not_root

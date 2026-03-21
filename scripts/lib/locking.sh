@@ -40,7 +40,7 @@ acquire_lock() {
 
   if [[ -z "$existing_pid" ]] || ! kill -0 "$existing_pid" 2>/dev/null; then
     announce_warning "Foi detectado um lock órfão. Limpando a execução anterior."
-    rm -rf "$LOCK_DIR"
+    rm -rf -- "$LOCK_DIR"
     if mkdir "$LOCK_DIR" 2>/dev/null; then
       printf '%s\n' "$$" >"$LOCK_DIR/pid"
       register_cleanup_path "$LOCK_DIR"
@@ -62,6 +62,6 @@ cleanup() {
 
   for path in "${cleanup_paths[@]}"; do
     [[ -n "$path" ]] || continue
-    rm -rf "$path"
+    rm -rf -- "$path"
   done
 }
