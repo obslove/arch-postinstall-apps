@@ -66,6 +66,10 @@ declare -Ag COMPONENT_EXPECTED_FUNCTIONS=()
 declare -Ag COMPONENT_PIPELINE_TITLES=()
 declare -Ag COMPONENT_PIPELINE_STEP_FUNCTIONS=()
 declare -Ag COMPONENT_SUMMARY_FORMATTERS=()
+declare -Ag COMPONENT_DETECT_HANDLERS=()
+declare -Ag COMPONENT_APPLY_HANDLERS=()
+declare -Ag COMPONENT_VERIFY_HANDLERS=()
+declare -Ag COMPONENT_CHECKPOINT_HANDLERS=()
 declare -Ag COMPONENT_RUNTIME_STATUS_FLAGS=()
 declare -Ag COMPONENT_CHECKPOINT_FLAGS=()
 declare -Ag COMPONENT_CHECK_ONLY_DETECTION_FLAGS=()
@@ -127,11 +131,15 @@ register_component() {
   local pipeline_title="$5"
   local pipeline_step_function="$6"
   local summary_formatter="$7"
-  local has_runtime_status="$8"
-  local has_checkpoint="$9"
-  local check_only_detection="${10}"
-  local verification_enabled="${11}"
-  local summary_status_enabled="${12}"
+  local detect_handler="$8"
+  local apply_handler="$9"
+  local verify_handler="${10}"
+  local checkpoint_handler="${11}"
+  local has_runtime_status="${12}"
+  local has_checkpoint="${13}"
+  local check_only_detection="${14}"
+  local verification_enabled="${15}"
+  local summary_status_enabled="${16}"
 
   COMPONENT_IDS+=("$component_id")
   COMPONENT_LABELS["$component_id"]="$component_label"
@@ -140,6 +148,10 @@ register_component() {
   COMPONENT_PIPELINE_TITLES["$component_id"]="$pipeline_title"
   COMPONENT_PIPELINE_STEP_FUNCTIONS["$component_id"]="$pipeline_step_function"
   COMPONENT_SUMMARY_FORMATTERS["$component_id"]="$summary_formatter"
+  COMPONENT_DETECT_HANDLERS["$component_id"]="$detect_handler"
+  COMPONENT_APPLY_HANDLERS["$component_id"]="$apply_handler"
+  COMPONENT_VERIFY_HANDLERS["$component_id"]="$verify_handler"
+  COMPONENT_CHECKPOINT_HANDLERS["$component_id"]="$checkpoint_handler"
   COMPONENT_RUNTIME_STATUS_FLAGS["$component_id"]="$has_runtime_status"
   COMPONENT_CHECKPOINT_FLAGS["$component_id"]="$has_checkpoint"
   COMPONENT_CHECK_ONLY_DETECTION_FLAGS["$component_id"]="$check_only_detection"
@@ -155,6 +167,10 @@ register_component \
   "Preparando helper AUR..." \
   "prepare_aur_helper_step" \
   "state_get_aur_helper_status" \
+  "component_detect_aur_helper" \
+  "component_apply_aur_helper" \
+  "component_verify_aur_helper" \
+  "component_checkpoint_key_aur_helper" \
   "0" \
   "0" \
   "1" \
@@ -169,6 +185,10 @@ register_component \
   "Configurando Codex CLI..." \
   "codex_cli_step" \
   "" \
+  "component_detect_codex_cli" \
+  "component_apply_codex_cli" \
+  "component_verify_codex_cli" \
+  "component_checkpoint_key_codex_cli" \
   "0" \
   "1" \
   "0" \
@@ -183,6 +203,10 @@ register_component \
   "Ajustando integração desktop..." \
   "desktop_integration_step" \
   "format_desktop_integration_status" \
+  "component_detect_desktop_integration" \
+  "component_apply_desktop_integration" \
+  "component_verify_desktop_integration" \
+  "component_checkpoint_key_desktop_integration" \
   "1" \
   "1" \
   "1" \
@@ -197,6 +221,10 @@ register_component \
   "Configurando GitHub SSH..." \
   "github_ssh_step" \
   "format_github_ssh_status" \
+  "component_detect_github_ssh" \
+  "component_apply_github_ssh" \
+  "component_verify_github_ssh" \
+  "component_checkpoint_key_github_ssh" \
   "1" \
   "1" \
   "1" \
@@ -265,4 +293,31 @@ component_summary_formatter_function() {
 
   [[ -n "$summary_formatter" ]] || return 1
   printf '%s\n' "$summary_formatter"
+}
+
+component_action_handler() {
+  local action="$1"
+  local component_id="$2"
+  local handler_name=""
+
+  case "$action" in
+    detect)
+      handler_name="${COMPONENT_DETECT_HANDLERS[$component_id]:-}"
+      ;;
+    apply)
+      handler_name="${COMPONENT_APPLY_HANDLERS[$component_id]:-}"
+      ;;
+    verify)
+      handler_name="${COMPONENT_VERIFY_HANDLERS[$component_id]:-}"
+      ;;
+    checkpoint_key)
+      handler_name="${COMPONENT_CHECKPOINT_HANDLERS[$component_id]:-}"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+
+  [[ -n "$handler_name" ]] || return 1
+  printf '%s\n' "$handler_name"
 }

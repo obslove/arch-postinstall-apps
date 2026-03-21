@@ -6,6 +6,7 @@
 
 target_array=""
 property_map=""
+handler_name=""
 CHECK_ONLY=""
 EXCLUSIVE_GITHUB_SSH_KEY=""
 SKIP_GITHUB_SSH=""
@@ -69,7 +70,6 @@ branch_name=""
 commit_hash=""
 SHARED_LIB_DIR=""
 COMPONENT_CONFIG_FILE=""
-function_name=""
 checkpoint_key=""
 summary_formatter=""
 archive_file=""
@@ -161,6 +161,10 @@ declare -Ag COMPONENT_EXPECTED_FUNCTIONS=()
 declare -Ag COMPONENT_PIPELINE_TITLES=()
 declare -Ag COMPONENT_PIPELINE_STEP_FUNCTIONS=()
 declare -Ag COMPONENT_SUMMARY_FORMATTERS=()
+declare -Ag COMPONENT_DETECT_HANDLERS=()
+declare -Ag COMPONENT_APPLY_HANDLERS=()
+declare -Ag COMPONENT_VERIFY_HANDLERS=()
+declare -Ag COMPONENT_CHECKPOINT_HANDLERS=()
 declare -Ag COMPONENT_RUNTIME_STATUS_FLAGS=()
 declare -Ag COMPONENT_CHECKPOINT_FLAGS=()
 declare -Ag COMPONENT_CHECK_ONLY_DETECTION_FLAGS=()
@@ -254,6 +258,10 @@ component_pipeline_title() {
 }
 
 component_summary_formatter_function() {
+  :
+}
+
+component_action_handler() {
   :
 }
 
@@ -702,10 +710,6 @@ record_soft_failure() {
 }
 
 create_directories() {
-  :
-}
-
-component_function_name() {
   :
 }
 

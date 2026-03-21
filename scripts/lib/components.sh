@@ -1,27 +1,25 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 
-component_function_name() {
-  local action="$1"
-  local component_id="$2"
-
-  printf 'component_%s_%s\n' "$action" "$component_id"
-}
-
 component_dispatch() {
   local action="$1"
   local component_id="$2"
-  local function_name
+  local handler_name=""
 
   shift 2
-  function_name="$(component_function_name "$action" "$component_id")"
+  handler_name="$(component_action_handler "$action" "$component_id" 2>/dev/null || true)"
 
-  if ! declare -F "$function_name" >/dev/null 2>&1; then
+  if [[ -z "$handler_name" ]]; then
+    announce_error "Componente '$component_id' não registra a ação '$action'."
+    return 1
+  fi
+
+  if ! declare -F "$handler_name" >/dev/null 2>&1; then
     announce_error "Componente '$component_id' não implementa a ação '$action'."
     return 1
   fi
 
-  "$function_name" "$@"
+  "$handler_name" "$@"
 }
 
 component_detect() {
