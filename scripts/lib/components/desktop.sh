@@ -46,8 +46,7 @@ component_apply_desktop_integration() {
   done
 
   if desktop_integration_ready; then
-    state_set_component_status desktop_integration "$STATUS_SKIPPED_READY"
-    report_set_component_outcome "desktop_integration" "reused" "0"
+    report_set_component_outcome "desktop_integration" "$COMPONENT_OUTCOME_REUSED"
     for package_name in "${DESKTOP_INTEGRATION_PACKAGES[@]}"; do
       report_add_reused_environment_package "$package_name"
     done
@@ -61,8 +60,7 @@ component_apply_desktop_integration() {
   collect_missing_packages missing_packages "${DESKTOP_INTEGRATION_PACKAGES[@]}"
   announce_detail "Garantindo integração desktop..."
   if ! ops_pacman_install_needed "${missing_packages[@]}"; then
-    state_set_component_status desktop_integration "$STATUS_HARD_FAILED"
-    report_set_component_outcome "desktop_integration" "failed" "0"
+    report_set_component_outcome "desktop_integration" "$COMPONENT_OUTCOME_FAILED"
     announce_error "Não foi possível instalar a integração desktop."
     return 1
   fi
@@ -76,14 +74,12 @@ component_apply_desktop_integration() {
     report_add_changed_environment_package "$package_name"
   done
   if ! mark_checkpoint "desktop_integration"; then
-    state_set_component_status desktop_integration "$STATUS_HARD_FAILED"
-    report_set_component_outcome "desktop_integration" "failed" "0"
+    report_set_component_outcome "desktop_integration" "$COMPONENT_OUTCOME_FAILED"
     announce_error "Não foi possível registrar o checkpoint da integração desktop."
     return 1
   fi
 
-  state_set_component_status desktop_integration "$STATUS_DONE"
-  report_set_component_outcome "desktop_integration" "changed" "1"
+  report_set_component_outcome "desktop_integration" "$COMPONENT_OUTCOME_CHANGED"
 }
 
 start_desktop_user_services() {

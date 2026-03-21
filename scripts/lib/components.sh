@@ -62,12 +62,14 @@ component_mark_checkpoint_if_missing() {
 component_summary_status_text() {
   local component_id="$1"
   local summary_formatter=""
+  local component_outcome=""
 
   summary_formatter="$(component_summary_formatter_function "$component_id" 2>/dev/null || true)"
   [[ -n "$summary_formatter" ]] || return 1
 
   if component_has_runtime_status "$component_id"; then
-    "$summary_formatter" "$(state_get_component_status "$component_id")"
+    component_outcome="$(report_get_component_outcome "$component_id")"
+    "$summary_formatter" "$component_outcome"
     return 0
   fi
 
@@ -79,19 +81,19 @@ component_prepare_check_only_state() {
 
   if ! component_is_expected "$component_id"; then
     if component_has_runtime_status "$component_id"; then
-      state_set_component_status "$component_id" "$STATUS_SKIPPED_DISABLED"
+      report_set_component_outcome "$component_id" "$COMPONENT_OUTCOME_DISABLED"
     fi
     return 0
   fi
 
   if component_detect "$component_id"; then
     if component_has_runtime_status "$component_id"; then
-      state_set_component_status "$component_id" "$STATUS_SKIPPED_READY"
+      report_set_component_outcome "$component_id" "$COMPONENT_OUTCOME_REUSED"
     fi
     return 0
   fi
 
   if component_has_runtime_status "$component_id"; then
-    state_set_component_status "$component_id" "$STATUS_PENDING"
+    report_set_component_outcome "$component_id" "$COMPONENT_OUTCOME_PENDING"
   fi
 }

@@ -16,7 +16,6 @@ REPORT_REUSED_ENVIRONMENT_PACKAGES=()
 REPORT_CHANGED_ENVIRONMENT_PACKAGES=()
 REPORT_CHANGE_MARKERS=()
 declare -Ag REPORT_COMPONENT_OUTCOMES=()
-declare -Ag REPORT_COMPONENT_CHANGED_FLAGS=()
 
 execution_report_reset() {
   REPORT_REQUESTED_MAIN_OFFICIAL_PACKAGES=()
@@ -33,7 +32,6 @@ execution_report_reset() {
   REPORT_CHANGED_ENVIRONMENT_PACKAGES=()
   REPORT_CHANGE_MARKERS=()
   REPORT_COMPONENT_OUTCOMES=()
-  REPORT_COMPONENT_CHANGED_FLAGS=()
 }
 
 report_mark_change() {
@@ -42,6 +40,7 @@ report_mark_change() {
 
 report_has_changes() {
   local component_id
+  local component_outcome
 
   if (( ${#REPORT_CHANGE_MARKERS[@]} > 0 )); then
     return 0
@@ -54,8 +53,9 @@ report_has_changes() {
     return 0
   fi
 
-  for component_id in "${!REPORT_COMPONENT_CHANGED_FLAGS[@]}"; do
-    [[ "${REPORT_COMPONENT_CHANGED_FLAGS[$component_id]:-0}" == "1" ]] && return 0
+  for component_id in "${!REPORT_COMPONENT_OUTCOMES[@]}"; do
+    component_outcome="${REPORT_COMPONENT_OUTCOMES[$component_id]:-}"
+    [[ "$(component_outcome_changed_flag "$component_outcome")" == "1" ]] && return 0
   done
 
   return 1
@@ -122,16 +122,14 @@ report_reset_environment_packages() {
 report_set_component_outcome() {
   local component_id="$1"
   local outcome="$2"
-  local changed_flag="${3:-0}"
 
   REPORT_COMPONENT_OUTCOMES["$component_id"]="$outcome"
-  REPORT_COMPONENT_CHANGED_FLAGS["$component_id"]="$changed_flag"
 
-  if [[ "$changed_flag" == "1" ]]; then
+  if [[ "$(component_outcome_changed_flag "$outcome")" == "1" ]]; then
     report_mark_change "component:$component_id"
   fi
 }
 
 report_get_component_outcome() {
-  printf '%s\n' "${REPORT_COMPONENT_OUTCOMES[$1]:-}"
+  printf '%s\n' "${REPORT_COMPONENT_OUTCOMES[$1]:-$COMPONENT_OUTCOME_PENDING}"
 }

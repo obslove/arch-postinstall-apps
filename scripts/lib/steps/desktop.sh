@@ -2,14 +2,16 @@
 # shellcheck shell=bash
 
 desktop_integration_step() {
-  local desktop_status=""
+  local desktop_outcome=""
+  local step_status=""
 
   step_result_reset
 
   if component_apply desktop_integration; then
-    desktop_status="$(state_get_component_status desktop_integration)"
-    case "$desktop_status" in
-      "$STATUS_SKIPPED_READY")
+    desktop_outcome="$(report_get_component_outcome "desktop_integration")"
+    step_status="$(component_outcome_step_status "$desktop_outcome")"
+    case "$step_status" in
+      skipped)
         step_result_skipped "A integração desktop já estava pronta."
         ;;
       *)

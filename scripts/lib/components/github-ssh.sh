@@ -97,15 +97,13 @@ component_apply_github_ssh() {
   local package_name
 
   if ! github_ssh_expected; then
-    state_set_component_status github_ssh "$STATUS_SKIPPED_DISABLED"
-    report_set_component_outcome "github_ssh" "disabled" "0"
+    report_set_component_outcome "github_ssh" "$COMPONENT_OUTCOME_DISABLED"
     announce_detail "A configuração do GitHub SSH foi desativada por opção."
     return
   fi
 
   if ! confirm_exclusive_github_ssh_key; then
-    state_set_component_status github_ssh "$STATUS_SKIPPED_DECLINED"
-    report_set_component_outcome "github_ssh" "declined" "0"
+    report_set_component_outcome "github_ssh" "$COMPONENT_OUTCOME_DECLINED"
     return
   fi
 
@@ -118,8 +116,7 @@ component_apply_github_ssh() {
   fi
 
   if [[ "$github_ssh_already_ready" == "1" ]]; then
-    state_set_component_status github_ssh "$STATUS_SKIPPED_READY"
-    report_set_component_outcome "github_ssh" "reused" "0"
+    report_set_component_outcome "github_ssh" "$COMPONENT_OUTCOME_REUSED"
     if ! ensure_repo_origin_remote "$SCRIPT_DIR" "$REPO_SSH_URL"; then
       announce_warning "Não foi possível ajustar o remoto do repositório para SSH."
     fi
@@ -135,8 +132,7 @@ component_apply_github_ssh() {
   collect_missing_packages missing_packages "${GITHUB_SSH_SUPPORT_PACKAGES[@]}"
   if ((${#missing_packages[@]} > 0)); then
     if ! ops_pacman_install_needed "${missing_packages[@]}"; then
-      state_set_component_status github_ssh "$STATUS_SOFT_FAILED"
-      report_set_component_outcome "github_ssh" "soft_failed" "0"
+      report_set_component_outcome "github_ssh" "$COMPONENT_OUTCOME_SOFT_FAILED"
       announce_warning "Não foi possível instalar github-cli/openssh. A configuração do GitHub será ignorada."
       return
     fi
@@ -153,44 +149,38 @@ component_apply_github_ssh() {
   done
 
   if ! command -v gh >/dev/null 2>&1 || ! command -v ssh-keygen >/dev/null 2>&1; then
-    state_set_component_status github_ssh "$STATUS_SOFT_FAILED"
-    report_set_component_outcome "github_ssh" "soft_failed" "0"
+    report_set_component_outcome "github_ssh" "$COMPONENT_OUTCOME_SOFT_FAILED"
     announce_warning "github-cli ou ssh-keygen está indisponível. A configuração do GitHub será ignorada."
     return
   fi
 
   if ! ensure_ssh_key; then
-    state_set_component_status github_ssh "$STATUS_SOFT_FAILED"
-    report_set_component_outcome "github_ssh" "soft_failed" "0"
+    report_set_component_outcome "github_ssh" "$COMPONENT_OUTCOME_SOFT_FAILED"
     announce_warning "Não foi possível preparar a chave SSH local. A configuração do GitHub será ignorada."
     return
   fi
 
   if ! ensure_github_auth; then
     cleanup_temp_clipboard_utility || true
-    state_set_component_status github_ssh "$STATUS_SOFT_FAILED"
-    report_set_component_outcome "github_ssh" "soft_failed" "0"
+    report_set_component_outcome "github_ssh" "$COMPONENT_OUTCOME_SOFT_FAILED"
     announce_warning "A autenticação do GitHub não foi concluída. O envio da chave SSH será ignorado."
     return
   fi
 
   if ! upload_ssh_key; then
     cleanup_temp_clipboard_utility || true
-    state_set_component_status github_ssh "$STATUS_SOFT_FAILED"
-    report_set_component_outcome "github_ssh" "soft_failed" "0"
+    report_set_component_outcome "github_ssh" "$COMPONENT_OUTCOME_SOFT_FAILED"
     announce_warning "Não foi possível enviar a chave SSH para o GitHub."
     return
   fi
 
   cleanup_temp_clipboard_utility || true
   if ! mark_checkpoint "github_ssh"; then
-    state_set_component_status github_ssh "$STATUS_SOFT_FAILED"
-    report_set_component_outcome "github_ssh" "soft_failed" "0"
+    report_set_component_outcome "github_ssh" "$COMPONENT_OUTCOME_SOFT_FAILED"
     announce_warning "A chave SSH foi configurada, mas o checkpoint do GitHub SSH não pôde ser registrado."
     return
   fi
-  state_set_component_status github_ssh "$STATUS_DONE"
-  report_set_component_outcome "github_ssh" "changed" "1"
+  report_set_component_outcome "github_ssh" "$COMPONENT_OUTCOME_CHANGED"
   if ! ensure_repo_origin_remote "$SCRIPT_DIR" "$REPO_SSH_URL"; then
     announce_warning "A chave SSH foi configurada, mas não foi possível ajustar o remoto do repositório para SSH."
   fi

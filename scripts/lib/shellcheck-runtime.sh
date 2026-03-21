@@ -32,6 +32,7 @@ SCRIPT_DIR=""
 PACKAGE_FILE=""
 EXTRA_PACKAGE_FILE=""
 SYSTEM_UPDATED=""
+component_outcome=""
 STEP_RESULT_STATUS=""
 STEP_RESULT_MESSAGE=""
 STEP_RESULT_SUMMARY_PRINTED=""
@@ -102,8 +103,9 @@ actual_commit=""
 repo_path=""
 component_label=""
 component_status_text=""
-desktop_status=""
-github_status=""
+desktop_outcome=""
+step_status=""
+github_outcome=""
 STATE_AUR_HELPER_NAME=""
 STATE_AUR_HELPER_STATUS=""
 STATE_TEMP_CLIPBOARD_PACKAGE=""
@@ -142,7 +144,6 @@ REPORT_REUSED_ENVIRONMENT_PACKAGES=()
 REPORT_CHANGED_ENVIRONMENT_PACKAGES=()
 REPORT_CHANGE_MARKERS=()
 REPORT_COMPONENT_OUTCOMES=()
-REPORT_COMPONENT_CHANGED_FLAGS=()
 PIPELINE_STEP_IDS=()
 PIPELINE_STEP_MODES=()
 PIPELINE_STEP_TITLES=()
@@ -168,7 +169,6 @@ STATE_VERIFICATION_KINDS=()
 STATE_VERIFICATION_REPAIR_STRATEGIES=()
 STATE_VERIFICATION_TARGETS=()
 STATE_VERIFICATION_STATUSES=()
-STATE_COMPONENT_STATUSES=()
 
 declare -Ag COMPONENT_LABELS=()
 declare -Ag COMPONENT_PIPELINE_PHASES=()
@@ -186,7 +186,6 @@ declare -Ag COMPONENT_CHECK_ONLY_DETECTION_FLAGS=()
 declare -Ag COMPONENT_VERIFICATION_FLAGS=()
 declare -Ag COMPONENT_SUMMARY_STATUS_FLAGS=()
 declare -Ag REPORT_COMPONENT_OUTCOMES=()
-declare -Ag REPORT_COMPONENT_CHANGED_FLAGS=()
 declare -Ag STEP_DEFINITION_MODES=()
 declare -Ag STEP_DEFINITION_TITLES=()
 declare -Ag STEP_DEFINITION_FUNCTIONS=()
@@ -196,7 +195,6 @@ declare -Ag STATE_VERIFICATION_KINDS=()
 declare -Ag STATE_VERIFICATION_REPAIR_STRATEGIES=()
 declare -Ag STATE_VERIFICATION_TARGETS=()
 declare -Ag STATE_VERIFICATION_STATUSES=()
-declare -Ag STATE_COMPONENT_STATUSES=()
 
 config_array_contains() {
   :
@@ -1174,14 +1172,6 @@ state_add_soft_failure() {
   :
 }
 
-state_set_component_status() {
-  :
-}
-
-state_get_component_status() {
-  :
-}
-
 state_set_aur_helper() {
   :
 }
@@ -1243,6 +1233,14 @@ state_get_verification_repair_strategy() {
 }
 
 state_get_verification_target() {
+  :
+}
+
+component_outcome_changed_flag() {
+  :
+}
+
+component_outcome_step_status() {
   :
 }
 

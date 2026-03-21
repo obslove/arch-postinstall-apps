@@ -105,7 +105,7 @@ component_apply_aur_helper() {
 
   if command -v yay >/dev/null 2>&1; then
     state_set_aur_helper "yay" "yay (reutilizado)"
-    report_set_component_outcome "aur_helper" "reused" "0"
+    report_set_component_outcome "aur_helper" "$COMPONENT_OUTCOME_REUSED"
     aur_helper_name="$(state_get_aur_helper_name)"
     announce_detail "Usando helper AUR: $aur_helper_name"
     return 0
@@ -114,7 +114,7 @@ component_apply_aur_helper() {
   announce_detail "O yay será instalado e usado como helper AUR padrão."
   if ! install_yay; then
     if detect_aur_helper; then
-      report_set_component_outcome "aur_helper" "fallback_reused" "0"
+      report_set_component_outcome "aur_helper" "$COMPONENT_OUTCOME_FALLBACK_REUSED"
       aur_helper_name="$(state_get_aur_helper_name)"
       announce_warning "Não foi possível instalar o yay. O script usará o helper AUR disponível: $aur_helper_name."
       return 0
@@ -125,7 +125,7 @@ component_apply_aur_helper() {
   fi
 
   state_set_aur_helper "yay" "yay (instalado nesta execução)"
-  report_set_component_outcome "aur_helper" "changed" "1"
+  report_set_component_outcome "aur_helper" "$COMPONENT_OUTCOME_CHANGED"
   aur_helper_name="$(state_get_aur_helper_name)"
   announce_detail "Usando helper AUR: $aur_helper_name"
 }
