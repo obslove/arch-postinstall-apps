@@ -14,5 +14,8 @@ code
 discord
 spotify-launcher
 
+[Network]
+mullvad-vpn
+
 [Gaming]
 steam

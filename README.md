@@ -28,6 +28,9 @@ O modo padrão usa saída resumida. Use `-v` para ver a saída detalhada no term
 > [!IMPORTANT]
 > O fluxo suportado e preservado pelo projeto é `curl -fsSL https://obslove.dev | bash`.
 
+> [!TIP]
+> Depois do primeiro bootstrap remoto, as execuções seguintes continuam a partir do clone gerenciado em `~/Repositories/arch-postinstall-apps`.
+
 ## O que o script faz
 
 Durante uma execução normal, o projeto:
@@ -46,11 +49,8 @@ Arquivos gerados pela execução:
 - log completo: `~/Backups/arch-postinstall.log`
 - resumo final: `~/Backups/arch-postinstall-summary.txt`
 
-## Notes
-
-- o fluxo remoto e o fluxo local executam o mesmo runtime depois que o clone gerenciado é sincronizado;
-- a lista principal de apps é declarativa e ordenada por categoria;
-- componentes de setup ficam fora da lista principal de apps e são mantidos em [config/components.sh](config/components.sh).
+> [!NOTE]
+> O fluxo remoto e o fluxo local executam o mesmo runtime depois que o clone gerenciado é sincronizado.
 
 ## Alvo do projeto
 
@@ -65,6 +65,9 @@ Se ele for executado fora de um clone local do projeto, o bootstrap remoto insta
 > [!NOTE]
 > O projeto não foi desenhado para ser um instalador Arch genérico. Ele assume Wayland com Hyprland e trata desvios desse alvo como erro de ambiente.
 
+> [!WARNING]
+> Rodar isso fora do alvo esperado significa entrar num caminho que o projeto não tenta suportar nem suavizar.
+
 ## Pacotes e dependências
 
 O projeto separa claramente:
@@ -72,6 +75,9 @@ O projeto separa claramente:
 - infraestrutura do próprio fluxo;
 - dependências dos componentes;
 - apps principais da máquina, agrupados por categoria.
+
+> [!TIP]
+> Componentes de setup ficam fora da lista principal de apps e são mantidos em [config/components.sh](config/components.sh).
 
 <!-- packages:start -->
 - Dependências iniciais do fluxo local:
@@ -88,6 +94,8 @@ O projeto separa claramente:
   `code`
 - Apps principais - Social:
   `discord`, `spotify-launcher`
+- Apps principais - Network:
+  `mullvad-vpn`
 - Apps principais - Gaming:
   `steam`
 - Componentes usados para instalar e executar o Codex CLI:
@@ -104,6 +112,9 @@ Arquivos de configuração principais:
 - lista extra opcional com o mesmo formato: `config/packages-extra.txt`
 - componentes declarados do setup: [config/components.sh](config/components.sh)
 
+> [!NOTE]
+> A ordem das categorias e dos pacotes é respeitada pelo instalador.
+
 ## Interação esperada
 
 Mesmo com a automação, algumas etapas ainda podem exigir interação:
@@ -115,6 +126,9 @@ Mesmo com a automação, algumas etapas ainda podem exigir interação:
 
 > [!NOTE]
 > A etapa de GitHub SSH só reconcilia o título da chave quando `--ssh-name` é informado explicitamente.
+
+> [!TIP]
+> Sem `--ssh-name`, o script tenta reutilizar a chave já existente no GitHub em vez de recreá-la só por diferença de título.
 
 ## Opções disponíveis
 
@@ -150,6 +164,9 @@ curl -fsSL https://obslove.dev | bash -s -- -v
 curl -fsSL https://obslove.dev | bash -s -- -c -n -s "meu-dispositivo"
 ```
 
+> [!NOTE]
+> `--check` não transforma o bootstrap remoto em no-op. Ele ainda pode sincronizar o clone local e preparar dependências mínimas antes de validar o runtime.
+
 ## Uso local
 
 Executar a partir de um clone local:
@@ -163,6 +180,9 @@ Validar o repositório localmente:
 ```bash
 bash scripts/check-repo.sh
 ```
+
+> [!TIP]
+> Esse check cobre geração do `install.sh`, prelude do `shellcheck`, parser de CLI, README e consistência do bootstrap publicado.
 
 ## Publicação do bootstrap
 
@@ -184,6 +204,9 @@ Secrets necessários no GitHub:
 
 > [!IMPORTANT]
 > Evite editar manualmente a rota ou o Worker do `obslove.dev` no dashboard do Cloudflare. O objetivo do projeto é manter essa publicação sob controle do repositório.
+
+> [!NOTE]
+> O workflow de publicação atualiza o Worker já existente associado a `obslove.dev`, então o contrato do domínio fica preso ao `main`.
 
 ## Arquivos principais
 
