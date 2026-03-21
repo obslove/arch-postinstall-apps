@@ -4,6 +4,7 @@
 
 readonly -a BOOTSTRAP_FRAGMENT_FILES=(
   "scripts/lib/cli.sh"
+  "scripts/lib/runtime-config.sh"
   "scripts/lib/step-result.sh"
   "scripts/lib/ui.sh"
   "scripts/lib/process.sh"
@@ -18,6 +19,7 @@ readonly -a BOOTSTRAP_FRAGMENT_FILES=(
 readonly -a BOOTSTRAP_CHECK_FILES=(
   "scripts/bootstrap/bootstrap-modules.sh"
   "scripts/lib/cli.sh"
+  "scripts/lib/runtime-config.sh"
   "scripts/lib/step-result.sh"
   "scripts/lib/ui.sh"
   "scripts/lib/process.sh"

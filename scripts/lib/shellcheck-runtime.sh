@@ -48,6 +48,30 @@ style_warning=""
 style_error=""
 style_muted=""
 
+config_init_common_defaults() {
+  :
+}
+
+config_init_user_shell_paths() {
+  :
+}
+
+config_init_repo_paths() {
+  :
+}
+
+config_init_runtime() {
+  :
+}
+
+config_init_bootstrap() {
+  :
+}
+
+config_finalize() {
+  :
+}
+
 STATE_MAIN_OFFICIAL_PACKAGES=()
 STATE_MAIN_AUR_PACKAGES=()
 STATE_FAILED_OFFICIAL_PACKAGES=()

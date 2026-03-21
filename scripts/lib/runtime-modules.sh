@@ -29,6 +29,7 @@ readonly -a RUNTIME_ENTRYPOINT_MODULE_FILES=(
 readonly -a RUNTIME_CHECK_FILES=(
   "scripts/lib/runtime-modules.sh"
   "scripts/lib/cli.sh"
+  "scripts/lib/runtime-config.sh"
   "scripts/lib/components.sh"
   "scripts/lib/runtime-state.sh"
   "scripts/lib/status.sh"
@@ -67,6 +68,8 @@ readonly -a RUNTIME_CHECK_FILES=(
 if false; then
   # shellcheck source=scripts/lib/core.sh
   source "$REPO_DIR/scripts/lib/core.sh"
+  # shellcheck source=scripts/lib/runtime-config.sh
+  source "$REPO_DIR/scripts/lib/runtime-config.sh"
   # shellcheck source=scripts/lib/repo.sh
   source "$REPO_DIR/scripts/lib/repo.sh"
   # shellcheck source=scripts/lib/ops.sh
