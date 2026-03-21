@@ -80,6 +80,15 @@ check_readme_links() {
   fi
 }
 
+check_cloudflare_deploy_files() {
+  test -f "$REPO_DIR/.github/workflows/deploy-bootstrap.yml"
+  test -f "$REPO_DIR/cloudflare/bootstrap-worker/src/index.js"
+  test -f "$REPO_DIR/cloudflare/bootstrap-worker/wrangler.jsonc"
+  node --check "$REPO_DIR/cloudflare/bootstrap-worker/src/index.js"
+  node -e 'JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"))' \
+    "$REPO_DIR/cloudflare/bootstrap-worker/wrangler.jsonc"
+}
+
 build_check_file_lists() {
   append_check_file SYNTAX_FILES "$REPO_DIR/install.sh"
   append_check_file SYNTAX_FILES "$REPO_DIR/scripts/build-bootstrap.sh"
@@ -114,6 +123,7 @@ main() {
   check_cli_parser
   check_readme_commands
   check_readme_links
+  check_cloudflare_deploy_files
 }
 
 main "$@"

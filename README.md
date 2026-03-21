@@ -146,6 +146,19 @@ bash scripts/check-repo.sh
 </details>
 
 <details>
+<summary>Publicação do bootstrap</summary>
+
+O conteúdo servido em `https://obslove.dev` é verificado pelo repositório em [scripts/check-published-bootstrap.sh](scripts/check-published-bootstrap.sh) e pode ser publicado por GitHub Actions via [deploy-bootstrap.yml](.github/workflows/deploy-bootstrap.yml).
+
+O deploy usa um Worker Cloudflare definido em `cloudflare/bootstrap-worker/`, que responde na raiz de `obslove.dev` e encaminha o conteúdo de `main/install.sh`.
+
+Para o deploy automático funcionar, o repositório precisa dos secrets:
+
+- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ACCOUNT_ID`
+</details>
+
+<details>
 <summary>Arquivos principais</summary>
 
 ```text
