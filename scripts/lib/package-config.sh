@@ -64,12 +64,14 @@ classify_package_origin() {
   local package_name="$1"
   local origin_status=0
 
-  if package_exists_in_official_repos "$package_name"; then
+  package_exists_in_official_repos "$package_name"
+  origin_status=$?
+
+  if [[ "$origin_status" == "0" ]]; then
     printf 'official\n'
     return 0
   fi
 
-  origin_status=$?
   if [[ "$origin_status" == "1" ]]; then
     printf 'aur\n'
     return 0
