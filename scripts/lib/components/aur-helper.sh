@@ -31,10 +31,6 @@ component_detect_aur_helper() {
   detect_aur_helper
 }
 
-component_checkpoint_key_aur_helper() {
-  return 1
-}
-
 build_yay() {
   local yay_dir="$1"
 

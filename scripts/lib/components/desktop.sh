@@ -32,10 +32,6 @@ component_detect_desktop_integration() {
   desktop_integration_ready
 }
 
-component_checkpoint_key_desktop_integration() {
-  printf '%s\n' "desktop_integration"
-}
-
 component_apply_desktop_integration() {
   local package_name
   local missing_packages=()

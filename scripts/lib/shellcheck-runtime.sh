@@ -80,6 +80,7 @@ aur_helper_name=""
 GITHUB_SSH_COMPONENT_DIR=""
 github_login=""
 current_key=""
+existing_keys=""
 key_data=""
 line=""
 target_packages=""
@@ -178,9 +179,7 @@ declare -Ag COMPONENT_SUMMARY_FORMATTERS=()
 declare -Ag COMPONENT_DETECT_HANDLERS=()
 declare -Ag COMPONENT_APPLY_HANDLERS=()
 declare -Ag COMPONENT_VERIFY_HANDLERS=()
-declare -Ag COMPONENT_CHECKPOINT_HANDLERS=()
 declare -Ag COMPONENT_RUNTIME_STATUS_FLAGS=()
-declare -Ag COMPONENT_CHECKPOINT_FLAGS=()
 declare -Ag COMPONENT_CHECK_ONLY_DETECTION_FLAGS=()
 declare -Ag COMPONENT_VERIFICATION_FLAGS=()
 declare -Ag COMPONENT_SUMMARY_STATUS_FLAGS=()
@@ -739,6 +738,14 @@ ops_gh_auth_refresh_admin_public_key() {
   :
 }
 
+ops_gh_get_authenticated_login() {
+  :
+}
+
+ops_gh_list_ssh_keys_tsv() {
+  :
+}
+
 ops_gh_delete_ssh_key() {
   :
 }
@@ -788,14 +795,6 @@ current_repo_origin_status() {
 }
 
 current_repo_commit_short() {
-  :
-}
-
-config_init() {
-  :
-}
-
-finalize_config() {
   :
 }
 
@@ -855,10 +854,6 @@ component_detect_codex_cli() {
   :
 }
 
-component_checkpoint_key_codex_cli() {
-  :
-}
-
 component_apply_codex_cli() {
   :
 }
@@ -872,10 +867,6 @@ detect_aur_helper() {
 }
 
 component_detect_aur_helper() {
-  :
-}
-
-component_checkpoint_key_aur_helper() {
   :
 }
 
@@ -904,10 +895,6 @@ desktop_integration_ready() {
 }
 
 component_detect_desktop_integration() {
-  :
-}
-
-component_checkpoint_key_desktop_integration() {
   :
 }
 
@@ -944,10 +931,6 @@ github_ssh_ready() {
 }
 
 component_detect_github_ssh() {
-  :
-}
-
-component_checkpoint_key_github_ssh() {
   :
 }
 

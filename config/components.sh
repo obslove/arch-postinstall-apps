@@ -69,9 +69,7 @@ declare -Ag COMPONENT_SUMMARY_FORMATTERS=()
 declare -Ag COMPONENT_DETECT_HANDLERS=()
 declare -Ag COMPONENT_APPLY_HANDLERS=()
 declare -Ag COMPONENT_VERIFY_HANDLERS=()
-declare -Ag COMPONENT_CHECKPOINT_HANDLERS=()
 declare -Ag COMPONENT_RUNTIME_STATUS_FLAGS=()
-declare -Ag COMPONENT_CHECKPOINT_FLAGS=()
 declare -Ag COMPONENT_CHECK_ONLY_DETECTION_FLAGS=()
 declare -Ag COMPONENT_VERIFICATION_FLAGS=()
 declare -Ag COMPONENT_SUMMARY_STATUS_FLAGS=()
@@ -134,12 +132,10 @@ register_component() {
   local detect_handler="$8"
   local apply_handler="$9"
   local verify_handler="${10}"
-  local checkpoint_handler="${11}"
-  local has_runtime_status="${12}"
-  local has_checkpoint="${13}"
-  local check_only_detection="${14}"
-  local verification_enabled="${15}"
-  local summary_status_enabled="${16}"
+  local has_runtime_status="${11}"
+  local check_only_detection="${12}"
+  local verification_enabled="${13}"
+  local summary_status_enabled="${14}"
 
   COMPONENT_IDS+=("$component_id")
   COMPONENT_LABELS["$component_id"]="$component_label"
@@ -151,9 +147,7 @@ register_component() {
   COMPONENT_DETECT_HANDLERS["$component_id"]="$detect_handler"
   COMPONENT_APPLY_HANDLERS["$component_id"]="$apply_handler"
   COMPONENT_VERIFY_HANDLERS["$component_id"]="$verify_handler"
-  COMPONENT_CHECKPOINT_HANDLERS["$component_id"]="$checkpoint_handler"
   COMPONENT_RUNTIME_STATUS_FLAGS["$component_id"]="$has_runtime_status"
-  COMPONENT_CHECKPOINT_FLAGS["$component_id"]="$has_checkpoint"
   COMPONENT_CHECK_ONLY_DETECTION_FLAGS["$component_id"]="$check_only_detection"
   COMPONENT_VERIFICATION_FLAGS["$component_id"]="$verification_enabled"
   COMPONENT_SUMMARY_STATUS_FLAGS["$component_id"]="$summary_status_enabled"
@@ -170,8 +164,6 @@ register_component \
   "component_detect_aur_helper" \
   "component_apply_aur_helper" \
   "component_verify_aur_helper" \
-  "component_checkpoint_key_aur_helper" \
-  "0" \
   "0" \
   "1" \
   "1" \
@@ -188,9 +180,7 @@ register_component \
   "component_detect_codex_cli" \
   "component_apply_codex_cli" \
   "component_verify_codex_cli" \
-  "component_checkpoint_key_codex_cli" \
   "0" \
-  "1" \
   "0" \
   "1" \
   "0"
@@ -206,8 +196,6 @@ register_component \
   "component_detect_desktop_integration" \
   "component_apply_desktop_integration" \
   "component_verify_desktop_integration" \
-  "component_checkpoint_key_desktop_integration" \
-  "1" \
   "1" \
   "1" \
   "1" \
@@ -224,8 +212,6 @@ register_component \
   "component_detect_github_ssh" \
   "component_apply_github_ssh" \
   "component_verify_github_ssh" \
-  "component_checkpoint_key_github_ssh" \
-  "1" \
   "1" \
   "1" \
   "1" \
@@ -305,9 +291,6 @@ component_action_handler() {
       ;;
     verify)
       handler_name="${COMPONENT_VERIFY_HANDLERS[$component_id]:-}"
-      ;;
-    checkpoint_key)
-      handler_name="${COMPONENT_CHECKPOINT_HANDLERS[$component_id]:-}"
       ;;
     *)
       return 1

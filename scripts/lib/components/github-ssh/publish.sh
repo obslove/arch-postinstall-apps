@@ -13,7 +13,7 @@ remove_other_github_ssh_keys() {
     return 1
   }
 
-  if ! existing_keys="$(gh api user/keys --jq '.[] | [.id, .title, .key] | @tsv' 2>/dev/null)"; then
+  if ! existing_keys="$(ops_gh_list_ssh_keys_tsv 2>/dev/null)"; then
     announce_warning "Não foi possível listar as chaves SSH atuais do GitHub."
     return 1
   fi
@@ -48,14 +48,14 @@ upload_ssh_key() {
     return 1
   fi
   key_name="$(build_ssh_key_name)"
-  if ! existing_keys="$(gh api user/keys --jq '.[] | [.id, .title, .key] | @tsv' 2>/dev/null)"; then
+  if ! existing_keys="$(ops_gh_list_ssh_keys_tsv 2>/dev/null)"; then
     announce_detail "A permissão admin:public_key não está disponível no gh. A autenticação será renovada."
     if ! ops_gh_auth_refresh_admin_public_key; then
       announce_warning "Não foi possível renovar o escopo admin:public_key no gh."
       return 1
     fi
 
-    if ! existing_keys="$(gh api user/keys --jq '.[] | [.id, .title, .key] | @tsv' 2>/dev/null)"; then
+    if ! existing_keys="$(ops_gh_list_ssh_keys_tsv 2>/dev/null)"; then
       announce_warning "O gh continua sem acesso para gerenciar chaves SSH no GitHub."
       return 1
     fi

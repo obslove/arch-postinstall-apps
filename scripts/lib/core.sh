@@ -51,14 +51,6 @@ COMPONENT_CONFIG_FILE="$(cd "$SHARED_LIB_DIR/../../config" && pwd)/components.sh
 # shellcheck source=../../config/components.sh
 source "$COMPONENT_CONFIG_FILE"
 
-config_init() {
-  config_init_runtime "$1"
-}
-
-finalize_config() {
-  config_finalize
-}
-
 execution_state_reset() {
   runtime_state_reset
   execution_report_reset

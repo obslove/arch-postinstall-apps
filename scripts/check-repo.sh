@@ -73,10 +73,18 @@ check_readme_commands() {
   grep -Fqx 'curl -fsSL https://obslove.dev | bash -s --' "$REPO_DIR/README.md"
 }
 
+check_readme_links() {
+  if rg -n '/home/' "$REPO_DIR/README.md" >/dev/null 2>&1; then
+    printf 'Erro: README.md contém caminhos absolutos locais.\n' >&2
+    return 1
+  fi
+}
+
 build_check_file_lists() {
   append_check_file SYNTAX_FILES "$REPO_DIR/install.sh"
   append_check_file SYNTAX_FILES "$REPO_DIR/scripts/build-bootstrap.sh"
   append_check_file SYNTAX_FILES "$REPO_DIR/scripts/build-shellcheck-runtime.sh"
+  append_check_file SYNTAX_FILES "$REPO_DIR/scripts/check-published-bootstrap.sh"
   append_manifest_files SYNTAX_FILES "${BOOTSTRAP_CHECK_FILES[@]}"
   append_check_file SYNTAX_FILES "$REPO_DIR/scripts/install/main.sh"
   append_manifest_files SYNTAX_FILES "${RUNTIME_CHECK_FILES[@]}"
@@ -87,6 +95,7 @@ build_check_file_lists() {
   append_check_file SHELLCHECK_FILES "$REPO_DIR/scripts/check-repo.sh"
   append_check_file SHELLCHECK_FILES "$REPO_DIR/scripts/build-bootstrap.sh"
   append_check_file SHELLCHECK_FILES "$REPO_DIR/scripts/build-shellcheck-runtime.sh"
+  append_check_file SHELLCHECK_FILES "$REPO_DIR/scripts/check-published-bootstrap.sh"
   append_manifest_files SHELLCHECK_FILES "${BOOTSTRAP_CHECK_FILES[@]}"
   append_check_file SHELLCHECK_FILES "$REPO_DIR/scripts/install/main.sh"
   append_manifest_files SHELLCHECK_FILES "${RUNTIME_CHECK_FILES[@]}"
@@ -104,6 +113,7 @@ main() {
   check_help_output
   check_cli_parser
   check_readme_commands
+  check_readme_links
 }
 
 main "$@"

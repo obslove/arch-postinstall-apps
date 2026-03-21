@@ -94,10 +94,6 @@ component_detect_codex_cli() {
   codex_cli_ready
 }
 
-component_checkpoint_key_codex_cli() {
-  printf '%s\n' "codex_cli"
-}
-
 component_apply_codex_cli() {
   local missing_packages=()
 

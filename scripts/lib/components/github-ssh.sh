@@ -43,7 +43,7 @@ build_ssh_key_name() {
   fi
 
   if command -v gh >/dev/null 2>&1; then
-    github_login="$(gh api user --jq '.login' 2>/dev/null || true)"
+    github_login="$(ops_gh_get_authenticated_login 2>/dev/null || true)"
     if [[ -n "$github_login" ]]; then
       printf '%s\n' "$github_login"
       return
@@ -60,9 +60,24 @@ current_public_ssh_key() {
 
 find_current_github_ssh_key() {
   local current_key
+  local existing_keys=""
+  local key_id=""
+  local key_name=""
+  local key_value=""
 
   current_key="$(current_public_ssh_key)" || return 1
-  gh api user/keys --jq ".[] | select(.key == \"$current_key\") | [.id, .title] | @tsv"
+  existing_keys="$(ops_gh_list_ssh_keys_tsv 2>/dev/null || true)"
+  [[ -n "$existing_keys" ]] || return 1
+
+  while IFS=$'\t' read -r key_id key_name key_value; do
+    [[ -n "$key_id" && -n "${key_value:-}" ]] || continue
+    if [[ "$key_value" == "$current_key" ]]; then
+      printf '%s\t%s\n' "$key_id" "$key_name"
+      return 0
+    fi
+  done <<<"$existing_keys"
+
+  return 1
 }
 
 github_has_expected_ssh_key_name() {
@@ -85,10 +100,6 @@ github_ssh_ready() {
 
 component_detect_github_ssh() {
   github_ssh_ready
-}
-
-component_checkpoint_key_github_ssh() {
-  printf '%s\n' "github_ssh"
 }
 
 component_apply_github_ssh() {

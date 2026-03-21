@@ -111,6 +111,14 @@ ops_gh_auth_refresh_admin_public_key() {
   run_gh_auth_flow auth refresh -h github.com -s admin:public_key
 }
 
+ops_gh_get_authenticated_login() {
+  retry gh api user --jq '.login'
+}
+
+ops_gh_list_ssh_keys_tsv() {
+  retry gh api user/keys --jq '.[] | [.id, .title, .key] | @tsv'
+}
+
 ops_gh_delete_ssh_key() {
   local key_id="$1"
 
