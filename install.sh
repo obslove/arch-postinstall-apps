@@ -91,18 +91,18 @@ parse_cli_args() {
 config_init_common_defaults() {
   REPO_HTTPS_URL="https://github.com/obslove/arch-postinstall-apps.git"
   REPO_SSH_URL="git@github.com:obslove/arch-postinstall-apps.git"
-  REPOSITORIES_DIR="${REPOSITORIES_DIR:-$HOME/Repositories}"
+  REPOSITORIES_DIR="${POSTINSTALL_REPOSITORIES_DIR:-${REPOSITORIES_DIR:-$HOME/Repositories}}"
   INSTALL_DIR="${BOOTSTRAP_DIR:-$REPOSITORIES_DIR/arch-postinstall-apps}"
-  YAY_REPO_DIR="${YAY_REPO_DIR:-$REPOSITORIES_DIR/yay}"
-  YAY_SNAPSHOT_URL="${YAY_SNAPSHOT_URL:-https://aur.archlinux.org/cgit/aur.git/snapshot/yay.tar.gz}"
-  SSH_KEY_PATH="${SSH_KEY_PATH:-$HOME/.ssh/id_ed25519}"
-  GITHUB_SSH_KEY_NAME=""
+  YAY_REPO_DIR="${POSTINSTALL_YAY_REPO_DIR:-${YAY_REPO_DIR:-$REPOSITORIES_DIR/yay}}"
+  YAY_SNAPSHOT_URL="${POSTINSTALL_YAY_SNAPSHOT_URL:-${YAY_SNAPSHOT_URL:-https://aur.archlinux.org/cgit/aur.git/snapshot/yay.tar.gz}}"
+  SSH_KEY_PATH="${POSTINSTALL_SSH_KEY_PATH:-${SSH_KEY_PATH:-$HOME/.ssh/id_ed25519}}"
+  GITHUB_SSH_KEY_NAME="${POSTINSTALL_GITHUB_SSH_KEY_NAME:-${GITHUB_SSH_KEY_NAME:-}}"
   LOG_FILE="${POSTINSTALL_LOG_FILE:-$HOME/Backups/arch-postinstall.log}"
   SUMMARY_FILE="${POSTINSTALL_SUMMARY_FILE:-$HOME/Backups/arch-postinstall-summary.txt}"
-  CHECK_ONLY=0
-  EXCLUSIVE_GITHUB_SSH_KEY=0
-  SKIP_GITHUB_SSH=0
-  STEP_OUTPUT_ONLY=1
+  CHECK_ONLY="${POSTINSTALL_CHECK_ONLY:-${CHECK_ONLY:-0}}"
+  EXCLUSIVE_GITHUB_SSH_KEY="${POSTINSTALL_EXCLUSIVE_GITHUB_SSH_KEY:-${EXCLUSIVE_GITHUB_SSH_KEY:-0}}"
+  SKIP_GITHUB_SSH="${POSTINSTALL_SKIP_GITHUB_SSH:-${SKIP_GITHUB_SSH:-0}}"
+  STEP_OUTPUT_ONLY="${POSTINSTALL_STEP_OUTPUT_ONLY:-${STEP_OUTPUT_ONLY:-1}}"
   STATE_DIR="${POSTINSTALL_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/arch-postinstall-apps}"
   LOCK_DIR="${POSTINSTALL_LOCK_DIR:-$STATE_DIR/lock}"
   LOCK_HELD="${POSTINSTALL_LOCK_HELD:-0}"
@@ -166,6 +166,58 @@ config_finalize() {
   readonly SYSTEM_UPDATED
 }
 # --- end: scripts/lib/runtime-config.sh ---
+
+# --- begin: scripts/lib/invocation-context.sh ---
+# shellcheck shell=bash
+
+load_bootstrap_invocation_context() {
+  config_init_bootstrap
+  parse_cli_args "$@"
+  finalize_config
+}
+
+load_runtime_invocation_context() {
+  local repo_dir="$1"
+  shift
+
+  config_init "$repo_dir"
+  parse_cli_args "$@"
+  finalize_config
+}
+
+append_runtime_invocation_env() {
+  local array_name="$1"
+  # shellcheck disable=SC2178
+  declare -n env_assignments="$array_name"
+
+  env_assignments+=(
+    "POSTINSTALL_BOOTSTRAP_UPDATED=$BOOTSTRAP_SYSTEM_UPDATED"
+    "POSTINSTALL_LOG_FILE=$LOG_FILE"
+    "POSTINSTALL_LOG_INITIALIZED=1"
+    "POSTINSTALL_LOCK_HELD=1"
+    "POSTINSTALL_SUMMARY_FILE=$SUMMARY_FILE"
+    "POSTINSTALL_STATE_DIR=$STATE_DIR"
+    "POSTINSTALL_LOCK_DIR=$LOCK_DIR"
+    "POSTINSTALL_SSH_KEY_PATH=$SSH_KEY_PATH"
+    "POSTINSTALL_REPOSITORIES_DIR=$REPOSITORIES_DIR"
+    "POSTINSTALL_YAY_REPO_DIR=$YAY_REPO_DIR"
+    "POSTINSTALL_YAY_SNAPSHOT_URL=$YAY_SNAPSHOT_URL"
+    "POSTINSTALL_CHECK_ONLY=$CHECK_ONLY"
+    "POSTINSTALL_EXCLUSIVE_GITHUB_SSH_KEY=$EXCLUSIVE_GITHUB_SSH_KEY"
+    "POSTINSTALL_SKIP_GITHUB_SSH=$SKIP_GITHUB_SSH"
+    "POSTINSTALL_GITHUB_SSH_KEY_NAME=$GITHUB_SSH_KEY_NAME"
+    "POSTINSTALL_STEP_OUTPUT_ONLY=$STEP_OUTPUT_ONLY"
+  )
+}
+
+exec_runtime_with_invocation_context() {
+  local runtime_entrypoint="$1"
+  local env_assignments=()
+
+  append_runtime_invocation_env env_assignments
+  exec env "${env_assignments[@]}" bash "$runtime_entrypoint"
+}
+# --- end: scripts/lib/invocation-context.sh ---
 
 # --- begin: scripts/lib/step-result.sh ---
 # shellcheck shell=bash
@@ -1363,6 +1415,7 @@ bootstrap_sync_repo_step() {
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=scripts/lib/cli.sh
 # shellcheck source=scripts/lib/runtime-config.sh
+# shellcheck source=scripts/lib/invocation-context.sh
 # shellcheck source=scripts/lib/step-result.sh
 # shellcheck source=scripts/lib/ui.sh
 # shellcheck source=scripts/lib/pipeline.sh
@@ -1380,6 +1433,7 @@ bootstrap_sync_repo_step() {
 if false; then
   source "$SCRIPT_DIR/scripts/lib/cli.sh"
   source "$SCRIPT_DIR/scripts/lib/runtime-config.sh"
+  source "$SCRIPT_DIR/scripts/lib/invocation-context.sh"
   source "$SCRIPT_DIR/scripts/lib/step-result.sh"
   source "$SCRIPT_DIR/scripts/lib/ui.sh"
   source "$SCRIPT_DIR/scripts/lib/pipeline.sh"
@@ -1403,7 +1457,6 @@ if [[ -f "$SELF_PATH" && -f "$LOCAL_MAIN" ]]; then
   exec bash "$LOCAL_MAIN" "$@"
 fi
 
-config_init_bootstrap
 BOOTSTRAP_PACKAGES=(
   ca-certificates
   git
@@ -1441,7 +1494,7 @@ handle_bootstrap_step_result_or_exit() {
 }
 
 main() {
-  parse_cli_args "$@"
+  load_bootstrap_invocation_context "$@"
   validate_managed_paths
   trap cleanup EXIT
 
@@ -1452,19 +1505,7 @@ main() {
   set_step_total "$(pipeline_count_steps_for_mode bootstrap)"
   run_pipeline_steps "bootstrap" "handle_bootstrap_step_result_or_exit"
 
-  exec env \
-    POSTINSTALL_BOOTSTRAP_UPDATED="$BOOTSTRAP_SYSTEM_UPDATED" \
-    POSTINSTALL_LOG_FILE="$LOG_FILE" \
-    POSTINSTALL_LOG_INITIALIZED=1 \
-    POSTINSTALL_LOCK_HELD=1 \
-    POSTINSTALL_SUMMARY_FILE="$SUMMARY_FILE" \
-    POSTINSTALL_STATE_DIR="$STATE_DIR" \
-    POSTINSTALL_LOCK_DIR="$LOCK_DIR" \
-    SSH_KEY_PATH="$SSH_KEY_PATH" \
-    REPOSITORIES_DIR="$REPOSITORIES_DIR" \
-    YAY_REPO_DIR="$YAY_REPO_DIR" \
-    YAY_SNAPSHOT_URL="$YAY_SNAPSHOT_URL" \
-    bash "$INSTALL_DIR/scripts/install/main.sh" "$@"
+  exec_runtime_with_invocation_context "$INSTALL_DIR/scripts/install/main.sh"
 }
 
 main "$@"

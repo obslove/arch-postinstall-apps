@@ -13,9 +13,7 @@ source "$REPO_DIR/scripts/lib/runtime-modules.sh"
 source_runtime_modules "$REPO_DIR"
 
 main() {
-  config_init "$REPO_DIR"
-  parse_cli_args "$@"
-  finalize_config
+  load_runtime_invocation_context "$REPO_DIR" "$@"
   runtime_state_init
   validate_managed_paths
   trap cleanup EXIT

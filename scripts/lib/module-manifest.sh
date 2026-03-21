@@ -56,6 +56,8 @@ register_module_file "scripts/lib/cli.sh" \
   bootstrap-fragment bootstrap-check runtime-check
 register_module_file "scripts/lib/runtime-config.sh" \
   bootstrap-fragment bootstrap-check runtime-check
+register_module_file "scripts/lib/invocation-context.sh" \
+  bootstrap-fragment bootstrap-check runtime-entrypoint runtime-check
 register_module_file "scripts/lib/execution-report.sh" \
   runtime-entrypoint runtime-check
 register_module_file "scripts/lib/step-result.sh" \

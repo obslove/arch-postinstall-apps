@@ -3,6 +3,7 @@
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=scripts/lib/cli.sh
 # shellcheck source=scripts/lib/runtime-config.sh
+# shellcheck source=scripts/lib/invocation-context.sh
 # shellcheck source=scripts/lib/step-result.sh
 # shellcheck source=scripts/lib/ui.sh
 # shellcheck source=scripts/lib/pipeline.sh
@@ -20,6 +21,7 @@
 if false; then
   source "$SCRIPT_DIR/scripts/lib/cli.sh"
   source "$SCRIPT_DIR/scripts/lib/runtime-config.sh"
+  source "$SCRIPT_DIR/scripts/lib/invocation-context.sh"
   source "$SCRIPT_DIR/scripts/lib/step-result.sh"
   source "$SCRIPT_DIR/scripts/lib/ui.sh"
   source "$SCRIPT_DIR/scripts/lib/pipeline.sh"
@@ -43,7 +45,6 @@ if [[ -f "$SELF_PATH" && -f "$LOCAL_MAIN" ]]; then
   exec bash "$LOCAL_MAIN" "$@"
 fi
 
-config_init_bootstrap
 BOOTSTRAP_PACKAGES=(
   ca-certificates
   git
@@ -81,7 +82,7 @@ handle_bootstrap_step_result_or_exit() {
 }
 
 main() {
-  parse_cli_args "$@"
+  load_bootstrap_invocation_context "$@"
   validate_managed_paths
   trap cleanup EXIT
 
@@ -92,19 +93,7 @@ main() {
   set_step_total "$(pipeline_count_steps_for_mode bootstrap)"
   run_pipeline_steps "bootstrap" "handle_bootstrap_step_result_or_exit"
 
-  exec env \
-    POSTINSTALL_BOOTSTRAP_UPDATED="$BOOTSTRAP_SYSTEM_UPDATED" \
-    POSTINSTALL_LOG_FILE="$LOG_FILE" \
-    POSTINSTALL_LOG_INITIALIZED=1 \
-    POSTINSTALL_LOCK_HELD=1 \
-    POSTINSTALL_SUMMARY_FILE="$SUMMARY_FILE" \
-    POSTINSTALL_STATE_DIR="$STATE_DIR" \
-    POSTINSTALL_LOCK_DIR="$LOCK_DIR" \
-    SSH_KEY_PATH="$SSH_KEY_PATH" \
-    REPOSITORIES_DIR="$REPOSITORIES_DIR" \
-    YAY_REPO_DIR="$YAY_REPO_DIR" \
-    YAY_SNAPSHOT_URL="$YAY_SNAPSHOT_URL" \
-    bash "$INSTALL_DIR/scripts/install/main.sh" "$@"
+  exec_runtime_with_invocation_context "$INSTALL_DIR/scripts/install/main.sh"
 }
 
 main "$@"

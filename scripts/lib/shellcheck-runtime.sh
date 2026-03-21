@@ -32,6 +32,7 @@ SCRIPT_DIR=""
 PACKAGE_FILE=""
 EXTRA_PACKAGE_FILE=""
 SYSTEM_UPDATED=""
+env_assignments=""
 component_outcome=""
 STEP_RESULT_STATUS=""
 STEP_RESULT_MESSAGE=""
@@ -303,6 +304,22 @@ config_init_bootstrap() {
 }
 
 config_finalize() {
+  :
+}
+
+load_bootstrap_invocation_context() {
+  :
+}
+
+load_runtime_invocation_context() {
+  :
+}
+
+append_runtime_invocation_env() {
+  :
+}
+
+exec_runtime_with_invocation_context() {
   :
 }
 
