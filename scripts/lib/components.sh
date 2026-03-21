@@ -63,21 +63,17 @@ component_mark_checkpoint_if_missing() {
 
 component_summary_status_text() {
   local component_id="$1"
+  local summary_formatter=""
 
-  case "$component_id" in
-    aur_helper)
-      state_get_aur_helper_status
-      ;;
-    desktop_integration)
-      format_desktop_integration_status "$(state_get_component_status "$component_id")"
-      ;;
-    github_ssh)
-      format_github_ssh_status "$(state_get_component_status "$component_id")"
-      ;;
-    *)
-      return 1
-      ;;
-  esac
+  summary_formatter="$(component_summary_formatter_function "$component_id" 2>/dev/null || true)"
+  [[ -n "$summary_formatter" ]] || return 1
+
+  if component_has_runtime_status "$component_id"; then
+    "$summary_formatter" "$(state_get_component_status "$component_id")"
+    return 0
+  fi
+
+  "$summary_formatter"
 }
 
 component_prepare_check_only_state() {

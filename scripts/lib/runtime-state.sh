@@ -12,8 +12,7 @@ STATE_VERIFIED_ITEMS=()
 STATE_MISSING_ITEMS=()
 STATE_VERSION_LINES=()
 STATE_SOFT_FAILURES=()
-STATE_COMPONENT_STATUS_GITHUB_SSH=""
-STATE_COMPONENT_STATUS_DESKTOP_INTEGRATION=""
+declare -Ag STATE_COMPONENT_STATUSES=()
 STATE_AUR_HELPER_NAME=""
 STATE_AUR_HELPER_STATUS=""
 STATE_TEMP_CLIPBOARD_PACKAGE=""
@@ -21,6 +20,8 @@ STATE_OFFICIAL_REPO_METADATA_CHECKED=0
 STATE_OFFICIAL_REPO_METADATA_READY=0
 
 runtime_state_reset() {
+  local component_id
+
   STATE_MAIN_OFFICIAL_PACKAGES=()
   STATE_MAIN_AUR_PACKAGES=()
   STATE_FAILED_OFFICIAL_PACKAGES=()
@@ -31,13 +32,17 @@ runtime_state_reset() {
   STATE_MISSING_ITEMS=()
   STATE_VERSION_LINES=()
   STATE_SOFT_FAILURES=()
-  STATE_COMPONENT_STATUS_GITHUB_SSH="$STATUS_PENDING"
-  STATE_COMPONENT_STATUS_DESKTOP_INTEGRATION="$STATUS_PENDING"
+  STATE_COMPONENT_STATUSES=()
   STATE_AUR_HELPER_NAME=""
   STATE_AUR_HELPER_STATUS="não preparado"
   STATE_TEMP_CLIPBOARD_PACKAGE=""
   STATE_OFFICIAL_REPO_METADATA_CHECKED=0
   STATE_OFFICIAL_REPO_METADATA_READY=0
+
+  for component_id in "${COMPONENT_IDS[@]}"; do
+    component_has_runtime_status "$component_id" || continue
+    STATE_COMPONENT_STATUSES["$component_id"]="$STATUS_PENDING"
+  done
 }
 
 state_reset_package_results() {
@@ -103,30 +108,19 @@ state_set_component_status() {
   local component_id="$1"
   local status_value="$2"
 
-  case "$component_id" in
-    github_ssh)
-      STATE_COMPONENT_STATUS_GITHUB_SSH="$status_value"
-      ;;
-    desktop_integration)
-      STATE_COMPONENT_STATUS_DESKTOP_INTEGRATION="$status_value"
-      ;;
-  esac
+  component_has_runtime_status "$component_id" || return 0
+  STATE_COMPONENT_STATUSES["$component_id"]="$status_value"
 }
 
 state_get_component_status() {
   local component_id="$1"
 
-  case "$component_id" in
-    github_ssh)
-      printf '%s\n' "${STATE_COMPONENT_STATUS_GITHUB_SSH:-$STATUS_PENDING}"
-      ;;
-    desktop_integration)
-      printf '%s\n' "${STATE_COMPONENT_STATUS_DESKTOP_INTEGRATION:-$STATUS_PENDING}"
-      ;;
-    *)
-      printf '%s\n' ""
-      ;;
-  esac
+  if ! component_has_runtime_status "$component_id"; then
+    printf '%s\n' ""
+    return 0
+  fi
+
+  printf '%s\n' "${STATE_COMPONENT_STATUSES[$component_id]:-$STATUS_PENDING}"
 }
 
 state_set_aur_helper() {
