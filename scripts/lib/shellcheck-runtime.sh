@@ -147,6 +147,10 @@ component_summary_formatter_function() {
   :
 }
 
+pipeline_codex_cli_step() {
+  :
+}
+
 component_summary_status_text() {
   :
 }

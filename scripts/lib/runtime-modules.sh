@@ -20,6 +20,7 @@ readonly -a RUNTIME_ENTRYPOINT_MODULE_FILES=(
   "scripts/lib/pipeline.sh"
   "scripts/lib/steps/system.sh"
   "scripts/lib/steps/packages.sh"
+  "scripts/lib/steps/codex.sh"
   "scripts/lib/steps/desktop.sh"
   "scripts/lib/steps/github-ssh.sh"
   "scripts/lib/steps/verification.sh"
@@ -59,6 +60,7 @@ readonly -a RUNTIME_CHECK_FILES=(
   "scripts/lib/pipeline.sh"
   "scripts/lib/steps/system.sh"
   "scripts/lib/steps/packages.sh"
+  "scripts/lib/steps/codex.sh"
   "scripts/lib/steps/desktop.sh"
   "scripts/lib/steps/github-ssh.sh"
   "scripts/lib/steps/verification.sh"
@@ -102,6 +104,8 @@ if false; then
   source "$REPO_DIR/scripts/lib/steps/system.sh"
   # shellcheck source=scripts/lib/steps/packages.sh
   source "$REPO_DIR/scripts/lib/steps/packages.sh"
+  # shellcheck source=scripts/lib/steps/codex.sh
+  source "$REPO_DIR/scripts/lib/steps/codex.sh"
   # shellcheck source=scripts/lib/steps/desktop.sh
   source "$REPO_DIR/scripts/lib/steps/desktop.sh"
   # shellcheck source=scripts/lib/steps/github-ssh.sh

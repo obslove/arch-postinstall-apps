@@ -64,14 +64,16 @@ calculate_install_step_total() {
   local array_name="$1"
   # shellcheck disable=SC2178
   declare -n target_packages="$array_name"
+  local pre_package_component_ids=()
+  local post_package_component_ids=()
   local package
-  local total=8
+  local total=6
   local has_official=0
   local has_aur=0
 
-  if ((${#LOCAL_SUPPORT_PACKAGES[@]} > 0)); then
-    total=$((total + 1))
-  fi
+  mapfile -t pre_package_component_ids < <(component_pre_package_pipeline_ids)
+  mapfile -t post_package_component_ids < <(component_post_package_pipeline_ids)
+  total=$((total + ${#pre_package_component_ids[@]} + ${#post_package_component_ids[@]}))
 
   for package in "${target_packages[@]}"; do
     if pacman -Si -- "$package" >/dev/null 2>&1; then
@@ -81,9 +83,6 @@ calculate_install_step_total() {
     fi
   done
 
-  if component_enabled "codex_cli"; then
-    total=$((total + 1))
-  fi
   (( has_official == 1 )) && total=$((total + 1))
   (( has_aur == 1 )) && total=$((total + 1))
 

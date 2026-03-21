@@ -160,9 +160,9 @@ register_component \
 register_component \
   "codex_cli" \
   "Codex CLI" \
-  "" \
+  "post_package" \
   "component_expected_codex_cli" \
-  "" \
+  "pipeline_codex_cli_step" \
   "" \
   "0" \
   "1" \

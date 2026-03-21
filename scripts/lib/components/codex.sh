@@ -90,18 +90,17 @@ component_apply_codex_cli() {
 
   component_enabled "codex_cli" || return 0
 
-  announce_step "Configurando Codex CLI..."
   collect_missing_packages missing_packages "${CODEX_CLI_PACKAGES[@]}"
   if ((${#missing_packages[@]} > 0)); then
     announce_detail "Instalando dependências do Codex CLI..."
     if ! ops_pacman_install_needed "${missing_packages[@]}"; then
-      state_add_official_failure "codex"
-      return 0
+      announce_error "Não foi possível instalar as dependências do Codex CLI."
+      return 1
     fi
   fi
 
   if ! setup_codex_cli; then
-    state_add_official_failure "codex"
+    return 1
   fi
 }
 

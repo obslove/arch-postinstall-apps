@@ -10,6 +10,7 @@
 # shellcheck source=scripts/lib/pipeline.sh
 # shellcheck source=scripts/lib/steps/system.sh
 # shellcheck source=scripts/lib/steps/packages.sh
+# shellcheck source=scripts/lib/steps/codex.sh
 # shellcheck source=scripts/lib/steps/desktop.sh
 # shellcheck source=scripts/lib/steps/github-ssh.sh
 # shellcheck source=scripts/lib/steps/verification.sh
@@ -24,6 +25,7 @@ if false; then
   source "$SCRIPT_DIR/scripts/lib/pipeline.sh"
   source "$SCRIPT_DIR/scripts/lib/steps/system.sh"
   source "$SCRIPT_DIR/scripts/lib/steps/packages.sh"
+  source "$SCRIPT_DIR/scripts/lib/steps/codex.sh"
   source "$SCRIPT_DIR/scripts/lib/steps/desktop.sh"
   source "$SCRIPT_DIR/scripts/lib/steps/github-ssh.sh"
   source "$SCRIPT_DIR/scripts/lib/steps/verification.sh"

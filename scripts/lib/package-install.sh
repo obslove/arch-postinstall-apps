@@ -18,10 +18,6 @@ if false; then
   source "$SCRIPT_DIR/scripts/lib/components/aur-helper.sh"
 fi
 
-install_codex_cli_component() {
-  component_apply codex_cli
-}
-
 install_packages_in_order() {
   local array_name="$1"
   # shellcheck disable=SC2178
@@ -107,6 +103,4 @@ install_packages_in_order() {
 
     state_add_aur_failure "$package"
   done
-
-  install_codex_cli_component
 }
