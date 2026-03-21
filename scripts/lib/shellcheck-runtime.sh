@@ -82,10 +82,15 @@ github_login=""
 current_key=""
 existing_keys=""
 key_data=""
+value=""
 line=""
+category_label=""
+current_category_label=""
 target_packages=""
 package_origin=""
 source_packages=""
+package_category=""
+current_category=""
 package_previously_installed=""
 output=""
 verification_label=""
@@ -153,6 +158,8 @@ PIPELINE_STEP_ARGS=()
 STEP_DEFINITION_IDS=()
 target_array=()
 cleanup_paths=()
+PACKAGE_CATEGORY_ORDER=()
+PACKAGE_CATEGORY_BY_PACKAGE=()
 target_packages=()
 STATE_MAIN_OFFICIAL_PACKAGES=()
 STATE_MAIN_AUR_PACKAGES=()
@@ -188,6 +195,7 @@ declare -Ag STEP_DEFINITION_MODES=()
 declare -Ag STEP_DEFINITION_TITLES=()
 declare -Ag STEP_DEFINITION_FUNCTIONS=()
 declare -Ag STEP_DEFINITION_COUNT_FLAGS=()
+declare -Ag PACKAGE_CATEGORY_BY_PACKAGE=()
 declare -Ag STATE_VERIFICATION_LABELS=()
 declare -Ag STATE_VERIFICATION_KINDS=()
 declare -Ag STATE_VERIFICATION_REPAIR_STRATEGIES=()
@@ -942,7 +950,19 @@ component_verify_github_ssh() {
   :
 }
 
+trim_package_config_line() {
+  :
+}
+
+register_package_category() {
+  :
+}
+
 append_package() {
+  :
+}
+
+package_category_for_package() {
   :
 }
 

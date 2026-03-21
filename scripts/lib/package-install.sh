@@ -23,6 +23,8 @@ install_official_packages_in_order() {
   local official_packages=()
   local package_previously_installed=0
   local package_name
+  local current_category=""
+  local package_category=""
 
   if ! refresh_official_repo_index; then
     announce_error "Não foi possível preparar o índice de pacotes oficiais antes da instalação."
@@ -36,6 +38,12 @@ install_official_packages_in_order() {
   fi
 
   for package_name in "${official_packages[@]}"; do
+    package_category="$(package_category_for_package "$package_name")"
+    if [[ "$package_category" != "$current_category" ]]; then
+      announce_detail "Categoria: $package_category"
+      current_category="$package_category"
+    fi
+
     report_add_requested_main_official_package "$package_name"
     package_previously_installed=0
     if package_is_installed "$package_name"; then
@@ -62,6 +70,8 @@ install_aur_packages_in_order() {
   local package_name
   local aur_helper_name=""
   local package_previously_installed=0
+  local current_category=""
+  local package_category=""
 
   collect_packages_by_origin "$array_name" "aur" aur_packages || return 1
 
@@ -70,6 +80,12 @@ install_aur_packages_in_order() {
   fi
 
   for package_name in "${aur_packages[@]}"; do
+    package_category="$(package_category_for_package "$package_name")"
+    if [[ "$package_category" != "$current_category" ]]; then
+      announce_detail "Categoria: $package_category"
+      current_category="$package_category"
+    fi
+
     report_add_requested_main_aur_package "$package_name"
     package_previously_installed=0
     if package_is_installed "$package_name"; then

@@ -1,10 +1,18 @@
-# Uma linha por app principal. Linhas vazias e linhas iniciadas com `#` são ignoradas.
-# A ordem é respeitada pelo instalador.
+# Use `[Categoria]` para agrupar os apps principais.
+# Linhas vazias e linhas iniciadas com `#` são ignoradas.
+# A ordem das categorias e dos apps é respeitada pelo instalador.
 # Componentes declarados do setup ficam em `config/components.sh`.
 
+[Browsers]
 zen-browser-bin
 firefox
+
+[Development]
 code
+
+[Social]
 discord
 spotify-launcher
+
+[Gaming]
 steam

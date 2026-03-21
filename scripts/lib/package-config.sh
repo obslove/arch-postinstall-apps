@@ -8,6 +8,28 @@ if false; then
   source "$SCRIPT_DIR/scripts/lib/shellcheck-runtime.sh"
 fi
 
+PACKAGE_CATEGORY_ORDER=()
+declare -Ag PACKAGE_CATEGORY_BY_PACKAGE=()
+
+trim_package_config_line() {
+  local value="$1"
+
+  value="${value#"${value%%[![:space:]]*}"}"
+  value="${value%"${value##*[![:space:]]}"}"
+  printf '%s\n' "$value"
+}
+
+register_package_category() {
+  local category_label="$1"
+  local existing_label
+
+  for existing_label in "${PACKAGE_CATEGORY_ORDER[@]}"; do
+    [[ "$existing_label" == "$category_label" ]] && return 0
+  done
+
+  PACKAGE_CATEGORY_ORDER+=("$category_label")
+}
+
 append_package() {
   local array_name="$1"
   local package="$2"
@@ -17,17 +39,25 @@ append_package() {
 
   for existing in "${target_array[@]}"; do
     if [[ "$existing" == "$package" ]]; then
-      return
+      return 1
     fi
   done
 
   target_array+=("$package")
+  return 0
+}
+
+package_category_for_package() {
+  printf '%s\n' "${PACKAGE_CATEGORY_BY_PACKAGE[$1]:-Geral}"
 }
 
 load_package_file() {
   local package_path="$1"
   local array_name="$2"
+  local default_category_label="$3"
+  local current_category_label="$default_category_label"
   local line
+  local category_label=""
 
   if [[ ! -f "$package_path" ]]; then
     if [[ "$package_path" == "$EXTRA_PACKAGE_FILE" ]]; then
@@ -36,12 +66,27 @@ load_package_file() {
     return 0
   fi
 
+  register_package_category "$default_category_label"
+
   while IFS= read -r line || [[ -n "$line" ]]; do
-    line="${line#"${line%%[![:space:]]*}"}"
-    line="${line%"${line##*[![:space:]]}"}"
+    line="$(trim_package_config_line "$line")"
     [[ -n "$line" ]] || continue
     [[ "$line" =~ ^[[:space:]]*# ]] && continue
-    append_package "$array_name" "$line"
+
+    if [[ "$line" =~ ^\[(.+)\]$ ]]; then
+      category_label="$(trim_package_config_line "${BASH_REMATCH[1]}")"
+      [[ -n "$category_label" ]] || {
+        announce_error "Categoria inválida em $package_path."
+        return 1
+      }
+      current_category_label="$category_label"
+      register_package_category "$current_category_label"
+      continue
+    fi
+
+    if append_package "$array_name" "$line"; then
+      PACKAGE_CATEGORY_BY_PACKAGE["$line"]="$current_category_label"
+    fi
   done <"$package_path"
 }
 
@@ -56,8 +101,10 @@ load_packages() {
   }
 
   target_array=()
-  load_package_file "$PACKAGE_FILE" "$array_name"
-  load_package_file "$EXTRA_PACKAGE_FILE" "$array_name"
+  PACKAGE_CATEGORY_ORDER=()
+  PACKAGE_CATEGORY_BY_PACKAGE=()
+  load_package_file "$PACKAGE_FILE" "$array_name" "Geral"
+  load_package_file "$EXTRA_PACKAGE_FILE" "$array_name" "Extras"
 }
 
 classify_package_origin() {

@@ -22,6 +22,10 @@ EOF
 render_package_block() {
   local line
   local app_items=()
+  local category_order=()
+  declare -A app_category_by_package=()
+  local current_category="Geral"
+  local category_label=""
 
   print_item_list() {
     local array_name="$1"
@@ -37,12 +41,60 @@ render_package_block() {
     printf '\n'
   }
 
+  register_category() {
+    local label="$1"
+    local existing
+
+    for existing in "${category_order[@]}"; do
+      [[ "$existing" == "$label" ]] && return 0
+    done
+
+    category_order+=("$label")
+  }
+
+  trim_line() {
+    local value="$1"
+
+    value="${value#"${value%%[![:space:]]*}"}"
+    value="${value%"${value##*[![:space:]]}"}"
+    printf '%s\n' "$value"
+  }
+
+  print_main_packages_by_category() {
+    local category
+    local category_items=()
+    local package_item
+
+    for category in "${category_order[@]}"; do
+      category_items=()
+      for package_item in "${app_items[@]}"; do
+        [[ "${app_category_by_package[$package_item]:-}" == "$category" ]] || continue
+        category_items+=("$package_item")
+      done
+
+      ((${#category_items[@]} > 0)) || continue
+      printf '%s\n' "- Apps principais - $category:"
+      print_item_list category_items
+    done
+  }
+
+  register_category "$current_category"
+
   while IFS= read -r line || [[ -n "$line" ]]; do
-    line="${line#"${line%%[![:space:]]*}"}"
-    line="${line%"${line##*[![:space:]]}"}"
+    line="$(trim_line "$line")"
     [[ -n "$line" ]] || continue
     [[ "$line" == \#* ]] && continue
+
+    if [[ "$line" =~ ^\[(.+)\]$ ]]; then
+      category_label="$(trim_line "${BASH_REMATCH[1]}")"
+      [[ -n "$category_label" ]] || continue
+      current_category="$category_label"
+      register_category "$current_category"
+      continue
+    fi
+
     app_items+=("$line")
+    app_category_by_package["$line"]="$current_category"
   done <"$PACKAGE_FILE"
 
   printf '%s\n' '<!-- packages:start -->'
@@ -54,8 +106,7 @@ render_package_block() {
   print_item_list AUR_HELPER_README_ITEMS
   printf '%s\n' '- Dependências da etapa de GitHub SSH:'
   print_item_list GITHUB_SSH_SUPPORT_PACKAGES
-  printf '%s\n' '- Apps principais da lista padrão:'
-  print_item_list app_items
+  print_main_packages_by_category
   if component_enabled "codex_cli"; then
     printf '%s\n' '- Componentes usados para instalar e executar o Codex CLI:'
     print_item_list CODEX_CLI_README_ITEMS

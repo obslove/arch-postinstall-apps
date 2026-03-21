@@ -1,3 +1,4 @@
 # Apps opcionais adicionais da lista principal.
-# Se quiser usá-los, crie `config/packages-extra.txt` com uma linha por pacote.
+# Se quiser usá-los, crie `config/packages-extra.txt` usando o mesmo formato de `config/packages.txt`.
+# Você pode declarar categorias com `[Categoria]`.
 # Linhas vazias e linhas iniciadas com `#` são ignoradas.

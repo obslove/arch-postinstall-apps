@@ -38,7 +38,7 @@ Se ele for executado fora de um clone local do projeto, o próprio script verifi
 Durante uma execução normal, o script faz o seguinte:
 
 1. valida a sessão atual, autentica `sudo`, inicia o log e impede execuções simultâneas;
-2. carrega [config/packages.txt](config/packages.txt) e, se existir, `config/packages-extra.txt`;
+2. carrega [config/packages.txt](config/packages.txt) por categorias e, se existir, `config/packages-extra.txt`;
 3. cria os diretórios principais usados pelo ambiente;
 4. habilita `multilib`, atualiza o sistema e prepara o `yay`;
 5. instala os apps da lista principal e, se o componente estiver habilitado, configura o Codex CLI em `~/Codex`;
@@ -63,8 +63,14 @@ O script separa o que é infraestrutura do próprio fluxo e o que é software pr
   `base-devel`, `yay`
 - Dependências da etapa de GitHub SSH:
   `github-cli`, `openssh`
-- Apps principais da lista padrão:
-  `zen-browser-bin`, `firefox`, `code`, `discord`, `spotify-launcher`, `steam`
+- Apps principais - Browsers:
+  `zen-browser-bin`, `firefox`
+- Apps principais - Development:
+  `code`
+- Apps principais - Social:
+  `discord`, `spotify-launcher`
+- Apps principais - Gaming:
+  `steam`
 - Componentes usados para instalar e executar o Codex CLI:
   `nodejs`, `npm`, `codex`
 - Dependências do ambiente gráfico:
@@ -73,11 +79,11 @@ O script separa o que é infraestrutura do próprio fluxo e o que é software pr
   `wl-clipboard`
 <!-- packages:end -->
 
-Para alterar a lista principal de apps, edite [config/packages.txt](config/packages.txt).
+Para alterar a lista principal de apps por categoria, edite [config/packages.txt](config/packages.txt).
 
 Para alterar os componentes declarados do setup, edite [config/components.sh](config/components.sh).
 
-Se existir `config/packages-extra.txt`, o conteúdo dele também será carregado na mesma execução.
+Se existir `config/packages-extra.txt`, o conteúdo dele também será carregado na mesma execução usando o mesmo formato por categorias.
 
 No fluxo remoto via `curl`, o bootstrap também garante as dependências iniciais `ca-certificates`, `git` e `tar` antes de sincronizar o clone local do repositório.
 </details>
