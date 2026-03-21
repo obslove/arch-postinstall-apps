@@ -76,6 +76,7 @@ check_readme_commands() {
 build_check_file_lists() {
   append_check_file SYNTAX_FILES "$REPO_DIR/install.sh"
   append_check_file SYNTAX_FILES "$REPO_DIR/scripts/build-bootstrap.sh"
+  append_check_file SYNTAX_FILES "$REPO_DIR/scripts/build-shellcheck-runtime.sh"
   append_manifest_files SYNTAX_FILES "${BOOTSTRAP_CHECK_FILES[@]}"
   append_check_file SYNTAX_FILES "$REPO_DIR/scripts/install/main.sh"
   append_manifest_files SYNTAX_FILES "${RUNTIME_CHECK_FILES[@]}"
@@ -85,6 +86,7 @@ build_check_file_lists() {
   append_check_file SHELLCHECK_FILES "$REPO_DIR/install.sh"
   append_check_file SHELLCHECK_FILES "$REPO_DIR/scripts/check-repo.sh"
   append_check_file SHELLCHECK_FILES "$REPO_DIR/scripts/build-bootstrap.sh"
+  append_check_file SHELLCHECK_FILES "$REPO_DIR/scripts/build-shellcheck-runtime.sh"
   append_manifest_files SHELLCHECK_FILES "${BOOTSTRAP_CHECK_FILES[@]}"
   append_check_file SHELLCHECK_FILES "$REPO_DIR/scripts/install/main.sh"
   append_manifest_files SHELLCHECK_FILES "${RUNTIME_CHECK_FILES[@]}"
@@ -95,6 +97,7 @@ build_check_file_lists() {
 main() {
   build_check_file_lists
   bash "$REPO_DIR/scripts/build-bootstrap.sh" --check
+  bash "$REPO_DIR/scripts/build-shellcheck-runtime.sh" --check
   bash "$REPO_DIR/scripts/update-readme-packages.sh" --check
   bash -n "${SYNTAX_FILES[@]}"
   shellcheck -x "${SHELLCHECK_FILES[@]}"
