@@ -4,6 +4,9 @@ Bootstrap e pós-instalação declarativa para Arch Linux, focada em Wayland com
 
 O projeto mantém o fluxo remoto `curl -fsSL https://obslove.dev | bash`, sincroniza o clone gerenciado em `~/Repositories/arch-postinstall-apps`, instala os apps por categoria, prepara o ambiente e fecha a máquina com integração desktop, Codex CLI e GitHub SSH.
 
+> [!NOTE]
+> O bootstrap publicado em `https://obslove.dev` é tratado como parte do repositório e é verificado automaticamente contra `main/install.sh`.
+
 ## Instalação rápida
 
 Execute como usuário comum. Não use `sudo bash`.
@@ -21,6 +24,9 @@ curl -fsSL https://obslove.dev | bash -s -- -s "meu-dispositivo"
 ```
 
 O modo padrão usa saída resumida. Use `-v` para ver a saída detalhada no terminal.
+
+> [!IMPORTANT]
+> O fluxo suportado e preservado pelo projeto é `curl -fsSL https://obslove.dev | bash`.
 
 ## O que o script faz
 
@@ -40,6 +46,12 @@ Arquivos gerados pela execução:
 - log completo: `~/Backups/arch-postinstall.log`
 - resumo final: `~/Backups/arch-postinstall-summary.txt`
 
+## Notes
+
+- o fluxo remoto e o fluxo local executam o mesmo runtime depois que o clone gerenciado é sincronizado;
+- a lista principal de apps é declarativa e ordenada por categoria;
+- componentes de setup ficam fora da lista principal de apps e são mantidos em [config/components.sh](config/components.sh).
+
 ## Alvo do projeto
 
 Este setup foi ajustado para o seguinte cenário:
@@ -49,6 +61,9 @@ Este setup foi ajustado para o seguinte cenário:
 - `curl` disponível
 
 Se ele for executado fora de um clone local do projeto, o bootstrap remoto instala as dependências iniciais necessárias, clona ou atualiza `~/Repositories/arch-postinstall-apps` e continua a partir desse clone.
+
+> [!NOTE]
+> O projeto não foi desenhado para ser um instalador Arch genérico. Ele assume Wayland com Hyprland e trata desvios desse alvo como erro de ambiente.
 
 ## Pacotes e dependências
 
@@ -97,6 +112,9 @@ Mesmo com a automação, algumas etapas ainda podem exigir interação:
 - login no GitHub via `gh auth login`;
 - renovação de escopo com `gh auth refresh`, se faltar `admin:public_key`;
 - algum prompt eventual do `yay` em casos específicos.
+
+> [!NOTE]
+> A etapa de GitHub SSH só reconcilia o título da chave quando `--ssh-name` é informado explicitamente.
 
 ## Opções disponíveis
 
@@ -163,6 +181,9 @@ Secrets necessários no GitHub:
 
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_ACCOUNT_ID`
+
+> [!IMPORTANT]
+> Evite editar manualmente a rota ou o Worker do `obslove.dev` no dashboard do Cloudflare. O objetivo do projeto é manter essa publicação sob controle do repositório.
 
 ## Arquivos principais
 
