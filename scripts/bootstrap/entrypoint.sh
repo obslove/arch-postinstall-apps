@@ -5,6 +5,8 @@
 # shellcheck source=scripts/lib/runtime-config.sh
 # shellcheck source=scripts/lib/step-result.sh
 # shellcheck source=scripts/lib/ui.sh
+# shellcheck source=scripts/lib/pipeline.sh
+# shellcheck source=scripts/lib/step-manifest.sh
 # shellcheck source=scripts/lib/process.sh
 # shellcheck source=scripts/lib/locking.sh
 # shellcheck source=scripts/lib/env.sh
@@ -17,6 +19,8 @@ if false; then
   source "$SCRIPT_DIR/scripts/lib/runtime-config.sh"
   source "$SCRIPT_DIR/scripts/lib/step-result.sh"
   source "$SCRIPT_DIR/scripts/lib/ui.sh"
+  source "$SCRIPT_DIR/scripts/lib/pipeline.sh"
+  source "$SCRIPT_DIR/scripts/lib/step-manifest.sh"
   source "$SCRIPT_DIR/scripts/lib/process.sh"
   source "$SCRIPT_DIR/scripts/lib/locking.sh"
   source "$SCRIPT_DIR/scripts/lib/env.sh"
@@ -40,6 +44,8 @@ BOOTSTRAP_PACKAGES=(
   curl
   tar
 )
+BOOTSTRAP_MISSING_PACKAGES=()
+BOOTSTRAP_SYSTEM_UPDATED=0
 
 cleanup_paths=()
 step_counter=0
@@ -68,8 +74,58 @@ handle_bootstrap_step_result_or_exit() {
   esac
 }
 
-bootstrap_install_dependencies_step() {
+bootstrap_validate_environment_step() {
+  step_result_reset
+
+  if ! ensure_arch; then
+    step_result_hard_fail "Este bootstrap só pode ser executado em Arch Linux."
+    return 0
+  fi
+
+  if ! ensure_supported_session; then
+    step_result_hard_fail "A sessão atual não é compatível com o bootstrap."
+    return 0
+  fi
+
+  if ! require_command pacman; then
+    step_result_hard_fail "O comando 'pacman' é obrigatório para continuar."
+    return 0
+  fi
+
+  if ! require_command sudo; then
+    step_result_hard_fail "O comando 'sudo' é obrigatório para continuar."
+    return 0
+  fi
+
+  announce_prompt "Autenticando sudo..."
+  if ! run_with_terminal_stdin sudo -v; then
+    step_result_hard_fail "Não foi possível autenticar o sudo."
+    return 0
+  fi
+
+  init_logging
+  step_result_success "O ambiente de bootstrap foi validado."
+}
+
+bootstrap_check_dependencies_step() {
   local array_name="$1"
+  # shellcheck disable=SC2178
+  declare -n missing_packages="$array_name"
+
+  step_result_reset
+
+  if ((${#missing_packages[@]} == 0)); then
+    announce_detail "As dependências iniciais já estão disponíveis."
+    step_result_success "As dependências iniciais já estavam disponíveis."
+    return 0
+  fi
+
+  announce_detail "${#missing_packages[@]} dependência(s) inicial(is) ainda não instalada(s)."
+  step_result_success "As dependências iniciais foram avaliadas."
+}
+
+bootstrap_install_dependencies_step() {
+  local array_name="${1:-BOOTSTRAP_MISSING_PACKAGES}"
   # shellcheck disable=SC2178
   declare -n missing_packages="$array_name"
 
@@ -82,6 +138,7 @@ bootstrap_install_dependencies_step() {
   fi
 
   if retry_interactive_log_only sudo pacman -Syu --needed --noconfirm "${missing_packages[@]}"; then
+    BOOTSTRAP_SYSTEM_UPDATED=1
     step_result_success "As dependências iniciais foram instaladas."
     return 0
   fi
@@ -92,6 +149,21 @@ bootstrap_install_dependencies_step() {
 bootstrap_sync_repo_step() {
   step_result_reset
 
+  if ! require_command git; then
+    step_result_hard_fail "O comando 'git' é obrigatório para sincronizar o repositório."
+    return 0
+  fi
+
+  if ! require_command curl; then
+    step_result_hard_fail "O comando 'curl' é obrigatório para sincronizar o repositório."
+    return 0
+  fi
+
+  if ! require_command tar; then
+    step_result_hard_fail "O comando 'tar' é obrigatório para sincronizar o repositório."
+    return 0
+  fi
+
   if sync_repo; then
     step_result_success "O repositório gerenciado foi sincronizado."
     return 0
@@ -101,47 +173,19 @@ bootstrap_sync_repo_step() {
 }
 
 main() {
-  local bootstrap_system_updated=0
-  local bootstrap_missing_packages=()
-
   parse_cli_args "$@"
   validate_managed_paths
   trap cleanup EXIT
 
   ensure_not_root
   acquire_lock
-  collect_missing_packages bootstrap_missing_packages "${BOOTSTRAP_PACKAGES[@]}"
-  if ((${#bootstrap_missing_packages[@]} > 0)); then
-    set_step_total 4
-  else
-    set_step_total 3
-  fi
-
-  announce_step "Validando ambiente..."
-  ensure_arch
-  ensure_supported_session
-  require_command pacman
-  require_command sudo
-  announce_prompt "Autenticando sudo..."
-  run_with_terminal_stdin sudo -v
-  init_logging
-
-  announce_step "Verificando dependências iniciais já instaladas..."
-  if ((${#bootstrap_missing_packages[@]} > 0)); then
-    announce_step "Instalando dependências iniciais..."
-    bootstrap_install_dependencies_step bootstrap_missing_packages
-    handle_bootstrap_step_result_or_exit
-    bootstrap_system_updated=1
-  fi
-
-  require_command git
-  require_command curl
-  require_command tar
-  bootstrap_sync_repo_step
-  handle_bootstrap_step_result_or_exit
+  collect_missing_packages BOOTSTRAP_MISSING_PACKAGES "${BOOTSTRAP_PACKAGES[@]}"
+  define_bootstrap_pipeline BOOTSTRAP_MISSING_PACKAGES
+  set_step_total "$(pipeline_count_steps_for_mode bootstrap)"
+  run_pipeline_steps "bootstrap" "handle_bootstrap_step_result_or_exit"
 
   exec env \
-    POSTINSTALL_BOOTSTRAP_UPDATED="$bootstrap_system_updated" \
+    POSTINSTALL_BOOTSTRAP_UPDATED="$BOOTSTRAP_SYSTEM_UPDATED" \
     POSTINSTALL_LOG_FILE="$LOG_FILE" \
     POSTINSTALL_LOG_INITIALIZED=1 \
     POSTINSTALL_LOCK_HELD=1 \

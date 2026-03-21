@@ -60,31 +60,65 @@ load_packages() {
   load_package_file "$EXTRA_PACKAGE_FILE" "$array_name"
 }
 
-calculate_install_step_total() {
+classify_package_origin() {
+  local package_name="$1"
+  local origin_status=0
+
+  if package_exists_in_official_repos "$package_name"; then
+    printf 'official\n'
+    return 0
+  fi
+
+  origin_status=$?
+  if [[ "$origin_status" == "1" ]]; then
+    printf 'aur\n'
+    return 0
+  fi
+
+  announce_error "Não foi possível classificar o pacote '$package_name' entre repositório oficial e AUR."
+  return 1
+}
+
+target_packages_have_origin() {
   local array_name="$1"
+  local expected_origin="$2"
   # shellcheck disable=SC2178
   declare -n target_packages="$array_name"
-  local pre_package_component_ids=()
-  local post_package_component_ids=()
-  local package
-  local total=6
-  local has_official=0
-  local has_aur=0
+  local package_name
+  local package_origin=""
 
-  mapfile -t pre_package_component_ids < <(component_pre_package_pipeline_ids)
-  mapfile -t post_package_component_ids < <(component_post_package_pipeline_ids)
-  total=$((total + ${#pre_package_component_ids[@]} + ${#post_package_component_ids[@]}))
-
-  for package in "${target_packages[@]}"; do
-    if pacman -Si -- "$package" >/dev/null 2>&1; then
-      has_official=1
-    else
-      has_aur=1
-    fi
+  for package_name in "${target_packages[@]}"; do
+    package_origin="$(classify_package_origin "$package_name")" || return 2
+    [[ "$package_origin" == "$expected_origin" ]] && return 0
   done
 
-  (( has_official == 1 )) && total=$((total + 1))
-  (( has_aur == 1 )) && total=$((total + 1))
+  return 1
+}
 
-  printf '%s\n' "$total"
+target_packages_have_official_entries() {
+  target_packages_have_origin "$1" "official"
+}
+
+target_packages_have_aur_entries() {
+  target_packages_have_origin "$1" "aur"
+}
+
+collect_packages_by_origin() {
+  local source_array_name="$1"
+  local expected_origin="$2"
+  local target_array_name="$3"
+  # shellcheck disable=SC2178
+  declare -n source_packages="$source_array_name"
+  # shellcheck disable=SC2178
+  declare -n target_packages="$target_array_name"
+  local package_name
+  local package_origin=""
+
+  target_packages=()
+
+  for package_name in "${source_packages[@]}"; do
+    package_origin="$(classify_package_origin "$package_name")" || return 1
+    [[ "$package_origin" == "$expected_origin" ]] || continue
+    target_packages+=("$package_name")
+  done
 }

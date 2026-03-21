@@ -97,6 +97,12 @@ STATE_OFFICIAL_REPO_METADATA_CHECKED=0
 STATE_OFFICIAL_REPO_METADATA_READY=0
 cleanup_paths=()
 COMPONENT_IDS=()
+PIPELINE_STEP_IDS=()
+PIPELINE_STEP_MODES=()
+PIPELINE_STEP_TITLES=()
+PIPELINE_STEP_FUNCTIONS=()
+PIPELINE_STEP_COUNT_FLAGS=()
+PIPELINE_STEP_ARGS=()
 
 format_github_ssh_status() {
   :
@@ -150,11 +156,11 @@ component_pipeline_step_function() {
   :
 }
 
-component_summary_formatter_function() {
+component_pipeline_title() {
   :
 }
 
-pipeline_codex_cli_step() {
+component_summary_formatter_function() {
   :
 }
 
@@ -275,6 +281,54 @@ state_set_official_repo_metadata_ready() {
 }
 
 state_has_package_failures() {
+  :
+}
+
+pipeline_reset() {
+  :
+}
+
+pipeline_add_step() {
+  :
+}
+
+pipeline_contains_step_id() {
+  :
+}
+
+pipeline_count_steps_for_mode() {
+  :
+}
+
+define_runtime_pipeline() {
+  :
+}
+
+append_runtime_install_pipeline() {
+  :
+}
+
+classify_package_origin() {
+  :
+}
+
+target_packages_have_official_entries() {
+  :
+}
+
+target_packages_have_aur_entries() {
+  :
+}
+
+collect_packages_by_origin() {
+  :
+}
+
+install_official_packages_in_order() {
+  :
+}
+
+install_aur_packages_in_order() {
   :
 }
 

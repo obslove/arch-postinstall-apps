@@ -60,6 +60,10 @@ register_module_file "scripts/lib/step-result.sh" \
   bootstrap-fragment bootstrap-check runtime-check
 register_module_file "scripts/lib/ui.sh" \
   bootstrap-fragment bootstrap-check runtime-check
+register_module_file "scripts/lib/pipeline.sh" \
+  bootstrap-fragment bootstrap-check runtime-entrypoint runtime-check
+register_module_file "scripts/lib/step-manifest.sh" \
+  bootstrap-fragment bootstrap-check runtime-entrypoint runtime-check
 register_module_file "scripts/lib/process.sh" \
   bootstrap-fragment bootstrap-check runtime-check
 register_module_file "scripts/lib/locking.sh" \
@@ -98,8 +102,6 @@ register_module_file "scripts/lib/verification.sh" \
 register_module_file "scripts/lib/repair.sh" \
   runtime-entrypoint runtime-check
 register_module_file "scripts/lib/summary.sh" \
-  runtime-entrypoint runtime-check
-register_module_file "scripts/lib/pipeline.sh" \
   runtime-entrypoint runtime-check
 register_module_file "scripts/lib/steps/system.sh" \
   runtime-entrypoint runtime-check

@@ -8,12 +8,7 @@
 # shellcheck source=scripts/lib/runtime-state.sh
 # shellcheck source=scripts/lib/summary.sh
 # shellcheck source=scripts/lib/pipeline.sh
-# shellcheck source=scripts/lib/steps/system.sh
-# shellcheck source=scripts/lib/steps/packages.sh
-# shellcheck source=scripts/lib/steps/codex.sh
-# shellcheck source=scripts/lib/steps/desktop.sh
-# shellcheck source=scripts/lib/steps/github-ssh.sh
-# shellcheck source=scripts/lib/steps/verification.sh
+# shellcheck source=scripts/lib/step-manifest.sh
 
 if false; then
   source "$SCRIPT_DIR/scripts/lib/shellcheck-runtime.sh"
@@ -23,12 +18,7 @@ if false; then
   source "$SCRIPT_DIR/scripts/lib/runtime-state.sh"
   source "$SCRIPT_DIR/scripts/lib/summary.sh"
   source "$SCRIPT_DIR/scripts/lib/pipeline.sh"
-  source "$SCRIPT_DIR/scripts/lib/steps/system.sh"
-  source "$SCRIPT_DIR/scripts/lib/steps/packages.sh"
-  source "$SCRIPT_DIR/scripts/lib/steps/codex.sh"
-  source "$SCRIPT_DIR/scripts/lib/steps/desktop.sh"
-  source "$SCRIPT_DIR/scripts/lib/steps/github-ssh.sh"
-  source "$SCRIPT_DIR/scripts/lib/steps/verification.sh"
+  source "$SCRIPT_DIR/scripts/lib/step-manifest.sh"
 fi
 
 handle_runtime_step_result_or_exit() {
@@ -62,39 +52,6 @@ handle_runtime_step_result_or_exit() {
   esac
 }
 
-define_runtime_pipeline() {
-  local array_name="$1"
-  local pre_package_component_ids=()
-  local post_package_component_ids=()
-  local component_id
-  local pipeline_function
-
-  pipeline_reset
-  pipeline_add_step "load_configuration" "all" "pipeline_load_configuration_step" "$array_name"
-
-  if [[ "$CHECK_ONLY" == "1" ]]; then
-    pipeline_add_step "check_only_verification" "check" "pipeline_check_only_step" "$array_name"
-    return 0
-  fi
-
-  pipeline_add_step "create_directories" "install" "pipeline_create_directories_step"
-  pipeline_add_step "ensure_multilib" "install" "pipeline_ensure_multilib_step"
-  pipeline_add_step "update_system" "install" "pipeline_update_system_step"
-  pipeline_add_step "install_local_support_packages" "install" "pipeline_install_local_support_packages_step"
-  mapfile -t pre_package_component_ids < <(component_pre_package_pipeline_ids)
-  for component_id in "${pre_package_component_ids[@]}"; do
-    pipeline_function="$(component_pipeline_step_function "$component_id")"
-    pipeline_add_step "$component_id" "install" "$pipeline_function"
-  done
-  pipeline_add_step "install_packages" "install" "pipeline_install_packages_step" "$array_name"
-  mapfile -t post_package_component_ids < <(component_post_package_pipeline_ids)
-  for component_id in "${post_package_component_ids[@]}"; do
-    pipeline_function="$(component_pipeline_step_function "$component_id")"
-    pipeline_add_step "$component_id" "install" "$pipeline_function"
-  done
-  pipeline_add_step "final_verification" "install" "pipeline_final_verification_step" "$array_name"
-}
-
 run_install() {
   local execution_mode="install"
   # shellcheck disable=SC2034
@@ -106,7 +63,12 @@ run_install() {
 
   execution_state_reset
   define_runtime_pipeline package_list
-  run_pipeline_steps "$execution_mode"
+
+  if [[ "$execution_mode" == "check" ]]; then
+    set_step_total "$(pipeline_count_steps_for_mode check)"
+  fi
+
+  run_pipeline_steps "$execution_mode" "handle_runtime_step_result_or_exit"
 
   if [[ "$execution_mode" == "install" ]]; then
     print_summary

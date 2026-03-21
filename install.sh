@@ -349,6 +349,295 @@ close_step_block() {
 }
 # --- end: scripts/lib/ui.sh ---
 
+# --- begin: scripts/lib/pipeline.sh ---
+# shellcheck shell=bash
+
+PIPELINE_STEP_IDS=()
+PIPELINE_STEP_MODES=()
+PIPELINE_STEP_TITLES=()
+PIPELINE_STEP_FUNCTIONS=()
+PIPELINE_STEP_COUNT_FLAGS=()
+PIPELINE_STEP_ARGS=()
+
+pipeline_reset() {
+  PIPELINE_STEP_IDS=()
+  PIPELINE_STEP_MODES=()
+  PIPELINE_STEP_TITLES=()
+  PIPELINE_STEP_FUNCTIONS=()
+  PIPELINE_STEP_COUNT_FLAGS=()
+  PIPELINE_STEP_ARGS=()
+}
+
+pipeline_add_step() {
+  local step_id="$1"
+  local step_mode="$2"
+  local step_title="$3"
+  local step_function="$4"
+  local step_count_flag="${5:-1}"
+  local step_args="${6:-}"
+
+  PIPELINE_STEP_IDS+=("$step_id")
+  PIPELINE_STEP_MODES+=("$step_mode")
+  PIPELINE_STEP_TITLES+=("$step_title")
+  PIPELINE_STEP_FUNCTIONS+=("$step_function")
+  PIPELINE_STEP_COUNT_FLAGS+=("$step_count_flag")
+  PIPELINE_STEP_ARGS+=("$step_args")
+}
+
+pipeline_step_matches_mode() {
+  local step_mode="$1"
+  local execution_mode="$2"
+
+  [[ "$step_mode" == "all" || "$step_mode" == "$execution_mode" ]]
+}
+
+pipeline_contains_step_id() {
+  local step_id="$1"
+  local existing_id
+
+  for existing_id in "${PIPELINE_STEP_IDS[@]}"; do
+    [[ "$existing_id" == "$step_id" ]] && return 0
+  done
+
+  return 1
+}
+
+pipeline_count_steps_for_mode() {
+  local execution_mode="$1"
+  local total=0
+  local index
+
+  for index in "${!PIPELINE_STEP_IDS[@]}"; do
+    if ! pipeline_step_matches_mode "${PIPELINE_STEP_MODES[$index]}" "$execution_mode"; then
+      continue
+    fi
+
+    [[ "${PIPELINE_STEP_COUNT_FLAGS[$index]:-0}" == "1" ]] || continue
+    total=$((total + 1))
+  done
+
+  printf '%s\n' "$total"
+}
+
+run_pipeline_steps() {
+  local execution_mode="$1"
+  local result_handler="${2:-}"
+  local index=0
+  local step_title
+  local step_function
+  local step_count_flag
+  local step_args
+
+  while (( index < ${#PIPELINE_STEP_IDS[@]} )); do
+    if ! pipeline_step_matches_mode "${PIPELINE_STEP_MODES[$index]}" "$execution_mode"; then
+      index=$((index + 1))
+      continue
+    fi
+
+    step_title="${PIPELINE_STEP_TITLES[$index]}"
+    step_function="${PIPELINE_STEP_FUNCTIONS[$index]}"
+    step_count_flag="${PIPELINE_STEP_COUNT_FLAGS[$index]:-0}"
+    step_args="${PIPELINE_STEP_ARGS[$index]}"
+
+    if [[ "$step_count_flag" == "1" && -n "$step_title" ]]; then
+      announce_step "$step_title"
+    fi
+
+    if [[ -n "$step_args" ]]; then
+      "$step_function" "$step_args"
+    else
+      "$step_function"
+    fi
+
+    if [[ -n "$result_handler" ]]; then
+      "$result_handler"
+    fi
+
+    index=$((index + 1))
+  done
+}
+# --- end: scripts/lib/pipeline.sh ---
+
+# --- begin: scripts/lib/step-manifest.sh ---
+# shellcheck shell=bash
+# shellcheck disable=SC2034
+
+STEP_DEFINITION_IDS=()
+declare -Ag STEP_DEFINITION_MODES=()
+declare -Ag STEP_DEFINITION_TITLES=()
+declare -Ag STEP_DEFINITION_FUNCTIONS=()
+declare -Ag STEP_DEFINITION_COUNT_FLAGS=()
+
+register_step_definition() {
+  local step_id="$1"
+  local step_mode="$2"
+  local step_title="$3"
+  local step_function="$4"
+  local count_for_progress="${5:-1}"
+
+  STEP_DEFINITION_IDS+=("$step_id")
+  STEP_DEFINITION_MODES["$step_id"]="$step_mode"
+  STEP_DEFINITION_TITLES["$step_id"]="$step_title"
+  STEP_DEFINITION_FUNCTIONS["$step_id"]="$step_function"
+  STEP_DEFINITION_COUNT_FLAGS["$step_id"]="$count_for_progress"
+}
+
+step_definition_mode() {
+  printf '%s\n' "${STEP_DEFINITION_MODES[$1]:-}"
+}
+
+step_definition_title() {
+  printf '%s\n' "${STEP_DEFINITION_TITLES[$1]:-}"
+}
+
+step_definition_function() {
+  printf '%s\n' "${STEP_DEFINITION_FUNCTIONS[$1]:-}"
+}
+
+step_definition_count_flag() {
+  printf '%s\n' "${STEP_DEFINITION_COUNT_FLAGS[$1]:-0}"
+}
+
+append_registered_step() {
+  local step_id="$1"
+  local step_args="${2:-}"
+  local step_mode=""
+  local step_title=""
+  local step_function=""
+  local step_count_flag="0"
+
+  step_mode="$(step_definition_mode "$step_id")"
+  step_title="$(step_definition_title "$step_id")"
+  step_function="$(step_definition_function "$step_id")"
+  step_count_flag="$(step_definition_count_flag "$step_id")"
+
+  [[ -n "$step_mode" && -n "$step_function" ]] || {
+    printf 'Erro: etapa não registrada: %s\n' "$step_id" >&2
+    return 1
+  }
+
+  pipeline_add_step "$step_id" "$step_mode" "$step_title" "$step_function" "$step_count_flag" "$step_args"
+}
+
+append_runtime_component_steps() {
+  local phase="$1"
+  local component_ids=()
+  local component_id
+  local pipeline_title=""
+  local pipeline_function=""
+
+  case "$phase" in
+    pre_package)
+      mapfile -t component_ids < <(component_pre_package_pipeline_ids)
+      ;;
+    post_package)
+      mapfile -t component_ids < <(component_post_package_pipeline_ids)
+      ;;
+    *)
+      printf 'Erro: fase de pipeline desconhecida: %s\n' "$phase" >&2
+      return 1
+      ;;
+  esac
+
+  for component_id in "${component_ids[@]}"; do
+    pipeline_title="$(component_pipeline_title "$component_id")"
+    pipeline_function="$(component_pipeline_step_function "$component_id")"
+    pipeline_add_step "$component_id" "install" "$pipeline_title" "$pipeline_function" "1"
+  done
+}
+
+append_runtime_install_pipeline() {
+  local package_array_name="$1"
+  local origin_status=0
+
+  append_registered_step "create_directories"
+  append_registered_step "ensure_multilib"
+  append_registered_step "update_system"
+  append_registered_step "install_local_support_packages"
+  append_runtime_component_steps "pre_package"
+
+  if target_packages_have_official_entries "$package_array_name"; then
+    append_registered_step "prepare_package_installation"
+    append_registered_step "install_official_packages" "$package_array_name"
+  else
+    origin_status=$?
+    if [[ "$origin_status" != "1" ]]; then
+      return 1
+    fi
+  fi
+
+  if target_packages_have_aur_entries "$package_array_name"; then
+    if ! pipeline_contains_step_id "prepare_package_installation"; then
+      append_registered_step "prepare_package_installation"
+    fi
+    append_registered_step "install_aur_packages" "$package_array_name"
+  else
+    origin_status=$?
+    if [[ "$origin_status" != "1" ]]; then
+      return 1
+    fi
+  fi
+
+  if pipeline_contains_step_id "prepare_package_installation"; then
+    append_registered_step "finalize_package_installation"
+  fi
+
+  append_runtime_component_steps "post_package"
+  append_registered_step "final_verification" "$package_array_name"
+}
+
+define_runtime_pipeline() {
+  local package_array_name="$1"
+
+  pipeline_reset
+  append_registered_step "runtime_validate_environment"
+  append_registered_step "load_configuration" "$package_array_name"
+
+  if [[ "$CHECK_ONLY" == "1" ]]; then
+    append_registered_step "check_only_verification" "$package_array_name"
+  fi
+}
+
+define_bootstrap_pipeline() {
+  local missing_packages_array_name="$1"
+
+  pipeline_reset
+  append_registered_step "bootstrap_validate_environment"
+  append_registered_step "bootstrap_check_dependencies" "$missing_packages_array_name"
+
+  if bootstrap_missing_packages_present "$missing_packages_array_name"; then
+    append_registered_step "bootstrap_install_dependencies" "$missing_packages_array_name"
+  fi
+
+  append_registered_step "bootstrap_sync_repo"
+}
+
+bootstrap_missing_packages_present() {
+  local array_name="$1"
+  declare -n missing_packages="$array_name"
+
+  (( ${#missing_packages[@]} > 0 ))
+}
+
+register_step_definition "runtime_validate_environment" "all" "Validando ambiente..." "runtime_validate_environment_step"
+register_step_definition "load_configuration" "all" "Carregando configuração..." "load_configuration_step"
+register_step_definition "check_only_verification" "check" "Executando verificação sem alterações..." "check_only_step"
+register_step_definition "create_directories" "install" "Criando diretórios..." "create_directories_step"
+register_step_definition "ensure_multilib" "install" "Preparando repositório multilib..." "ensure_multilib_step"
+register_step_definition "update_system" "install" "Atualizando o sistema..." "update_system_step"
+register_step_definition "install_local_support_packages" "install" "Instalando ferramentas de suporte..." "install_local_support_packages_step"
+register_step_definition "prepare_package_installation" "install" "" "prepare_package_installation_step" "0"
+register_step_definition "install_official_packages" "install" "Instalando apps oficiais..." "install_official_packages_step"
+register_step_definition "install_aur_packages" "install" "Instalando apps AUR..." "install_aur_packages_step"
+register_step_definition "finalize_package_installation" "install" "" "finalize_package_installation_step" "0"
+register_step_definition "final_verification" "install" "Validando instalação..." "final_verification_step"
+
+register_step_definition "bootstrap_validate_environment" "bootstrap" "Validando ambiente..." "bootstrap_validate_environment_step"
+register_step_definition "bootstrap_check_dependencies" "bootstrap" "Verificando dependências iniciais já instaladas..." "bootstrap_check_dependencies_step"
+register_step_definition "bootstrap_install_dependencies" "bootstrap" "Instalando dependências iniciais..." "bootstrap_install_dependencies_step"
+register_step_definition "bootstrap_sync_repo" "bootstrap" "Sincronizando repositório..." "bootstrap_sync_repo_step"
+# --- end: scripts/lib/step-manifest.sh ---
+
 # --- begin: scripts/lib/process.sh ---
 # shellcheck shell=bash
 
@@ -889,7 +1178,7 @@ sync_repo() {
   mkdir -p "$(dirname "$INSTALL_DIR")"
 
   if [[ -d "$INSTALL_DIR/.git" ]]; then
-    announce_step "Atualizando repositório..."
+    announce_detail "Atualizando clone gerenciado..."
     if repo_is_dirty; then
       current_branch="$(get_repo_branch "$INSTALL_DIR" 2>/dev/null || true)"
       if [[ -n "$current_branch" && "$current_branch" != "main" ]]; then
@@ -948,7 +1237,7 @@ sync_repo() {
     return 1
   fi
 
-  announce_step "Clonando repositório..."
+  announce_detail "Clonando repositório pela primeira vez..."
   if ! retry_log_only git clone --branch main --single-branch "$REPO_HTTPS_URL" "$INSTALL_DIR"; then
     announce_error "Falha ao clonar 'main' de $REPO_HTTPS_URL."
     announce_error "Verifique acesso ao GitHub e se a branch existe no remoto."
@@ -965,6 +1254,8 @@ sync_repo() {
 # shellcheck source=scripts/lib/runtime-config.sh
 # shellcheck source=scripts/lib/step-result.sh
 # shellcheck source=scripts/lib/ui.sh
+# shellcheck source=scripts/lib/pipeline.sh
+# shellcheck source=scripts/lib/step-manifest.sh
 # shellcheck source=scripts/lib/process.sh
 # shellcheck source=scripts/lib/locking.sh
 # shellcheck source=scripts/lib/env.sh
@@ -977,6 +1268,8 @@ if false; then
   source "$SCRIPT_DIR/scripts/lib/runtime-config.sh"
   source "$SCRIPT_DIR/scripts/lib/step-result.sh"
   source "$SCRIPT_DIR/scripts/lib/ui.sh"
+  source "$SCRIPT_DIR/scripts/lib/pipeline.sh"
+  source "$SCRIPT_DIR/scripts/lib/step-manifest.sh"
   source "$SCRIPT_DIR/scripts/lib/process.sh"
   source "$SCRIPT_DIR/scripts/lib/locking.sh"
   source "$SCRIPT_DIR/scripts/lib/env.sh"
@@ -1000,6 +1293,8 @@ BOOTSTRAP_PACKAGES=(
   curl
   tar
 )
+BOOTSTRAP_MISSING_PACKAGES=()
+BOOTSTRAP_SYSTEM_UPDATED=0
 
 cleanup_paths=()
 step_counter=0
@@ -1028,8 +1323,58 @@ handle_bootstrap_step_result_or_exit() {
   esac
 }
 
-bootstrap_install_dependencies_step() {
+bootstrap_validate_environment_step() {
+  step_result_reset
+
+  if ! ensure_arch; then
+    step_result_hard_fail "Este bootstrap só pode ser executado em Arch Linux."
+    return 0
+  fi
+
+  if ! ensure_supported_session; then
+    step_result_hard_fail "A sessão atual não é compatível com o bootstrap."
+    return 0
+  fi
+
+  if ! require_command pacman; then
+    step_result_hard_fail "O comando 'pacman' é obrigatório para continuar."
+    return 0
+  fi
+
+  if ! require_command sudo; then
+    step_result_hard_fail "O comando 'sudo' é obrigatório para continuar."
+    return 0
+  fi
+
+  announce_prompt "Autenticando sudo..."
+  if ! run_with_terminal_stdin sudo -v; then
+    step_result_hard_fail "Não foi possível autenticar o sudo."
+    return 0
+  fi
+
+  init_logging
+  step_result_success "O ambiente de bootstrap foi validado."
+}
+
+bootstrap_check_dependencies_step() {
   local array_name="$1"
+  # shellcheck disable=SC2178
+  declare -n missing_packages="$array_name"
+
+  step_result_reset
+
+  if ((${#missing_packages[@]} == 0)); then
+    announce_detail "As dependências iniciais já estão disponíveis."
+    step_result_success "As dependências iniciais já estavam disponíveis."
+    return 0
+  fi
+
+  announce_detail "${#missing_packages[@]} dependência(s) inicial(is) ainda não instalada(s)."
+  step_result_success "As dependências iniciais foram avaliadas."
+}
+
+bootstrap_install_dependencies_step() {
+  local array_name="${1:-BOOTSTRAP_MISSING_PACKAGES}"
   # shellcheck disable=SC2178
   declare -n missing_packages="$array_name"
 
@@ -1042,6 +1387,7 @@ bootstrap_install_dependencies_step() {
   fi
 
   if retry_interactive_log_only sudo pacman -Syu --needed --noconfirm "${missing_packages[@]}"; then
+    BOOTSTRAP_SYSTEM_UPDATED=1
     step_result_success "As dependências iniciais foram instaladas."
     return 0
   fi
@@ -1052,6 +1398,21 @@ bootstrap_install_dependencies_step() {
 bootstrap_sync_repo_step() {
   step_result_reset
 
+  if ! require_command git; then
+    step_result_hard_fail "O comando 'git' é obrigatório para sincronizar o repositório."
+    return 0
+  fi
+
+  if ! require_command curl; then
+    step_result_hard_fail "O comando 'curl' é obrigatório para sincronizar o repositório."
+    return 0
+  fi
+
+  if ! require_command tar; then
+    step_result_hard_fail "O comando 'tar' é obrigatório para sincronizar o repositório."
+    return 0
+  fi
+
   if sync_repo; then
     step_result_success "O repositório gerenciado foi sincronizado."
     return 0
@@ -1061,47 +1422,19 @@ bootstrap_sync_repo_step() {
 }
 
 main() {
-  local bootstrap_system_updated=0
-  local bootstrap_missing_packages=()
-
   parse_cli_args "$@"
   validate_managed_paths
   trap cleanup EXIT
 
   ensure_not_root
   acquire_lock
-  collect_missing_packages bootstrap_missing_packages "${BOOTSTRAP_PACKAGES[@]}"
-  if ((${#bootstrap_missing_packages[@]} > 0)); then
-    set_step_total 4
-  else
-    set_step_total 3
-  fi
-
-  announce_step "Validando ambiente..."
-  ensure_arch
-  ensure_supported_session
-  require_command pacman
-  require_command sudo
-  announce_prompt "Autenticando sudo..."
-  run_with_terminal_stdin sudo -v
-  init_logging
-
-  announce_step "Verificando dependências iniciais já instaladas..."
-  if ((${#bootstrap_missing_packages[@]} > 0)); then
-    announce_step "Instalando dependências iniciais..."
-    bootstrap_install_dependencies_step bootstrap_missing_packages
-    handle_bootstrap_step_result_or_exit
-    bootstrap_system_updated=1
-  fi
-
-  require_command git
-  require_command curl
-  require_command tar
-  bootstrap_sync_repo_step
-  handle_bootstrap_step_result_or_exit
+  collect_missing_packages BOOTSTRAP_MISSING_PACKAGES "${BOOTSTRAP_PACKAGES[@]}"
+  define_bootstrap_pipeline BOOTSTRAP_MISSING_PACKAGES
+  set_step_total "$(pipeline_count_steps_for_mode bootstrap)"
+  run_pipeline_steps "bootstrap" "handle_bootstrap_step_result_or_exit"
 
   exec env \
-    POSTINSTALL_BOOTSTRAP_UPDATED="$bootstrap_system_updated" \
+    POSTINSTALL_BOOTSTRAP_UPDATED="$BOOTSTRAP_SYSTEM_UPDATED" \
     POSTINSTALL_LOG_FILE="$LOG_FILE" \
     POSTINSTALL_LOG_INITIALIZED=1 \
     POSTINSTALL_LOCK_HELD=1 \

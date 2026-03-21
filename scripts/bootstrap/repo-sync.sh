@@ -14,7 +14,7 @@ sync_repo() {
   mkdir -p "$(dirname "$INSTALL_DIR")"
 
   if [[ -d "$INSTALL_DIR/.git" ]]; then
-    announce_step "Atualizando repositório..."
+    announce_detail "Atualizando clone gerenciado..."
     if repo_is_dirty; then
       current_branch="$(get_repo_branch "$INSTALL_DIR" 2>/dev/null || true)"
       if [[ -n "$current_branch" && "$current_branch" != "main" ]]; then
@@ -73,7 +73,7 @@ sync_repo() {
     return 1
   fi
 
-  announce_step "Clonando repositório..."
+  announce_detail "Clonando repositório pela primeira vez..."
   if ! retry_log_only git clone --branch main --single-branch "$REPO_HTTPS_URL" "$INSTALL_DIR"; then
     announce_error "Falha ao clonar 'main' de $REPO_HTTPS_URL."
     announce_error "Verifique acesso ao GitHub e se a branch existe no remoto."

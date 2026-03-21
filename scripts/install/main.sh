@@ -23,19 +23,6 @@ main() {
   ensure_not_root
   acquire_lock
 
-  if [[ "$CHECK_ONLY" == "1" ]]; then
-    set_step_total 3
-  fi
-
-  announce_step "Validando ambiente..."
-  ensure_arch
-  ensure_supported_session
-  require_command pacman
-  require_command sudo
-  announce_prompt "Autenticando sudo..."
-  ops_sudo_auth
-  init_logging
-
   run_install
 }
 

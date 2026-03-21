@@ -21,9 +21,3 @@ codex_cli_step() {
 
   step_result_hard_fail "A configuração do Codex CLI falhou."
 }
-
-pipeline_codex_cli_step() {
-  announce_step "Configurando Codex CLI..."
-  codex_cli_step
-  handle_runtime_step_result_or_exit
-}

@@ -41,39 +41,45 @@ install_local_support_packages_step() {
   step_result_success "As ferramentas de suporte local foram instaladas."
 }
 
-install_packages_step() {
+prepare_package_installation_step() {
+  step_result_reset
+  state_reset_package_results
+  step_result_success
+}
+
+install_official_packages_step() {
   local array_name="$1"
 
   step_result_reset
 
-  if ! install_packages_in_order "$array_name"; then
-    step_result_hard_fail "Falha ao executar a instalação dos pacotes configurados."
+  if ! install_official_packages_in_order "$array_name"; then
+    step_result_hard_fail "Falha ao instalar os apps oficiais configurados."
     return 0
   fi
+
+  step_result_success "Os apps oficiais configurados foram tratados."
+}
+
+install_aur_packages_step() {
+  local array_name="$1"
+
+  step_result_reset
+
+  if ! install_aur_packages_in_order "$array_name"; then
+    step_result_hard_fail "Falha ao instalar os apps AUR configurados."
+    return 0
+  fi
+
+  step_result_success "Os apps AUR configurados foram tratados."
+}
+
+finalize_package_installation_step() {
+  step_result_reset
 
   if state_has_package_failures; then
     step_result_hard_fail "A instalação terminou com falhas em pacotes configurados."
     return 0
   fi
 
-  step_result_success "Os pacotes configurados foram tratados."
-}
-
-pipeline_install_local_support_packages_step() {
-  announce_step "Instalando ferramentas de suporte..."
-  install_local_support_packages_step
-  handle_runtime_step_result_or_exit
-}
-
-pipeline_prepare_aur_helper_step() {
-  announce_step "Preparando helper AUR..."
-  prepare_aur_helper_step
-  handle_runtime_step_result_or_exit
-}
-
-pipeline_install_packages_step() {
-  local array_name="$1"
-
-  install_packages_step "$array_name"
-  handle_runtime_step_result_or_exit
+  step_result_success
 }

@@ -18,89 +18,58 @@ if false; then
   source "$SCRIPT_DIR/scripts/lib/components/aur-helper.sh"
 fi
 
-install_packages_in_order() {
+install_official_packages_in_order() {
   local array_name="$1"
-  # shellcheck disable=SC2178
-  declare -n target_packages="$array_name"
-  local package
-  local aur_helper_name=""
-  local package_origin_status
-  local shown_pacman_step=0
-  local shown_aur_step=0
-  local official_target_count=0
-  local aur_target_count=0
+  local official_packages=()
+  local package_name
 
   if ! refresh_official_repo_index; then
     announce_error "Não foi possível preparar o índice de pacotes oficiais antes da instalação."
     return 1
   fi
 
-  state_reset_package_results
+  collect_packages_by_origin "$array_name" "official" official_packages || return 1
 
   if [[ "$STEP_OUTPUT_ONLY" == "1" ]]; then
-    for package in "${target_packages[@]}"; do
-      if package_exists_in_official_repos "$package"; then
-        official_target_count=$((official_target_count + 1))
-      else
-        package_origin_status=$?
-        if [[ "$package_origin_status" == "2" ]]; then
-          announce_error "Não foi possível classificar o pacote '$package' entre repositório oficial e AUR."
-          return 1
-        fi
-        aur_target_count=$((aur_target_count + 1))
-      fi
-    done
+    announce_detail "${#official_packages[@]} item(ns) previsto(s) na lista principal oficial."
   fi
 
-  for package in "${target_packages[@]}"; do
-    if package_exists_in_official_repos "$package"; then
-      package_origin_status=0
-    else
-      package_origin_status=$?
-    fi
-
-    if [[ "$package_origin_status" == "0" ]]; then
-      state_add_main_official_package "$package"
-      if [[ "$shown_pacman_step" == "0" ]]; then
-        announce_step "Instalando apps oficiais..."
-        if (( official_target_count > 0 )); then
-          announce_detail "$official_target_count item(ns) previsto(s) na lista principal oficial."
-        fi
-        shown_pacman_step=1
-      fi
-      announce_detail "Instalando via pacman: $package"
-      if ops_pacman_install_needed "$package"; then
-        continue
-      fi
-
-      state_add_official_failure "$package"
+  for package_name in "${official_packages[@]}"; do
+    state_add_main_official_package "$package_name"
+    announce_detail "Instalando via pacman: $package_name"
+    if ops_pacman_install_needed "$package_name"; then
       continue
     fi
 
-    if [[ "$package_origin_status" == "2" ]]; then
-      announce_error "Não foi possível classificar o pacote '$package' entre repositório oficial e AUR."
-      return 1
-    fi
+    state_add_official_failure "$package_name"
+  done
+}
 
-    state_add_main_aur_package "$package"
+install_aur_packages_in_order() {
+  local array_name="$1"
+  local aur_packages=()
+  local package_name
+  local aur_helper_name=""
+
+  collect_packages_by_origin "$array_name" "aur" aur_packages || return 1
+
+  if [[ "$STEP_OUTPUT_ONLY" == "1" ]]; then
+    announce_detail "${#aur_packages[@]} item(ns) previsto(s) na lista principal AUR."
+  fi
+
+  for package_name in "${aur_packages[@]}"; do
+    state_add_main_aur_package "$package_name"
     if ! ensure_aur_helper; then
-      state_add_aur_failure "$package"
+      state_add_aur_failure "$package_name"
       continue
     fi
 
-    if [[ "$shown_aur_step" == "0" ]]; then
-      announce_step "Instalando apps AUR..."
-      if (( aur_target_count > 0 )); then
-        announce_detail "$aur_target_count item(ns) previsto(s) na lista principal AUR."
-      fi
-      shown_aur_step=1
-    fi
-    announce_detail "Instalando via AUR: $package"
+    announce_detail "Instalando via AUR: $package_name"
     aur_helper_name="$(state_get_aur_helper_name)"
-    if ops_aur_install_needed "$aur_helper_name" "$package"; then
+    if ops_aur_install_needed "$aur_helper_name" "$package_name"; then
       continue
     fi
 
-    state_add_aur_failure "$package"
+    state_add_aur_failure "$package_name"
   done
 }

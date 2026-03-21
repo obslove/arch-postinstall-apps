@@ -29,9 +29,3 @@ github_ssh_step() {
       ;;
   esac
 }
-
-pipeline_github_ssh_step() {
-  announce_step "Configurando GitHub SSH..."
-  github_ssh_step
-  handle_runtime_step_result_or_exit
-}

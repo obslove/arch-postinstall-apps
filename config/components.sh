@@ -63,6 +63,7 @@ COMPONENT_IDS=()
 declare -Ag COMPONENT_LABELS=()
 declare -Ag COMPONENT_PIPELINE_PHASES=()
 declare -Ag COMPONENT_EXPECTED_FUNCTIONS=()
+declare -Ag COMPONENT_PIPELINE_TITLES=()
 declare -Ag COMPONENT_PIPELINE_STEP_FUNCTIONS=()
 declare -Ag COMPONENT_SUMMARY_FORMATTERS=()
 declare -Ag COMPONENT_RUNTIME_STATUS_FLAGS=()
@@ -123,18 +124,20 @@ register_component() {
   local component_label="$2"
   local pipeline_phase="$3"
   local expected_function="$4"
-  local pipeline_step_function="$5"
-  local summary_formatter="$6"
-  local has_runtime_status="$7"
-  local has_checkpoint="$8"
-  local check_only_detection="$9"
-  local verification_enabled="${10}"
-  local summary_status_enabled="${11}"
+  local pipeline_title="$5"
+  local pipeline_step_function="$6"
+  local summary_formatter="$7"
+  local has_runtime_status="$8"
+  local has_checkpoint="$9"
+  local check_only_detection="${10}"
+  local verification_enabled="${11}"
+  local summary_status_enabled="${12}"
 
   COMPONENT_IDS+=("$component_id")
   COMPONENT_LABELS["$component_id"]="$component_label"
   COMPONENT_PIPELINE_PHASES["$component_id"]="$pipeline_phase"
   COMPONENT_EXPECTED_FUNCTIONS["$component_id"]="$expected_function"
+  COMPONENT_PIPELINE_TITLES["$component_id"]="$pipeline_title"
   COMPONENT_PIPELINE_STEP_FUNCTIONS["$component_id"]="$pipeline_step_function"
   COMPONENT_SUMMARY_FORMATTERS["$component_id"]="$summary_formatter"
   COMPONENT_RUNTIME_STATUS_FLAGS["$component_id"]="$has_runtime_status"
@@ -149,7 +152,8 @@ register_component \
   "Helper AUR" \
   "pre_package" \
   "component_expected_always" \
-  "pipeline_prepare_aur_helper_step" \
+  "Preparando helper AUR..." \
+  "prepare_aur_helper_step" \
   "state_get_aur_helper_status" \
   "0" \
   "0" \
@@ -162,7 +166,8 @@ register_component \
   "Codex CLI" \
   "post_package" \
   "component_expected_codex_cli" \
-  "pipeline_codex_cli_step" \
+  "Configurando Codex CLI..." \
+  "codex_cli_step" \
   "" \
   "0" \
   "1" \
@@ -175,7 +180,8 @@ register_component \
   "Integração desktop" \
   "post_package" \
   "component_expected_always" \
-  "pipeline_desktop_integration_step" \
+  "Ajustando integração desktop..." \
+  "desktop_integration_step" \
   "format_desktop_integration_status" \
   "1" \
   "1" \
@@ -188,7 +194,8 @@ register_component \
   "GitHub SSH" \
   "post_package" \
   "github_ssh_expected" \
-  "pipeline_github_ssh_step" \
+  "Configurando GitHub SSH..." \
+  "github_ssh_step" \
   "format_github_ssh_status" \
   "1" \
   "1" \
@@ -244,6 +251,13 @@ component_pipeline_step_function() {
 
   [[ -n "$pipeline_step_function" ]] || return 1
   printf '%s\n' "$pipeline_step_function"
+}
+
+component_pipeline_title() {
+  local pipeline_title="${COMPONENT_PIPELINE_TITLES[$1]:-}"
+
+  [[ -n "$pipeline_title" ]] || return 1
+  printf '%s\n' "$pipeline_title"
 }
 
 component_summary_formatter_function() {

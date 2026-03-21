@@ -77,7 +77,6 @@ record_soft_failure() {
 }
 
 create_directories() {
-  announce_step "Criando diretórios..."
   mkdir -p \
     "$HOME/Backups" \
     "$HOME/Codex" \

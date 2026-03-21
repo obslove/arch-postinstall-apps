@@ -21,9 +21,3 @@ desktop_integration_step() {
 
   step_result_hard_fail "A integração desktop falhou. A etapa do GitHub SSH não foi executada."
 }
-
-pipeline_desktop_integration_step() {
-  announce_step "Ajustando integração desktop..."
-  desktop_integration_step
-  handle_runtime_step_result_or_exit
-}
