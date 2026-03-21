@@ -21,6 +21,17 @@ component_outcome_changed_flag() {
   esac
 }
 
+component_outcome_counts_as_ready() {
+  case "${1:-}" in
+    "$COMPONENT_OUTCOME_CHANGED"|"$COMPONENT_OUTCOME_REUSED"|"$COMPONENT_OUTCOME_FALLBACK_REUSED")
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 component_outcome_step_status() {
   case "${1:-}" in
     "$COMPONENT_OUTCOME_CHANGED"|"$COMPONENT_OUTCOME_PENDING")

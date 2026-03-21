@@ -79,7 +79,7 @@ github_ssh_ready() {
   [[ -f "${SSH_KEY_PATH}.pub" ]] || return 1
   command -v gh >/dev/null 2>&1 || return 1
   gh auth status >/dev/null 2>&1 || return 1
-  has_checkpoint "github_ssh" || return 1
+  [[ "$(current_repo_origin_status "$SCRIPT_DIR")" == "ssh" ]] || return 1
   github_has_expected_ssh_key_name
 }
 
@@ -92,7 +92,6 @@ component_checkpoint_key_github_ssh() {
 }
 
 component_apply_github_ssh() {
-  local github_ssh_already_ready=0
   local missing_packages=()
   local package_name
 
@@ -108,20 +107,14 @@ component_apply_github_ssh() {
   fi
 
   announce_detail "Verificando estado atual do GitHub SSH..."
-  if has_checkpoint "github_ssh"; then
-    announce_detail "Checkpoint do GitHub SSH encontrado. Conferindo autenticação e chave atual..."
-    if ! github_ssh_force_reconcile && command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1 && github_has_expected_ssh_key_name; then
-      github_ssh_already_ready=1
-    fi
-  fi
-
-  if [[ "$github_ssh_already_ready" == "1" ]]; then
+  if ! github_ssh_force_reconcile && github_ssh_ready; then
     report_set_component_outcome "github_ssh" "$COMPONENT_OUTCOME_REUSED"
-    if ! ensure_repo_origin_remote "$SCRIPT_DIR" "$REPO_SSH_URL"; then
-      announce_warning "Não foi possível ajustar o remoto do repositório para SSH."
-    fi
     announce_detail "O GitHub SSH já está configurado. Etapa ignorada."
     return
+  fi
+
+  if has_checkpoint "github_ssh"; then
+    announce_detail "Checkpoint do GitHub SSH encontrado. Conferindo autenticação e chave atual..."
   fi
 
   announce_detail "Registrando dependências da etapa de GitHub SSH..."

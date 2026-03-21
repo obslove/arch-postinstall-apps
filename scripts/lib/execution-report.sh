@@ -133,3 +133,9 @@ report_set_component_outcome() {
 report_get_component_outcome() {
   printf '%s\n' "${REPORT_COMPONENT_OUTCOMES[$1]:-$COMPONENT_OUTCOME_PENDING}"
 }
+
+report_component_counts_as_ready() {
+  local component_id="$1"
+
+  component_outcome_counts_as_ready "$(report_get_component_outcome "$component_id")"
+}

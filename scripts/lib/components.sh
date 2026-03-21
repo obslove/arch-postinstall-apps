@@ -34,31 +34,6 @@ component_verify() {
   component_dispatch verify "$@"
 }
 
-component_checkpoint_key() {
-  component_dispatch checkpoint_key "$@"
-}
-
-component_has_checkpoint() {
-  local component_id="$1"
-  local checkpoint_key=""
-
-  checkpoint_key="$(component_checkpoint_key "$component_id" 2>/dev/null || true)"
-  [[ -n "$checkpoint_key" ]] || return 1
-  has_checkpoint "$checkpoint_key"
-}
-
-component_mark_checkpoint_if_missing() {
-  local component_id="$1"
-  local checkpoint_key=""
-
-  checkpoint_key="$(component_checkpoint_key "$component_id" 2>/dev/null || true)"
-  [[ -n "$checkpoint_key" ]] || return 0
-
-  if ! has_checkpoint "$checkpoint_key"; then
-    mark_checkpoint "$checkpoint_key"
-  fi
-}
-
 component_summary_status_text() {
   local component_id="$1"
   local summary_formatter=""

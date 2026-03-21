@@ -19,9 +19,8 @@ print_summary() {
   local actual_commit
   local repo_path
   local origin_status="indisponível"
-  local checkpoint_component_ids=()
   local status_component_ids=()
-  local completed_actions=()
+  local ready_components=()
   local execution_mode="instalação"
   local changes_applied="não"
   local version_line
@@ -36,7 +35,6 @@ print_summary() {
     changes_applied="sim"
   fi
 
-  mapfile -t checkpoint_component_ids < <(component_checkpoint_summary_ids)
   mapfile -t status_component_ids < <(component_summary_status_ids)
 
   host_name="$(get_host_name)"
@@ -45,9 +43,9 @@ print_summary() {
   repo_path="$SCRIPT_DIR"
   origin_status="$(current_repo_origin_status "$SCRIPT_DIR")"
 
-  for component_id in "${checkpoint_component_ids[@]}"; do
-    if component_has_checkpoint "$component_id"; then
-      completed_actions+=("$component_id")
+  for component_id in "${status_component_ids[@]}"; do
+    if report_component_counts_as_ready "$component_id"; then
+      ready_components+=("$component_id")
     fi
   done
 
@@ -95,7 +93,7 @@ print_summary() {
     print_summary_item "Suporte reutilizado:" "${REPORT_REUSED_SUPPORT_PACKAGES[*]:-nenhuma}"
     print_summary_item "Ambiente alterado:" "${REPORT_CHANGED_ENVIRONMENT_PACKAGES[*]:-nenhuma}"
     print_summary_item "Ambiente reutilizado:" "${REPORT_REUSED_ENVIRONMENT_PACKAGES[*]:-nenhuma}"
-    print_summary_item "Configurações explícitas:" "${completed_actions[*]:-nenhuma}"
+    print_summary_item "Componentes prontos:" "${ready_components[*]:-nenhum}"
     print_summary_item "GitHub SSH esperado:" "$(if github_ssh_expected; then echo sim; else echo não; fi)"
     for component_id in "${status_component_ids[@]}"; do
       component_label="$(component_summary_label "$component_id")"
@@ -140,7 +138,7 @@ Dependências de suporte alteradas: ${REPORT_CHANGED_SUPPORT_PACKAGES[*]:-nenhum
 Dependências de suporte reutilizadas: ${REPORT_REUSED_SUPPORT_PACKAGES[*]:-nenhuma}
 Dependências do ambiente gráfico alteradas: ${REPORT_CHANGED_ENVIRONMENT_PACKAGES[*]:-nenhuma}
 Dependências do ambiente gráfico reutilizadas: ${REPORT_REUSED_ENVIRONMENT_PACKAGES[*]:-nenhuma}
-Configurações explícitas: ${completed_actions[*]:-nenhuma}
+Componentes prontos: ${ready_components[*]:-nenhum}
 GitHub SSH esperado: $(if github_ssh_expected; then echo sim; else echo não; fi)
 $(for component_id in "${status_component_ids[@]}"; do
     component_label="$(component_summary_label "$component_id")"
@@ -154,12 +152,6 @@ Verificados: ${STATE_VERIFIED_ITEMS[*]:-nenhum}
 Ausentes: ${STATE_MISSING_ITEMS[*]:-nenhum}
 Versões:
 $(if ((${#STATE_VERSION_LINES[@]} == 0)); then echo "- nenhuma"; else printf '%s\n' "${STATE_VERSION_LINES[@]/#/- }"; fi)
-Checkpoints:
-$(for component_id in "${checkpoint_component_ids[@]}"; do
-    printf -- '- %s: %s\n' \
-      "$component_id" \
-      "$(if component_has_checkpoint "$component_id"; then echo concluido; else echo pendente; fi)"
-  done)
 EOF
 
   if [[ "$SCRIPT_DIR" != "$INSTALL_DIR" ]]; then

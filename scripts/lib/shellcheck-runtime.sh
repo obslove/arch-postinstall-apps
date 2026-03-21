@@ -72,7 +72,6 @@ commit_hash=""
 SHARED_LIB_DIR=""
 COMPONENT_CONFIG_FILE=""
 created_any=""
-checkpoint_key=""
 summary_formatter=""
 archive_file=""
 status=""
@@ -81,7 +80,6 @@ GITHUB_SSH_COMPONENT_DIR=""
 github_login=""
 current_key=""
 key_data=""
-github_ssh_already_ready=""
 line=""
 target_packages=""
 package_origin=""
@@ -248,10 +246,6 @@ component_summary_status_ids() {
   :
 }
 
-component_checkpoint_summary_ids() {
-  :
-}
-
 component_summary_label() {
   :
 }
@@ -381,6 +375,10 @@ report_set_component_outcome() {
 }
 
 report_get_component_outcome() {
+  :
+}
+
+report_component_counts_as_ready() {
   :
 }
 
@@ -816,18 +814,6 @@ component_verify() {
   :
 }
 
-component_checkpoint_key() {
-  :
-}
-
-component_has_checkpoint() {
-  :
-}
-
-component_mark_checkpoint_if_missing() {
-  :
-}
-
 component_summary_status_text() {
   :
 }
@@ -837,6 +823,10 @@ component_prepare_check_only_state() {
 }
 
 setup_codex_cli() {
+  :
+}
+
+codex_cli_shell_configured() {
   :
 }
 
@@ -1237,6 +1227,10 @@ state_get_verification_target() {
 }
 
 component_outcome_changed_flag() {
+  :
+}
+
+component_outcome_counts_as_ready() {
   :
 }
 

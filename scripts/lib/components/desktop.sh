@@ -50,9 +50,6 @@ component_apply_desktop_integration() {
     for package_name in "${DESKTOP_INTEGRATION_PACKAGES[@]}"; do
       report_add_reused_environment_package "$package_name"
     done
-    if ! component_has_checkpoint "desktop_integration" && ! component_mark_checkpoint_if_missing "desktop_integration"; then
-      announce_warning "Não foi possível registrar o checkpoint da integração desktop."
-    fi
     announce_detail "A integração desktop já está preparada. Etapa ignorada."
     return 0
   fi

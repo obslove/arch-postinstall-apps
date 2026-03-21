@@ -255,10 +255,6 @@ component_summary_status_ids() {
   print_component_ids_by_property COMPONENT_SUMMARY_STATUS_FLAGS
 }
 
-component_checkpoint_summary_ids() {
-  print_component_ids_by_property COMPONENT_CHECKPOINT_FLAGS
-}
-
 component_summary_label() {
   printf '%s\n' "${COMPONENT_LABELS[$1]:-$1}"
 }

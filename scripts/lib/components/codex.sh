@@ -21,9 +21,9 @@ setup_codex_cli() {
     set -gx PATH \"\$HOME/Codex/bin\" \$PATH
 end"
 
-  if has_checkpoint "codex_cli" && command -v codex >/dev/null 2>&1; then
+  if codex_cli_ready; then
     announce_detail "O Codex CLI já está configurado. Etapa ignorada."
-    return
+    return 0
   fi
 
   require_command npm
@@ -73,8 +73,21 @@ end"
   fi
 }
 
+codex_cli_shell_configured() {
+  local codex_path_line="export PATH=\"\$HOME/Codex/bin:\$PATH\""
+  local fish_codex_path_marker="if not contains \"\$HOME/Codex/bin\" \$PATH"
+
+  [[ -f "$BASHRC_FILE" ]] || return 1
+  [[ -f "$ZSHRC_FILE" ]] || return 1
+  [[ -f "$FISH_CONFIG_FILE" ]] || return 1
+
+  grep -qxF "$codex_path_line" "$BASHRC_FILE" || return 1
+  grep -qxF "$codex_path_line" "$ZSHRC_FILE" || return 1
+  grep -qxF "$fish_codex_path_marker" "$FISH_CONFIG_FILE" || return 1
+}
+
 codex_cli_ready() {
-  has_checkpoint "codex_cli" && command -v codex >/dev/null 2>&1
+  command -v codex >/dev/null 2>&1 && codex_cli_shell_configured
 }
 
 component_detect_codex_cli() {
