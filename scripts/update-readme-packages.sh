@@ -8,8 +8,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 README_FILE="$REPO_DIR/README.md"
 PACKAGE_FILE="$REPO_DIR/config/packages.txt"
-# shellcheck source=../config/components.sh
-source "$REPO_DIR/config/components.sh"
+# shellcheck source=lib/component-config.sh
+source "$REPO_DIR/scripts/lib/component-config.sh"
 # shellcheck source=bootstrap/config.sh
 source "$REPO_DIR/scripts/bootstrap/config.sh"
 

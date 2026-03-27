@@ -2,6 +2,7 @@
 # shellcheck shell=bash
 # shellcheck disable=SC2034
 # shellcheck source-path=SCRIPTDIR
+# shellcheck source=scripts/lib/component-registry.sh
 # shellcheck source=scripts/lib/status.sh
 # shellcheck source=scripts/lib/runtime-config.sh
 # shellcheck source=scripts/lib/runtime-state.sh
@@ -13,6 +14,8 @@
 # shellcheck source=scripts/lib/env.sh
 
 SHARED_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+# shellcheck source=component-registry.sh
+source "$SHARED_LIB_DIR/component-registry.sh"
 # shellcheck source=runtime-config.sh
 source "$SHARED_LIB_DIR/runtime-config.sh"
 # shellcheck source=runtime-state.sh
@@ -33,9 +36,6 @@ source "$SHARED_LIB_DIR/env.sh"
 source "$SHARED_LIB_DIR/cli.sh"
 # shellcheck source=status.sh
 source "$SHARED_LIB_DIR/status.sh"
-COMPONENT_CONFIG_FILE="$(cd "$SHARED_LIB_DIR/../../config" && pwd)/components.sh"
-# shellcheck source=../../config/components.sh
-source "$COMPONENT_CONFIG_FILE"
 
 execution_state_reset() {
   runtime_state_reset

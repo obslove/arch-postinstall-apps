@@ -94,6 +94,10 @@ register_module_file "scripts/bootstrap/entrypoint.sh" \
 
 register_module_file "scripts/lib/core.sh" \
   runtime-entrypoint runtime-check
+register_module_file "scripts/lib/component-config.sh" \
+  runtime-check
+register_module_file "scripts/lib/component-registry.sh" \
+  runtime-check
 register_module_file "scripts/lib/components.sh" \
   runtime-entrypoint runtime-check
 register_module_file "scripts/lib/components/codex.sh" \
