@@ -105,8 +105,11 @@ classify_package_origin() {
   local package_name="$1"
   local origin_status=0
 
-  package_exists_in_official_repos "$package_name"
-  origin_status=$?
+  if package_exists_in_official_repos "$package_name"; then
+    origin_status=0
+  else
+    origin_status=$?
+  fi
 
   if [[ "$origin_status" == "0" ]]; then
     printf 'official\n'

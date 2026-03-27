@@ -136,8 +136,11 @@ relocate_home_repositories_step() {
   fi
 
   for repo_dir in "${loose_repositories[@]}"; do
-    relocate_loose_home_git_repository "$repo_dir"
-    move_status=$?
+    if relocate_loose_home_git_repository "$repo_dir"; then
+      move_status=0
+    else
+      move_status=$?
+    fi
 
     case "$move_status" in
       0)
@@ -181,8 +184,11 @@ sync_managed_repositories_step() {
   step_result_reset
 
   for sync_handler in "${repo_sync_handlers[@]}"; do
-    "$sync_handler"
-    sync_status=$?
+    if "$sync_handler"; then
+      sync_status=0
+    else
+      sync_status=$?
+    fi
 
     case "$sync_status" in
       0)
