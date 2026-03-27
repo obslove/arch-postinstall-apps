@@ -5,7 +5,7 @@ Bootstrap e pós-instalação declarativa para Arch Linux, focada em Wayland com
 O projeto mantém o fluxo remoto `curl -fsSL https://obslove.dev | bash`, sincroniza o clone gerenciado em `~/Repositories/arch-postinstall-apps`, instala os apps por categoria, prepara o ambiente e fecha a máquina com integração desktop, Codex CLI e GitHub SSH.
 
 > [!NOTE]
-> O bootstrap publicado em `https://obslove.dev` é tratado como parte do repositório e é verificado automaticamente contra `main/install.sh`.
+> O bootstrap publicado em `https://obslove.dev` é tratado como parte do repositório e é verificado automaticamente contra `main/dist/install.sh`.
 
 ## Instalação rápida
 
@@ -80,8 +80,8 @@ O projeto separa claramente:
 > Componentes de setup ficam fora da lista principal de apps e são mantidos em [config/components.sh](config/components.sh).
 
 <!-- packages:start -->
-- Dependências iniciais do fluxo local:
-  `git`, `base-devel`
+- Dependências do bootstrap remoto:
+  `ca-certificates`, `git`, `curl`, `tar`
 - Ferramentas de suporte instaladas no fluxo local:
   `shellcheck`
 - Helper AUR padrão preparado pelo script:
@@ -186,7 +186,7 @@ bash scripts/check-repo.sh
 ```
 
 > [!TIP]
-> Esse check cobre geração do `install.sh`, prelude do `shellcheck`, parser de CLI, README e consistência do bootstrap publicado.
+> Esse check cobre geração do `dist/install.sh`, prelude do `shellcheck`, parser de CLI, README e consistência do bootstrap publicado.
 
 ## Publicação do bootstrap
 
@@ -199,7 +199,7 @@ O repositório mantém:
 - workflow de deploy em [.github/workflows/deploy-bootstrap.yml](.github/workflows/deploy-bootstrap.yml);
 - Worker Cloudflare em `cloudflare/bootstrap-worker/`.
 
-O endpoint publicado deve sempre refletir `main/install.sh`.
+O endpoint publicado deve sempre refletir `main/dist/install.sh`.
 
 Secrets necessários no GitHub:
 
@@ -215,6 +215,7 @@ Secrets necessários no GitHub:
 ## Arquivos principais
 
 ```text
+dist/install.sh
 config/components.sh
 config/packages-extra.txt.example
 config/packages.txt
@@ -226,4 +227,6 @@ scripts/install/main.sh
 scripts/lib/runtime-modules.sh
 ```
 
-`install.sh` é um artefato gerado a partir dos fragments em `scripts/bootstrap/` por `scripts/build-bootstrap.sh`.
+`install.sh` é um wrapper local fino para `scripts/install/main.sh`.
+
+`dist/install.sh` é o artefato gerado a partir dos fragments em `scripts/bootstrap/` por `scripts/build-bootstrap.sh` e é o bootstrap publicado por `https://obslove.dev`.

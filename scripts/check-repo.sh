@@ -5,6 +5,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+LOCAL_INSTALL_FILE="$REPO_DIR/install.sh"
+PUBLIC_BOOTSTRAP_FILE="$REPO_DIR/dist/install.sh"
 
 # shellcheck disable=SC1091
 source "$REPO_DIR/scripts/bootstrap/bootstrap-modules.sh"
@@ -39,8 +41,10 @@ append_manifest_files() {
 }
 
 check_help_output() {
-  bash "$REPO_DIR/install.sh" --help | grep -Fq -- '--exclusive-key'
-  bash "$REPO_DIR/install.sh" --help | grep -Fq -- '--ssh-name'
+  bash "$LOCAL_INSTALL_FILE" --help | grep -Fq -- '--exclusive-key'
+  bash "$LOCAL_INSTALL_FILE" --help | grep -Fq -- '--ssh-name'
+  bash "$PUBLIC_BOOTSTRAP_FILE" --help | grep -Fq -- '--exclusive-key'
+  bash "$PUBLIC_BOOTSTRAP_FILE" --help | grep -Fq -- '--ssh-name'
 }
 
 check_cli_parser() {
@@ -48,19 +52,37 @@ check_cli_parser() {
 
   parser_log="$(mktemp)"
 
-  if bash "$REPO_DIR/install.sh" --opcao-inexistente >"$parser_log" 2>&1; then
+  if bash "$LOCAL_INSTALL_FILE" --opcao-inexistente >"$parser_log" 2>&1; then
     rm -f "$parser_log"
     return 1
   fi
   grep -Fq 'opção desconhecida' "$parser_log"
 
-  if bash "$REPO_DIR/install.sh" -s >"$parser_log" 2>&1; then
+  if bash "$LOCAL_INSTALL_FILE" -s >"$parser_log" 2>&1; then
     rm -f "$parser_log"
     return 1
   fi
   grep -Fq 'faltou informar o valor' "$parser_log"
 
-  if bash "$REPO_DIR/install.sh" -- lixo >"$parser_log" 2>&1; then
+  if bash "$LOCAL_INSTALL_FILE" -- lixo >"$parser_log" 2>&1; then
+    rm -f "$parser_log"
+    return 1
+  fi
+  grep -Fq 'argumentos extras não reconhecidos' "$parser_log"
+
+  if bash "$PUBLIC_BOOTSTRAP_FILE" --opcao-inexistente >"$parser_log" 2>&1; then
+    rm -f "$parser_log"
+    return 1
+  fi
+  grep -Fq 'opção desconhecida' "$parser_log"
+
+  if bash "$PUBLIC_BOOTSTRAP_FILE" -s >"$parser_log" 2>&1; then
+    rm -f "$parser_log"
+    return 1
+  fi
+  grep -Fq 'faltou informar o valor' "$parser_log"
+
+  if bash "$PUBLIC_BOOTSTRAP_FILE" -- lixo >"$parser_log" 2>&1; then
     rm -f "$parser_log"
     return 1
   fi
@@ -93,7 +115,8 @@ check_cloudflare_deploy_files() {
 }
 
 build_check_file_lists() {
-  append_check_file SYNTAX_FILES "$REPO_DIR/install.sh"
+  append_check_file SYNTAX_FILES "$LOCAL_INSTALL_FILE"
+  append_check_file SYNTAX_FILES "$PUBLIC_BOOTSTRAP_FILE"
   append_check_file SYNTAX_FILES "$REPO_DIR/scripts/build-bootstrap.sh"
   append_check_file SYNTAX_FILES "$REPO_DIR/scripts/build-shellcheck-runtime.sh"
   append_check_file SYNTAX_FILES "$REPO_DIR/scripts/check-published-bootstrap.sh"
@@ -103,7 +126,8 @@ build_check_file_lists() {
   append_check_file SYNTAX_FILES "$REPO_DIR/scripts/update-readme-packages.sh"
   append_check_file SYNTAX_FILES "$REPO_DIR/config/components.sh"
 
-  append_check_file SHELLCHECK_FILES "$REPO_DIR/install.sh"
+  append_check_file SHELLCHECK_FILES "$LOCAL_INSTALL_FILE"
+  append_check_file SHELLCHECK_FILES "$PUBLIC_BOOTSTRAP_FILE"
   append_check_file SHELLCHECK_FILES "$REPO_DIR/scripts/check-repo.sh"
   append_check_file SHELLCHECK_FILES "$REPO_DIR/scripts/build-bootstrap.sh"
   append_check_file SHELLCHECK_FILES "$REPO_DIR/scripts/build-shellcheck-runtime.sh"

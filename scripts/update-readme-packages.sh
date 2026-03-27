@@ -10,6 +10,8 @@ README_FILE="$REPO_DIR/README.md"
 PACKAGE_FILE="$REPO_DIR/config/packages.txt"
 # shellcheck source=../config/components.sh
 source "$REPO_DIR/config/components.sh"
+# shellcheck source=bootstrap/config.sh
+source "$REPO_DIR/scripts/bootstrap/config.sh"
 
 usage() {
   cat <<'EOF'
@@ -98,8 +100,8 @@ render_package_block() {
   done <"$PACKAGE_FILE"
 
   printf '%s\n' '<!-- packages:start -->'
-  printf '%s\n' '- Dependências iniciais do fluxo local:'
-  print_item_list BOOTSTRAP_SUPPORT_PACKAGES
+  printf '%s\n' '- Dependências do bootstrap remoto:'
+  print_item_list BOOTSTRAP_REMOTE_PACKAGES
   printf '%s\n' '- Ferramentas de suporte instaladas no fluxo local:'
   print_item_list LOCAL_SUPPORT_PACKAGES
   printf '%s\n' '- Helper AUR padrão preparado pelo script:'

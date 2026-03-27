@@ -5,8 +5,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-LOCAL_FILE="$REPO_DIR/install.sh"
-RAW_URL="https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh"
+LOCAL_FILE="$REPO_DIR/dist/install.sh"
+RAW_URL="https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/dist/install.sh"
 PUBLISHED_URL="https://obslove.dev"
 RETRY_COUNT=1
 SLEEP_SECONDS=10
@@ -55,7 +55,7 @@ check_once() {
   download_to "$PUBLISHED_URL" "$published_file"
 
   if (( CHECK_LOCAL_MATCH == 1 )); then
-    compare_files "install.sh local" "$LOCAL_FILE" "raw main" "$raw_file" || status=1
+    compare_files "dist/install.sh local" "$LOCAL_FILE" "raw main" "$raw_file" || status=1
   fi
 
   compare_files "bootstrap publicado" "$published_file" "raw main" "$raw_file" || status=1

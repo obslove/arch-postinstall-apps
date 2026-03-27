@@ -1,5 +1,5 @@
 const RAW_BOOTSTRAP_URL =
-  "https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/install.sh";
+  "https://raw.githubusercontent.com/obslove/arch-postinstall-apps/main/dist/install.sh";
 
 function methodNotAllowed() {
   return new Response("Method Not Allowed\n", {
@@ -43,7 +43,7 @@ export default {
     const headers = new Headers(upstream.headers);
     headers.set("Content-Type", "text/plain; charset=utf-8");
     headers.set("Cache-Control", "no-cache");
-    headers.set("X-Bootstrap-Source", "github-main-install-sh");
+    headers.set("X-Bootstrap-Source", "github-main-dist-install-sh");
 
     return new Response(request.method === "HEAD" ? null : upstream.body, {
       status: upstream.status,

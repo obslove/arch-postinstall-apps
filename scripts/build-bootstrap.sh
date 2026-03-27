@@ -5,7 +5,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-OUTPUT_FILE="$REPO_DIR/install.sh"
+OUTPUT_FILE="$REPO_DIR/dist/install.sh"
 
 # shellcheck disable=SC1091
 source "$REPO_DIR/scripts/bootstrap/bootstrap-modules.sh"
@@ -50,10 +50,11 @@ write_or_check_bootstrap() {
 
   temp_file="$(mktemp)"
   generate_bootstrap >"$temp_file"
+  mkdir -p "$(dirname "$OUTPUT_FILE")"
 
   if [[ "${1:-}" == "--check" ]]; then
     if ! cmp -s "$OUTPUT_FILE" "$temp_file"; then
-      printf 'Erro: install.sh está desatualizado. Rode bash scripts/build-bootstrap.sh.\n' >&2
+      printf 'Erro: dist/install.sh está desatualizado. Rode bash scripts/build-bootstrap.sh.\n' >&2
       rm -f "$temp_file"
       exit 1
     fi

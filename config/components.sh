@@ -6,11 +6,6 @@ readonly -a ENABLED_SPECIAL_COMPONENTS=(
   codex_cli
 )
 
-readonly -a BOOTSTRAP_SUPPORT_PACKAGES=(
-  git
-  base-devel
-)
-
 readonly -a LOCAL_SUPPORT_PACKAGES=(
   shellcheck
 )

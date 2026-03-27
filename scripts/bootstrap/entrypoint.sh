@@ -14,6 +14,7 @@
 # shellcheck source=scripts/lib/ops.sh
 # shellcheck source=scripts/lib/repo.sh
 # shellcheck source=scripts/bootstrap/repo-sync.sh
+# shellcheck source=scripts/bootstrap/config.sh
 # shellcheck source=scripts/bootstrap/steps/system.sh
 # shellcheck source=scripts/bootstrap/steps/packages.sh
 # shellcheck source=scripts/bootstrap/steps/repo.sh
@@ -32,6 +33,7 @@ if false; then
   source "$SCRIPT_DIR/scripts/lib/ops.sh"
   source "$SCRIPT_DIR/scripts/lib/repo.sh"
   source "$SCRIPT_DIR/scripts/bootstrap/repo-sync.sh"
+  source "$SCRIPT_DIR/scripts/bootstrap/config.sh"
   source "$SCRIPT_DIR/scripts/bootstrap/steps/system.sh"
   source "$SCRIPT_DIR/scripts/bootstrap/steps/packages.sh"
   source "$SCRIPT_DIR/scripts/bootstrap/steps/repo.sh"
@@ -39,18 +41,27 @@ fi
 
 SELF_PATH="${BASH_SOURCE[0]:-$0}"
 BOOTSTRAP_SCRIPT_DIR="$(cd "$(dirname "$SELF_PATH")" && pwd)"
-LOCAL_MAIN="$BOOTSTRAP_SCRIPT_DIR/scripts/install/main.sh"
 
-if [[ -f "$SELF_PATH" && -f "$LOCAL_MAIN" ]]; then
+resolve_local_main() {
+  local candidate=""
+
+  for candidate in \
+    "$BOOTSTRAP_SCRIPT_DIR/scripts/install/main.sh" \
+    "$BOOTSTRAP_SCRIPT_DIR/../scripts/install/main.sh"; do
+    if [[ -f "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+LOCAL_MAIN="$(resolve_local_main 2>/dev/null || true)"
+if [[ -n "$LOCAL_MAIN" ]]; then
   exec bash "$LOCAL_MAIN" "$@"
 fi
 
-BOOTSTRAP_PACKAGES=(
-  ca-certificates
-  git
-  curl
-  tar
-)
 BOOTSTRAP_MISSING_PACKAGES=()
 BOOTSTRAP_SYSTEM_UPDATED=0
 
@@ -88,7 +99,7 @@ main() {
 
   ensure_not_root
   acquire_lock
-  collect_missing_packages BOOTSTRAP_MISSING_PACKAGES "${BOOTSTRAP_PACKAGES[@]}"
+  collect_missing_packages BOOTSTRAP_MISSING_PACKAGES "${BOOTSTRAP_REMOTE_PACKAGES[@]}"
   define_bootstrap_pipeline BOOTSTRAP_MISSING_PACKAGES
   set_step_total "$(pipeline_count_steps_for_mode bootstrap)"
   run_pipeline_steps "bootstrap" "handle_bootstrap_step_result_or_exit"
