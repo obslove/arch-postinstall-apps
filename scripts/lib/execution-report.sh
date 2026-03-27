@@ -128,6 +128,8 @@ report_set_component_outcome() {
   if [[ "$(component_outcome_changed_flag "$outcome")" == "1" ]]; then
     report_mark_change "component:$component_id"
   fi
+
+  return 0
 }
 
 report_get_component_outcome() {
