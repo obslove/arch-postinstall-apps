@@ -7,6 +7,9 @@
 zen-browser-bin
 firefox
 
+[Audio]
+easyeffects
+
 [Development]
 code
 
@@ -19,3 +22,6 @@ mullvad-vpn
 
 [Gaming]
 steam
+
+[Utilities]
+less

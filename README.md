@@ -90,6 +90,8 @@ O projeto separa claramente:
   `github-cli`, `openssh`
 - Apps principais - Browsers:
   `zen-browser-bin`, `firefox`
+- Apps principais - Audio:
+  `easyeffects`
 - Apps principais - Development:
   `code`
 - Apps principais - Social:
@@ -98,6 +100,8 @@ O projeto separa claramente:
   `mullvad-vpn`
 - Apps principais - Gaming:
   `steam`
+- Apps principais - Utilities:
+  `less`
 - Componentes usados para instalar e executar o Codex CLI:
   `nodejs`, `npm`, `codex`
 - Dependências do ambiente gráfico:
