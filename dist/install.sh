@@ -91,9 +91,22 @@ parse_cli_args() {
 config_init_common_defaults() {
   REPO_HTTPS_URL="https://github.com/obslove/arch-postinstall-apps.git"
   REPO_SSH_URL="git@github.com:obslove/arch-postinstall-apps.git"
+  PROJECTS_DIR="${POSTINSTALL_PROJECTS_DIR:-${PROJECTS_DIR:-$HOME/Projects}}"
   REPOSITORIES_DIR="${POSTINSTALL_REPOSITORIES_DIR:-${REPOSITORIES_DIR:-$HOME/Repositories}}"
-  INSTALL_DIR="${BOOTSTRAP_DIR:-$REPOSITORIES_DIR/arch-postinstall-apps}"
+  INSTALL_DIR="${BOOTSTRAP_DIR:-$PROJECTS_DIR/arch-postinstall-apps}"
   YAY_REPO_DIR="${POSTINSTALL_YAY_REPO_DIR:-${YAY_REPO_DIR:-$REPOSITORIES_DIR/yay}}"
+  EASY_EFFECTS_PRESET_DIR="${POSTINSTALL_EASY_EFFECTS_PRESET_DIR:-${EASY_EFFECTS_PRESET_DIR:-$HOME/EasyEffects-Preset}}"
+  EASY_EFFECTS_PRESET_REPO_HTTPS_URL="${POSTINSTALL_EASY_EFFECTS_PRESET_REPO_HTTPS_URL:-${POSTINSTALL_EASY_EFFECTS_PRESET_REPO_URL:-${EASY_EFFECTS_PRESET_REPO_HTTPS_URL:-${EASY_EFFECTS_PRESET_REPO_URL:-https://github.com/obslove/EasyEffects-Preset.git}}}}"
+  EASY_EFFECTS_PRESET_REPO_SSH_URL="${POSTINSTALL_EASY_EFFECTS_PRESET_REPO_SSH_URL:-${EASY_EFFECTS_PRESET_REPO_SSH_URL:-git@github.com:obslove/EasyEffects-Preset.git}}"
+  TERMINAL_LYRICS_DIR="${POSTINSTALL_TERMINAL_LYRICS_DIR:-${TERMINAL_LYRICS_DIR:-$PROJECTS_DIR/terminal-lyrics}}"
+  TERMINAL_LYRICS_REPO_HTTPS_URL="${POSTINSTALL_TERMINAL_LYRICS_REPO_HTTPS_URL:-${TERMINAL_LYRICS_REPO_HTTPS_URL:-https://github.com/obslove/terminal-lyrics.git}}"
+  TERMINAL_LYRICS_REPO_SSH_URL="${POSTINSTALL_TERMINAL_LYRICS_REPO_SSH_URL:-${TERMINAL_LYRICS_REPO_SSH_URL:-git@github.com:obslove/terminal-lyrics.git}}"
+  SYNTHETIC_PROFILE_GENERATOR_DIR="${POSTINSTALL_SYNTHETIC_PROFILE_GENERATOR_DIR:-${SYNTHETIC_PROFILE_GENERATOR_DIR:-$PROJECTS_DIR/synthetic-profile-generator}}"
+  SYNTHETIC_PROFILE_GENERATOR_REPO_HTTPS_URL="${POSTINSTALL_SYNTHETIC_PROFILE_GENERATOR_REPO_HTTPS_URL:-${SYNTHETIC_PROFILE_GENERATOR_REPO_HTTPS_URL:-https://github.com/obslove/synthetic-profile-generator.git}}"
+  SYNTHETIC_PROFILE_GENERATOR_REPO_SSH_URL="${POSTINSTALL_SYNTHETIC_PROFILE_GENERATOR_REPO_SSH_URL:-${SYNTHETIC_PROFILE_GENERATOR_REPO_SSH_URL:-git@github.com:obslove/synthetic-profile-generator.git}}"
+  OBSLOVE_DOTS_DIR="${POSTINSTALL_OBSLOVE_DOTS_DIR:-${OBSLOVE_DOTS_DIR:-$HOME/Dots/obslove}}"
+  OBSLOVE_DOTS_REPO_HTTPS_URL="${POSTINSTALL_OBSLOVE_DOTS_REPO_HTTPS_URL:-${OBSLOVE_DOTS_REPO_HTTPS_URL:-https://github.com/obslove/obslove.git}}"
+  OBSLOVE_DOTS_REPO_SSH_URL="${POSTINSTALL_OBSLOVE_DOTS_REPO_SSH_URL:-${OBSLOVE_DOTS_REPO_SSH_URL:-git@github.com:obslove/obslove.git}}"
   YAY_SNAPSHOT_URL="${POSTINSTALL_YAY_SNAPSHOT_URL:-${YAY_SNAPSHOT_URL:-https://aur.archlinux.org/cgit/aur.git/snapshot/yay.tar.gz}}"
   SSH_KEY_PATH="${POSTINSTALL_SSH_KEY_PATH:-${SSH_KEY_PATH:-$HOME/.ssh/id_ed25519}}"
   GITHUB_SSH_KEY_NAME="${POSTINSTALL_GITHUB_SSH_KEY_NAME:-${GITHUB_SSH_KEY_NAME:-}}"
@@ -149,9 +162,22 @@ config_finalize() {
   readonly FISH_CONFIG_FILE
   readonly REPO_HTTPS_URL
   readonly REPO_SSH_URL
+  readonly PROJECTS_DIR
   readonly REPOSITORIES_DIR
   readonly INSTALL_DIR
   readonly YAY_REPO_DIR
+  readonly EASY_EFFECTS_PRESET_DIR
+  readonly EASY_EFFECTS_PRESET_REPO_HTTPS_URL
+  readonly EASY_EFFECTS_PRESET_REPO_SSH_URL
+  readonly TERMINAL_LYRICS_DIR
+  readonly TERMINAL_LYRICS_REPO_HTTPS_URL
+  readonly TERMINAL_LYRICS_REPO_SSH_URL
+  readonly SYNTHETIC_PROFILE_GENERATOR_DIR
+  readonly SYNTHETIC_PROFILE_GENERATOR_REPO_HTTPS_URL
+  readonly SYNTHETIC_PROFILE_GENERATOR_REPO_SSH_URL
+  readonly OBSLOVE_DOTS_DIR
+  readonly OBSLOVE_DOTS_REPO_HTTPS_URL
+  readonly OBSLOVE_DOTS_REPO_SSH_URL
   readonly YAY_SNAPSHOT_URL
   readonly SSH_KEY_PATH
   readonly GITHUB_SSH_KEY_NAME
@@ -196,6 +222,7 @@ append_runtime_invocation_env() {
     "POSTINSTALL_LOG_INITIALIZED=1"
     "POSTINSTALL_LOCK_HELD=1"
     "POSTINSTALL_SUMMARY_FILE=$SUMMARY_FILE"
+    "POSTINSTALL_PROJECTS_DIR=$PROJECTS_DIR"
     "POSTINSTALL_STATE_DIR=$STATE_DIR"
     "POSTINSTALL_LOCK_DIR=$LOCK_DIR"
     "POSTINSTALL_SSH_KEY_PATH=$SSH_KEY_PATH"
@@ -603,10 +630,12 @@ append_runtime_install_pipeline() {
   local origin_status=0
 
   append_registered_step "create_directories"
+  append_registered_step "relocate_home_repositories"
   append_registered_step "ensure_multilib"
   append_registered_step "update_system"
   append_registered_step "install_local_support_packages"
   append_runtime_component_steps "pre_package"
+  append_registered_step "sync_managed_repositories"
 
   if target_packages_have_official_entries "$package_array_name"; then
     append_registered_step "prepare_package_installation"
@@ -675,6 +704,8 @@ register_step_definition "runtime_validate_environment" "all" "Validando ambient
 register_step_definition "load_configuration" "all" "Carregando configuração..." "load_configuration_step"
 register_step_definition "check_only_verification" "check" "Executando verificação sem alterações..." "check_only_step"
 register_step_definition "create_directories" "install" "Criando diretórios..." "create_directories_step"
+register_step_definition "relocate_home_repositories" "install" "Reorganizando repositórios da home..." "relocate_home_repositories_step"
+register_step_definition "sync_managed_repositories" "install" "Sincronizando repositórios gerenciados..." "sync_managed_repositories_step"
 register_step_definition "ensure_multilib" "install" "Preparando repositório multilib..." "ensure_multilib_step"
 register_step_definition "update_system" "install" "Atualizando o sistema..." "update_system_step"
 register_step_definition "install_local_support_packages" "install" "Instalando ferramentas de suporte..." "install_local_support_packages_step"
@@ -886,15 +917,19 @@ require_exact_path() {
 }
 
 validate_managed_paths() {
+  local expected_projects_dir="$HOME/Projects"
   local expected_repositories_dir="$HOME/Repositories"
-  local expected_install_dir="$expected_repositories_dir/arch-postinstall-apps"
+  local expected_install_dir="$expected_projects_dir/arch-postinstall-apps"
   local expected_yay_repo_dir="$expected_repositories_dir/yay"
+  local expected_easyeffects_preset_dir="$HOME/EasyEffects-Preset"
   local expected_state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/arch-postinstall-apps"
   local expected_lock_dir="$expected_state_dir/lock"
 
+  require_exact_path "PROJECTS_DIR" "$PROJECTS_DIR" "$expected_projects_dir" || exit 1
   require_exact_path "REPOSITORIES_DIR" "$REPOSITORIES_DIR" "$expected_repositories_dir" || exit 1
   require_exact_path "INSTALL_DIR" "$INSTALL_DIR" "$expected_install_dir" || exit 1
   require_exact_path "YAY_REPO_DIR" "$YAY_REPO_DIR" "$expected_yay_repo_dir" || exit 1
+  require_exact_path "EASY_EFFECTS_PRESET_DIR" "$EASY_EFFECTS_PRESET_DIR" "$expected_easyeffects_preset_dir" || exit 1
   require_exact_path "STATE_DIR" "$STATE_DIR" "$expected_state_dir" || exit 1
   require_exact_path "LOCK_DIR" "$LOCK_DIR" "$expected_lock_dir" || exit 1
 }
@@ -1153,6 +1188,12 @@ ensure_repo_origin_remote() {
   local repo_dir="$1"
   local desired_origin_url="${2:-$REPO_HTTPS_URL}"
   local current_origin_url=""
+  local allowed_origin_urls=()
+  local managed_https_url=""
+  local managed_ssh_url=""
+  local allowed_origin_url=""
+  local matches_allowed_origin=1
+
   current_origin_url="$(git -C "$repo_dir" remote get-url origin 2>/dev/null || true)"
 
   if [[ -z "$current_origin_url" ]]; then
@@ -1160,7 +1201,20 @@ ensure_repo_origin_remote() {
     return
   fi
 
-  if [[ "$current_origin_url" != "$REPO_HTTPS_URL" && "$current_origin_url" != "$REPO_SSH_URL" ]]; then
+  allowed_origin_urls=("$REPO_HTTPS_URL" "$REPO_SSH_URL")
+  managed_https_url="$(managed_repo_expected_https_origin_url "$repo_dir" 2>/dev/null || true)"
+  managed_ssh_url="$(managed_repo_expected_ssh_origin_url "$repo_dir" 2>/dev/null || true)"
+  [[ -n "$managed_https_url" ]] && allowed_origin_urls+=("$managed_https_url")
+  [[ -n "$managed_ssh_url" ]] && allowed_origin_urls+=("$managed_ssh_url")
+
+  for allowed_origin_url in "${allowed_origin_urls[@]}"; do
+    if [[ "$current_origin_url" == "$allowed_origin_url" ]]; then
+      matches_allowed_origin=0
+      break
+    fi
+  done
+
+  if [[ "$matches_allowed_origin" != "0" ]]; then
     announce_detail "Foi detectado um remoto origin personalizado em $repo_dir. A configuração atual será mantida."
     return
   fi
@@ -1192,22 +1246,29 @@ get_repo_branch() {
 current_repo_origin_status() {
   local repo_dir="$1"
   local current_origin_url=""
+  local managed_https_url=""
+  local managed_ssh_url=""
 
   current_origin_url="$(git -C "$repo_dir" remote get-url origin 2>/dev/null || true)"
-  case "$current_origin_url" in
-    "$REPO_SSH_URL")
-      printf '%s\n' "ssh"
-      ;;
-    "$REPO_HTTPS_URL")
-      printf '%s\n' "https"
-      ;;
-    "")
-      printf '%s\n' "ausente"
-      ;;
-    *)
-      printf '%s\n' "personalizado"
-      ;;
-  esac
+  managed_https_url="$(managed_repo_expected_https_origin_url "$repo_dir" 2>/dev/null || true)"
+  managed_ssh_url="$(managed_repo_expected_ssh_origin_url "$repo_dir" 2>/dev/null || true)"
+
+  if [[ -z "$current_origin_url" ]]; then
+    printf '%s\n' "ausente"
+    return 0
+  fi
+
+  if [[ "$current_origin_url" == "$REPO_SSH_URL" || ( -n "$managed_ssh_url" && "$current_origin_url" == "$managed_ssh_url" ) ]]; then
+    printf '%s\n' "ssh"
+    return 0
+  fi
+
+  if [[ "$current_origin_url" == "$REPO_HTTPS_URL" || ( -n "$managed_https_url" && "$current_origin_url" == "$managed_https_url" ) ]]; then
+    printf '%s\n' "https"
+    return 0
+  fi
+
+  printf '%s\n' "personalizado"
 }
 
 current_repo_commit_short() {
@@ -1221,6 +1282,376 @@ current_repo_commit_short() {
   }
 
   printf '%s\n' "$commit_hash"
+}
+
+legacy_install_dir_path() {
+  printf '%s\n' "$REPOSITORIES_DIR/arch-postinstall-apps"
+}
+
+managed_repo_expected_https_origin_url() {
+  case "$1" in
+    "$INSTALL_DIR")
+      printf '%s\n' "$REPO_HTTPS_URL"
+      ;;
+    "$EASY_EFFECTS_PRESET_DIR")
+      printf '%s\n' "$EASY_EFFECTS_PRESET_REPO_HTTPS_URL"
+      ;;
+    "$TERMINAL_LYRICS_DIR")
+      printf '%s\n' "$TERMINAL_LYRICS_REPO_HTTPS_URL"
+      ;;
+    "$SYNTHETIC_PROFILE_GENERATOR_DIR")
+      printf '%s\n' "$SYNTHETIC_PROFILE_GENERATOR_REPO_HTTPS_URL"
+      ;;
+    "$OBSLOVE_DOTS_DIR")
+      printf '%s\n' "$OBSLOVE_DOTS_REPO_HTTPS_URL"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+managed_repo_expected_ssh_origin_url() {
+  case "$1" in
+    "$INSTALL_DIR")
+      printf '%s\n' "$REPO_SSH_URL"
+      ;;
+    "$EASY_EFFECTS_PRESET_DIR")
+      printf '%s\n' "$EASY_EFFECTS_PRESET_REPO_SSH_URL"
+      ;;
+    "$TERMINAL_LYRICS_DIR")
+      printf '%s\n' "$TERMINAL_LYRICS_REPO_SSH_URL"
+      ;;
+    "$SYNTHETIC_PROFILE_GENERATOR_DIR")
+      printf '%s\n' "$SYNTHETIC_PROFILE_GENERATOR_REPO_SSH_URL"
+      ;;
+    "$OBSLOVE_DOTS_DIR")
+      printf '%s\n' "$OBSLOVE_DOTS_REPO_SSH_URL"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+managed_environment_repo_dirs() {
+  printf '%s\n' \
+    "$EASY_EFFECTS_PRESET_DIR" \
+    "$TERMINAL_LYRICS_DIR" \
+    "$SYNTHETIC_PROFILE_GENERATOR_DIR" \
+    "$OBSLOVE_DOTS_DIR"
+}
+
+managed_repo_display_name() {
+  case "$1" in
+    "$INSTALL_DIR")
+      printf '%s\n' "arch-postinstall-apps"
+      ;;
+    "$EASY_EFFECTS_PRESET_DIR")
+      printf '%s\n' "EasyEffects-Preset"
+      ;;
+    "$TERMINAL_LYRICS_DIR")
+      printf '%s\n' "terminal-lyrics"
+      ;;
+    "$SYNTHETIC_PROFILE_GENERATOR_DIR")
+      printf '%s\n' "synthetic-profile-generator"
+      ;;
+    "$OBSLOVE_DOTS_DIR")
+      printf '%s\n' "obslove"
+      ;;
+    *)
+      basename "$1"
+      ;;
+  esac
+}
+
+managed_repo_origin_matches_expected() {
+  local repo_dir="$1"
+  local current_origin_url=""
+  local expected_https_url=""
+  local expected_ssh_url=""
+
+  current_origin_url="$(git -C "$repo_dir" remote get-url origin 2>/dev/null || true)"
+  expected_https_url="$(managed_repo_expected_https_origin_url "$repo_dir" 2>/dev/null || true)"
+  expected_ssh_url="$(managed_repo_expected_ssh_origin_url "$repo_dir" 2>/dev/null || true)"
+  [[ -n "$current_origin_url" && -n "$expected_https_url" && -n "$expected_ssh_url" ]] || return 1
+
+  [[ "$current_origin_url" == "$expected_https_url" || "$current_origin_url" == "$expected_ssh_url" ]]
+}
+
+git_ssh_transport_ready() {
+  local repo_url="$1"
+
+  [[ -n "$repo_url" ]] || return 1
+  command -v git >/dev/null 2>&1 || return 1
+
+  GIT_SSH_COMMAND='ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new' \
+    git ls-remote "$repo_url" HEAD >/dev/null 2>&1
+}
+
+managed_repo_preferred_origin_url() {
+  local repo_dir="$1"
+  local https_url=""
+  local ssh_url=""
+
+  https_url="$(managed_repo_expected_https_origin_url "$repo_dir" 2>/dev/null || true)"
+  ssh_url="$(managed_repo_expected_ssh_origin_url "$repo_dir" 2>/dev/null || true)"
+  [[ -n "$https_url" && -n "$ssh_url" ]] || return 1
+
+  if github_ssh_expected && git_ssh_transport_ready "$ssh_url"; then
+    printf '%s\n' "$ssh_url"
+    return 0
+  fi
+
+  printf '%s\n' "$https_url"
+}
+
+ensure_managed_repo_origin_remote() {
+  local repo_dir="$1"
+  local desired_origin_url=""
+
+  desired_origin_url="$(managed_repo_preferred_origin_url "$repo_dir" 2>/dev/null || true)"
+  [[ -n "$desired_origin_url" ]] || return 1
+
+  ensure_repo_origin_remote "$repo_dir" "$desired_origin_url"
+}
+
+ensure_managed_repo_origin_ssh() {
+  local repo_dir="$1"
+  local desired_origin_url=""
+
+  desired_origin_url="$(managed_repo_expected_ssh_origin_url "$repo_dir" 2>/dev/null || true)"
+  [[ -n "$desired_origin_url" ]] || return 1
+
+  ensure_repo_origin_remote "$repo_dir" "$desired_origin_url"
+}
+
+reconcile_managed_repo_origin_ssh() {
+  local repo_dir="$1"
+
+  [[ -d "$repo_dir/.git" ]] || return 2
+
+  if ! managed_repo_origin_matches_expected "$repo_dir"; then
+    announce_detail "Foi detectado um remoto origin personalizado em $repo_dir. A configuração atual será mantida."
+    return 2
+  fi
+
+  if ! ensure_managed_repo_origin_ssh "$repo_dir"; then
+    return 1
+  fi
+
+  return 0
+}
+
+relocate_managed_install_repo() {
+  local legacy_install_dir=""
+
+  legacy_install_dir="$(legacy_install_dir_path)"
+  [[ "$legacy_install_dir" != "$INSTALL_DIR" ]] || return 3
+  [[ -d "$legacy_install_dir" ]] || return 2
+
+  if [[ -e "$INSTALL_DIR" ]]; then
+    announce_warning "O clone gerenciado legado em $legacy_install_dir não foi movido porque $INSTALL_DIR já existe."
+    return 2
+  fi
+
+  if [[ ! -d "$legacy_install_dir/.git" ]]; then
+    announce_warning "$legacy_install_dir existe, mas não é um repositório git gerenciado."
+    return 2
+  fi
+
+  mkdir -p "$(dirname "$INSTALL_DIR")"
+  announce_detail "Movendo clone gerenciado para $INSTALL_DIR..."
+  if mv "$legacy_install_dir" "$INSTALL_DIR"; then
+    return 0
+  fi
+
+  announce_warning "Não foi possível mover o clone gerenciado para $INSTALL_DIR."
+  return 1
+}
+
+directory_is_git_repository() {
+  local dir_path="$1"
+
+  git -C "$dir_path" rev-parse --is-inside-work-tree >/dev/null 2>&1
+}
+
+home_repo_relocation_allowed() {
+  local repo_dir="$1"
+  local repo_name=""
+
+  repo_name="$(basename "$repo_dir")"
+  case "$repo_name" in
+    Backups|Codex|Dots|EasyEffects-Preset|Pictures|Projects|Repositories|Videos)
+      return 1
+      ;;
+  esac
+
+  return 0
+}
+
+collect_loose_home_git_repositories() {
+  local array_name="$1"
+  local candidate
+  local nullglob_was_enabled=0
+  # shellcheck disable=SC2178
+  declare -n target_repositories="$array_name"
+
+  target_repositories=()
+
+  if shopt -q nullglob; then
+    nullglob_was_enabled=1
+  fi
+  shopt -s nullglob
+
+  for candidate in "$HOME"/*; do
+    [[ -d "$candidate" && ! -L "$candidate" ]] || continue
+    home_repo_relocation_allowed "$candidate" || continue
+    directory_is_git_repository "$candidate" || continue
+    target_repositories+=("$candidate")
+  done
+
+  if [[ "$nullglob_was_enabled" != "1" ]]; then
+    shopt -u nullglob
+  fi
+}
+
+relocate_loose_home_git_repository() {
+  local source_repo_dir="$1"
+  local repo_name=""
+  local target_repo_dir=""
+
+  repo_name="$(basename "$source_repo_dir")"
+  target_repo_dir="$REPOSITORIES_DIR/$repo_name"
+
+  if [[ -e "$target_repo_dir" ]]; then
+    announce_warning "O repositório '$repo_name' em $HOME não foi movido porque $target_repo_dir já existe."
+    return 2
+  fi
+
+  announce_detail "Movendo repositório git para $target_repo_dir..."
+  if mv "$source_repo_dir" "$target_repo_dir"; then
+    return 0
+  fi
+
+  announce_warning "Não foi possível mover o repositório '$repo_name' para $target_repo_dir."
+  return 1
+}
+
+managed_repo_is_dirty() {
+  local repo_dir="$1"
+
+  ! git -C "$repo_dir" diff --quiet --no-ext-diff || \
+    ! git -C "$repo_dir" diff --cached --quiet --no-ext-diff || \
+    [[ -n "$(git -C "$repo_dir" status --porcelain --untracked-files=normal)" ]]
+}
+
+easyeffects_preset_origin_matches() {
+  managed_repo_origin_matches_expected "$EASY_EFFECTS_PRESET_DIR"
+}
+
+sync_managed_repo() {
+  local repo_dir="$1"
+  local repo_label=""
+  local previous_commit=""
+  local current_commit=""
+  local clone_origin_url=""
+  local label_suffix=""
+
+  repo_label="$(managed_repo_display_name "$repo_dir")"
+  label_suffix="do repositório $repo_label"
+
+  if ! command -v git >/dev/null 2>&1; then
+    announce_warning "O git não está disponível para sincronizar $label_suffix."
+    return 1
+  fi
+
+  if [[ -d "$repo_dir/.git" ]]; then
+    previous_commit="$(git -C "$repo_dir" rev-parse HEAD 2>/dev/null || true)"
+
+    if ! managed_repo_origin_matches_expected "$repo_dir"; then
+      announce_warning "O diretório $repo_dir já é um repositório git com origin diferente. A sincronização será ignorada."
+      return 2
+    fi
+
+    if managed_repo_is_dirty "$repo_dir"; then
+      announce_warning "O repositório em $repo_dir tem alterações locais. A atualização automática será ignorada."
+      return 2
+    fi
+
+    if ! ensure_managed_repo_origin_remote "$repo_dir"; then
+      announce_warning "Não foi possível ajustar o remoto de $label_suffix."
+      return 1
+    fi
+
+    announce_detail "Atualizando $label_suffix..."
+    if ! retry_log_only git -C "$repo_dir" fetch origin; then
+      announce_warning "Não foi possível buscar atualizações de $label_suffix."
+      return 1
+    fi
+
+    if git -C "$repo_dir" show-ref --verify --quiet "refs/heads/main"; then
+      if ! run_log_only git -C "$repo_dir" checkout main; then
+        announce_warning "Não foi possível trocar $label_suffix para a branch 'main'."
+        return 1
+      fi
+    elif git -C "$repo_dir" show-ref --verify --quiet "refs/remotes/origin/main"; then
+      if ! run_log_only git -C "$repo_dir" checkout -b main origin/main; then
+        announce_warning "Não foi possível criar a branch local 'main' de $label_suffix."
+        return 1
+      fi
+    else
+      announce_warning "A branch 'main' não foi encontrada em $label_suffix."
+      return 1
+    fi
+
+    if ! retry_log_only git -C "$repo_dir" pull --ff-only origin main; then
+      announce_warning "Não foi possível atualizar $label_suffix com 'git pull --ff-only'."
+      return 1
+    fi
+
+    current_commit="$(git -C "$repo_dir" rev-parse HEAD 2>/dev/null || true)"
+    if [[ -n "$previous_commit" && "$previous_commit" == "$current_commit" ]]; then
+      return 3
+    fi
+
+    return 0
+  fi
+
+  if [[ -e "$repo_dir" && -n "$(find "$repo_dir" -mindepth 1 -maxdepth 1 2>/dev/null)" ]]; then
+    announce_warning "$repo_dir já existe e não está vazio. O clone de $label_suffix será ignorado."
+    return 2
+  fi
+
+  announce_detail "Clonando $label_suffix em $repo_dir..."
+  clone_origin_url="$(managed_repo_preferred_origin_url "$repo_dir" 2>/dev/null || true)"
+  if [[ -z "$clone_origin_url" ]]; then
+    announce_warning "Não foi possível definir a URL de clone de $label_suffix."
+    return 1
+  fi
+
+  if ops_git_clone_main "$clone_origin_url" "$repo_dir"; then
+    return 0
+  fi
+
+  announce_warning "Não foi possível clonar $label_suffix."
+  return 1
+}
+
+sync_easyeffects_preset_repo() {
+  sync_managed_repo "$EASY_EFFECTS_PRESET_DIR"
+}
+
+sync_terminal_lyrics_repo() {
+  sync_managed_repo "$TERMINAL_LYRICS_DIR"
+}
+
+sync_synthetic_profile_generator_repo() {
+  sync_managed_repo "$SYNTHETIC_PROFILE_GENERATOR_DIR"
+}
+
+sync_obslove_dots_repo() {
+  sync_managed_repo "$OBSLOVE_DOTS_DIR"
 }
 # --- end: scripts/lib/repo.sh ---
 
@@ -1236,8 +1667,11 @@ repo_is_dirty() {
 sync_repo() {
   local current_branch=""
   local fetched_origin=0
+  local clone_origin_url=""
 
   mkdir -p "$(dirname "$INSTALL_DIR")"
+
+  relocate_managed_install_repo || true
 
   if [[ -d "$INSTALL_DIR/.git" ]]; then
     announce_detail "Atualizando clone gerenciado..."
@@ -1253,7 +1687,7 @@ sync_repo() {
       return 0
     fi
 
-    if ! ensure_repo_origin_remote "$INSTALL_DIR" "$REPO_HTTPS_URL"; then
+    if ! ensure_managed_repo_origin_remote "$INSTALL_DIR"; then
       announce_error "Não foi possível ajustar o remoto origin do clone gerenciado."
       return 1
     fi
@@ -1300,8 +1734,14 @@ sync_repo() {
   fi
 
   announce_detail "Clonando repositório pela primeira vez..."
-  if ! retry_log_only git clone --branch main --single-branch "$REPO_HTTPS_URL" "$INSTALL_DIR"; then
-    announce_error "Falha ao clonar 'main' de $REPO_HTTPS_URL."
+  clone_origin_url="$(managed_repo_preferred_origin_url "$INSTALL_DIR" 2>/dev/null || true)"
+  if [[ -z "$clone_origin_url" ]]; then
+    announce_error "Não foi possível definir a URL de clone do repositório principal."
+    return 1
+  fi
+
+  if ! ops_git_clone_main "$clone_origin_url" "$INSTALL_DIR"; then
+    announce_error "Falha ao clonar 'main' de $clone_origin_url."
     announce_error "Verifique acesso ao GitHub e se a branch existe no remoto."
     return 1
   fi

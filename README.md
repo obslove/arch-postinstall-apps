@@ -2,7 +2,7 @@
 
 Bootstrap e pós-instalação declarativa para Arch Linux, focada em Wayland com Hyprland.
 
-O projeto mantém o fluxo remoto `curl -fsSL https://obslove.dev | bash`, sincroniza o clone gerenciado em `~/Repositories/arch-postinstall-apps`, instala os apps por categoria, prepara o ambiente e fecha a máquina com integração desktop, Codex CLI e GitHub SSH.
+O projeto mantém o fluxo remoto `curl -fsSL https://obslove.dev | bash`, sincroniza o clone gerenciado em `~/Projects/arch-postinstall-apps`, instala os apps por categoria, prepara o ambiente, garante clones auxiliares em `~/Projects`, `~/Dots` e `~/EasyEffects-Preset`, e fecha a máquina com integração desktop, Codex CLI e GitHub SSH.
 
 > [!NOTE]
 > O bootstrap publicado em `https://obslove.dev` é tratado como parte do repositório e é verificado automaticamente contra `main/dist/install.sh`.
@@ -29,7 +29,7 @@ O modo padrão usa saída resumida. Use `-v` para ver a saída detalhada no term
 > O fluxo suportado e preservado pelo projeto é `curl -fsSL https://obslove.dev | bash`.
 
 > [!TIP]
-> Depois do primeiro bootstrap remoto, as execuções seguintes continuam a partir do clone gerenciado em `~/Repositories/arch-postinstall-apps`.
+> Depois do primeiro bootstrap remoto, as execuções seguintes continuam a partir do clone gerenciado em `~/Projects/arch-postinstall-apps`.
 
 ## O que o script faz
 
@@ -37,12 +37,11 @@ Durante uma execução normal, o projeto:
 
 1. valida a sessão atual, autentica `sudo`, inicia o log e impede execuções simultâneas;
 2. carrega [config/packages.txt](config/packages.txt) por categorias e, se existir, `config/packages-extra.txt`;
-3. cria os diretórios principais usados pelo ambiente;
-4. habilita `multilib`, atualiza o sistema e prepara o `yay`;
-5. instala os apps da lista principal e, se o componente estiver habilitado, configura o Codex CLI em `~/Codex`;
-6. garante a integração desktop necessária para o ambiente gráfico;
-7. configura o GitHub SSH;
-8. valida o resultado, tenta uma correção automática única e grava o resumo final.
+3. cria os diretórios principais usados pelo ambiente, move repositórios Git soltos em `~` para `~/Repositories` e migra o clone gerenciado para `~/Projects/arch-postinstall-apps` quando necessário;
+4. habilita `multilib`, atualiza o sistema, prepara o GitHub SSH e mantém os remotos gerenciados em SSH sempre que a chave estiver pronta;
+5. clona ou atualiza `~/EasyEffects-Preset`, `~/Projects/terminal-lyrics`, `~/Projects/synthetic-profile-generator` e `~/Dots/obslove`, depois instala os apps da lista principal;
+6. se o componente estiver habilitado, configura o Codex CLI em `~/Codex` e garante a integração desktop necessária para o ambiente gráfico;
+7. valida o resultado, tenta uma correção automática única e grava o resumo final.
 
 Arquivos gerados pela execução:
 
@@ -60,7 +59,7 @@ Este setup foi ajustado para o seguinte cenário:
 - sessão Wayland com Hyprland
 - `curl` disponível
 
-Se ele for executado fora de um clone local do projeto, o bootstrap remoto instala as dependências iniciais necessárias, clona ou atualiza `~/Repositories/arch-postinstall-apps` e continua a partir desse clone.
+Se ele for executado fora de um clone local do projeto, o bootstrap remoto instala as dependências iniciais necessárias, clona ou atualiza `~/Projects/arch-postinstall-apps` e continua a partir desse clone.
 
 > [!NOTE]
 > O projeto não foi desenhado para ser um instalador Arch genérico. Ele assume Wayland com Hyprland e trata desvios desse alvo como erro de ambiente.

@@ -118,7 +118,7 @@ register_component \
 register_component \
   "github_ssh" \
   "GitHub SSH" \
-  "post_package" \
+  "pre_package" \
   "github_ssh_expected" \
   "Configurando GitHub SSH..." \
   "github_ssh_step" \

@@ -10,8 +10,11 @@ repo_is_dirty() {
 sync_repo() {
   local current_branch=""
   local fetched_origin=0
+  local clone_origin_url=""
 
   mkdir -p "$(dirname "$INSTALL_DIR")"
+
+  relocate_managed_install_repo || true
 
   if [[ -d "$INSTALL_DIR/.git" ]]; then
     announce_detail "Atualizando clone gerenciado..."
@@ -27,7 +30,7 @@ sync_repo() {
       return 0
     fi
 
-    if ! ensure_repo_origin_remote "$INSTALL_DIR" "$REPO_HTTPS_URL"; then
+    if ! ensure_managed_repo_origin_remote "$INSTALL_DIR"; then
       announce_error "Não foi possível ajustar o remoto origin do clone gerenciado."
       return 1
     fi
@@ -74,8 +77,14 @@ sync_repo() {
   fi
 
   announce_detail "Clonando repositório pela primeira vez..."
-  if ! retry_log_only git clone --branch main --single-branch "$REPO_HTTPS_URL" "$INSTALL_DIR"; then
-    announce_error "Falha ao clonar 'main' de $REPO_HTTPS_URL."
+  clone_origin_url="$(managed_repo_preferred_origin_url "$INSTALL_DIR" 2>/dev/null || true)"
+  if [[ -z "$clone_origin_url" ]]; then
+    announce_error "Não foi possível definir a URL de clone do repositório principal."
+    return 1
+  fi
+
+  if ! ops_git_clone_main "$clone_origin_url" "$INSTALL_DIR"; then
+    announce_error "Falha ao clonar 'main' de $clone_origin_url."
     announce_error "Verifique acesso ao GitHub e se a branch existe no remoto."
     return 1
   fi

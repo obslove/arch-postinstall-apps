@@ -51,14 +51,14 @@ current_public_ssh_key() {
 
 find_current_github_ssh_key() {
   local current_key
-  local existing_keys=""
+  local existing_keys=()
   local key_id=""
   local key_name=""
   local key_value=""
 
   current_key="$(current_public_ssh_key)" || return 1
-  existing_keys="$(ops_gh_list_ssh_keys_tsv 2>/dev/null || true)"
-  [[ -n "$existing_keys" ]] || return 1
+  github_ssh_list_keys existing_keys >/dev/null 2>&1 || return 1
+  ((${#existing_keys[@]} > 0)) || return 1
 
   while IFS=$'\t' read -r key_id key_name key_value; do
     [[ -n "$key_id" && -n "${key_value:-}" ]] || continue
@@ -66,7 +66,7 @@ find_current_github_ssh_key() {
       printf '%s\t%s\n' "$key_id" "$key_name"
       return 0
     fi
-  done <<<"$existing_keys"
+  done <<<"$(printf '%s\n' "${existing_keys[@]}")"
 
   return 1
 }
@@ -85,11 +85,34 @@ github_has_expected_ssh_key_name() {
   [[ "$current_key_name" == "$(build_ssh_key_name)" ]]
 }
 
+github_ssh_repo_origin_ready() {
+  local repo_dir="$1"
+  local expected_ssh_url=""
+
+  [[ -d "$repo_dir/.git" ]] || return 0
+
+  expected_ssh_url="$(managed_repo_expected_ssh_origin_url "$repo_dir" 2>/dev/null || true)"
+  if [[ -n "$expected_ssh_url" ]]; then
+    [[ "$(git -C "$repo_dir" remote get-url origin 2>/dev/null || true)" == "$expected_ssh_url" ]]
+    return
+  fi
+
+  [[ "$(current_repo_origin_status "$repo_dir")" == "ssh" ]]
+}
+
 github_ssh_ready() {
+  local managed_repo_dirs=()
+  local repo_dir=""
+
   [[ -f "${SSH_KEY_PATH}.pub" ]] || return 1
   command -v gh >/dev/null 2>&1 || return 1
   gh auth status >/dev/null 2>&1 || return 1
-  [[ "$(current_repo_origin_status "$SCRIPT_DIR")" == "ssh" ]] || return 1
+  github_ssh_repo_origin_ready "$SCRIPT_DIR" || return 1
+  github_ssh_repo_origin_ready "$INSTALL_DIR" || return 1
+  mapfile -t managed_repo_dirs < <(managed_environment_repo_dirs)
+  for repo_dir in "${managed_repo_dirs[@]}"; do
+    github_ssh_repo_origin_ready "$repo_dir" || return 1
+  done
   github_has_expected_ssh_key_name
 }
 
@@ -98,8 +121,11 @@ component_detect_github_ssh() {
 }
 
 component_apply_github_ssh() {
+  local managed_repo_dirs=()
   local missing_packages=()
   local package_name
+  local reconcile_status=0
+  local repo_dir=""
 
   if ! github_ssh_expected; then
     report_set_component_outcome "github_ssh" "$COMPONENT_OUTCOME_DISABLED"
@@ -180,13 +206,33 @@ component_apply_github_ssh() {
     return
   fi
   report_set_component_outcome "github_ssh" "$COMPONENT_OUTCOME_CHANGED"
+
   if ! ensure_repo_origin_remote "$SCRIPT_DIR" "$REPO_SSH_URL"; then
     announce_warning "A chave SSH foi configurada, mas não foi possível ajustar o remoto do repositório para SSH."
   fi
+  if [[ "$INSTALL_DIR" != "$SCRIPT_DIR" ]]; then
+    reconcile_managed_repo_origin_ssh "$INSTALL_DIR"
+    reconcile_status=$?
+    if [[ "$reconcile_status" == "1" ]]; then
+      announce_warning "A chave SSH foi configurada, mas não foi possível ajustar o clone gerenciado para SSH."
+    fi
+  fi
+
+  mapfile -t managed_repo_dirs < <(managed_environment_repo_dirs)
+  for repo_dir in "${managed_repo_dirs[@]}"; do
+    reconcile_managed_repo_origin_ssh "$repo_dir"
+    reconcile_status=$?
+    if [[ "$reconcile_status" == "1" ]]; then
+      announce_warning "A chave SSH foi configurada, mas não foi possível ajustar o repositório gerenciado em $repo_dir para SSH."
+    fi
+  done
 }
 
 component_verify_github_ssh() {
+  local managed_repo_dirs=()
   local package_name
+  local repo_dir=""
+  local verification_id=""
 
   for package_name in "${GITHUB_SSH_SUPPORT_PACKAGES[@]}"; do
     case "$package_name" in
@@ -198,9 +244,29 @@ component_verify_github_ssh() {
         ;;
     esac
   done
-  if [[ "$(current_repo_origin_status "$SCRIPT_DIR")" == "ssh" ]]; then
-    state_add_verified_item "origin-ssh" "origin-ssh" "repo" "repo_origin_ssh" "$SCRIPT_DIR"
+
+  if github_ssh_repo_origin_ready "$SCRIPT_DIR"; then
+    state_add_verified_item "origin-ssh-script-dir" "origin-ssh-script-dir" "repo" "repo_origin_ssh" "$SCRIPT_DIR"
   else
-    state_add_missing_item "origin-ssh" "origin-ssh" "repo" "repo_origin_ssh" "$SCRIPT_DIR"
+    state_add_missing_item "origin-ssh-script-dir" "origin-ssh-script-dir" "repo" "repo_origin_ssh" "$SCRIPT_DIR"
   fi
+
+  if [[ "$INSTALL_DIR" != "$SCRIPT_DIR" && -d "$INSTALL_DIR/.git" ]]; then
+    if github_ssh_repo_origin_ready "$INSTALL_DIR"; then
+      state_add_verified_item "origin-ssh-install-dir" "origin-ssh-install-dir" "repo" "repo_origin_ssh" "$INSTALL_DIR"
+    else
+      state_add_missing_item "origin-ssh-install-dir" "origin-ssh-install-dir" "repo" "repo_origin_ssh" "$INSTALL_DIR"
+    fi
+  fi
+
+  mapfile -t managed_repo_dirs < <(managed_environment_repo_dirs)
+  for repo_dir in "${managed_repo_dirs[@]}"; do
+    [[ -d "$repo_dir/.git" ]] || continue
+    verification_id="origin-ssh-$(basename "$repo_dir")"
+    if github_ssh_repo_origin_ready "$repo_dir"; then
+      state_add_verified_item "$verification_id" "$verification_id" "repo" "repo_origin_ssh" "$repo_dir"
+    else
+      state_add_missing_item "$verification_id" "$verification_id" "repo" "repo_origin_ssh" "$repo_dir"
+    fi
+  done
 }

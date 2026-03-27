@@ -70,9 +70,10 @@ create_directories() {
     "$HOME/Backups"
     "$HOME/Codex"
     "$HOME/Dots"
+    "$EASY_EFFECTS_PRESET_DIR"
     "$HOME/Pictures/Screenshots"
     "$HOME/Pictures/Wallpapers"
-    "$HOME/Projects"
+    "$PROJECTS_DIR"
     "$REPOSITORIES_DIR"
     "$HOME/Videos"
   )

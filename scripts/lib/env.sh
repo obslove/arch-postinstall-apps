@@ -47,15 +47,19 @@ require_exact_path() {
 }
 
 validate_managed_paths() {
+  local expected_projects_dir="$HOME/Projects"
   local expected_repositories_dir="$HOME/Repositories"
-  local expected_install_dir="$expected_repositories_dir/arch-postinstall-apps"
+  local expected_install_dir="$expected_projects_dir/arch-postinstall-apps"
   local expected_yay_repo_dir="$expected_repositories_dir/yay"
+  local expected_easyeffects_preset_dir="$HOME/EasyEffects-Preset"
   local expected_state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/arch-postinstall-apps"
   local expected_lock_dir="$expected_state_dir/lock"
 
+  require_exact_path "PROJECTS_DIR" "$PROJECTS_DIR" "$expected_projects_dir" || exit 1
   require_exact_path "REPOSITORIES_DIR" "$REPOSITORIES_DIR" "$expected_repositories_dir" || exit 1
   require_exact_path "INSTALL_DIR" "$INSTALL_DIR" "$expected_install_dir" || exit 1
   require_exact_path "YAY_REPO_DIR" "$YAY_REPO_DIR" "$expected_yay_repo_dir" || exit 1
+  require_exact_path "EASY_EFFECTS_PRESET_DIR" "$EASY_EFFECTS_PRESET_DIR" "$expected_easyeffects_preset_dir" || exit 1
   require_exact_path "STATE_DIR" "$STATE_DIR" "$expected_state_dir" || exit 1
   require_exact_path "LOCK_DIR" "$LOCK_DIR" "$expected_lock_dir" || exit 1
 }

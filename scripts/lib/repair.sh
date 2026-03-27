@@ -17,13 +17,14 @@ attempt_final_repair_once() {
   local repair_target=""
   local repair_pacman_packages=()
   local repair_aur_packages=()
+  local repair_origin_repos=()
   local pacman_missing_packages=()
   local aur_package
   local aur_helper_name=""
   local package_origin_status
   local should_repair_codex=0
-  local should_repair_origin=0
   local should_start_services=0
+  local repo_dir=""
 
   if ! state_has_missing_items; then
     return 0
@@ -76,7 +77,11 @@ attempt_final_repair_once() {
         should_repair_codex=1
         ;;
       repo_origin_ssh)
-        should_repair_origin=1
+        [[ -n "$repair_target" ]] || {
+          announce_error "Item ausente sem caminho de repositório para reparo do remoto SSH: $verification_label"
+          return 1
+        }
+        append_array_item repair_origin_repos "$repair_target"
         ;;
       *)
         announce_error "Estratégia de reparo desconhecida para '$verification_label': $repair_strategy"
@@ -118,11 +123,13 @@ attempt_final_repair_once() {
     fi
   fi
 
-  if (( should_repair_origin == 1 )); then
+  if ((${#repair_origin_repos[@]} > 0)); then
     announce_detail "Ajustando o remoto principal do repositório..."
-    if ! ensure_repo_origin_remote "$SCRIPT_DIR" "$REPO_SSH_URL"; then
-      return 1
-    fi
+    for repo_dir in "${repair_origin_repos[@]}"; do
+      if ! ensure_managed_repo_origin_ssh "$repo_dir" && ! ensure_repo_origin_remote "$repo_dir" "$REPO_SSH_URL"; then
+        return 1
+      fi
+    done
   fi
 
   if (( should_start_services == 1 )) || ((${#pacman_missing_packages[@]} > 0)); then

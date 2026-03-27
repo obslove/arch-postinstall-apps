@@ -120,6 +120,105 @@ create_directories_step() {
   step_result_success "Os diretórios base foram garantidos."
 }
 
+relocate_home_repositories_step() {
+  local loose_repositories=()
+  local repo_dir
+  local move_status=0
+  local moved_count=0
+  local failed_count=0
+
+  step_result_reset
+
+  collect_loose_home_git_repositories loose_repositories
+  if ((${#loose_repositories[@]} == 0)); then
+    step_result_skipped "Nenhum repositório git solto foi encontrado na home."
+    return 0
+  fi
+
+  for repo_dir in "${loose_repositories[@]}"; do
+    relocate_loose_home_git_repository "$repo_dir"
+    move_status=$?
+
+    case "$move_status" in
+      0)
+        moved_count=$((moved_count + 1))
+        report_mark_change "home_repo:$(basename "$repo_dir")"
+        ;;
+      2)
+        ;;
+      *)
+        failed_count=$((failed_count + 1))
+        ;;
+    esac
+  done
+
+  if (( failed_count > 0 )); then
+    step_result_soft_fail "Nem todos os repositórios git soltos na home puderam ser movidos para $REPOSITORIES_DIR."
+    return 0
+  fi
+
+  if (( moved_count > 0 )); then
+    step_result_success "Os repositórios git soltos na home foram movidos para $REPOSITORIES_DIR."
+    return 0
+  fi
+
+  step_result_skipped "Os repositórios git soltos já estavam alinhados com $REPOSITORIES_DIR."
+}
+
+sync_managed_repositories_step() {
+  local repo_sync_handlers=(
+    "sync_easyeffects_preset_repo"
+    "sync_terminal_lyrics_repo"
+    "sync_synthetic_profile_generator_repo"
+    "sync_obslove_dots_repo"
+  )
+  local sync_handler=""
+  local sync_status=0
+  local changed_count=0
+  local failed_count=0
+  local skipped_count=0
+
+  step_result_reset
+
+  for sync_handler in "${repo_sync_handlers[@]}"; do
+    "$sync_handler"
+    sync_status=$?
+
+    case "$sync_status" in
+      0)
+        changed_count=$((changed_count + 1))
+        ;;
+      2|3)
+        skipped_count=$((skipped_count + 1))
+        ;;
+      *)
+        failed_count=$((failed_count + 1))
+        ;;
+    esac
+  done
+
+  if (( changed_count > 0 )); then
+    report_mark_change "managed_repositories"
+  fi
+
+  if (( failed_count > 0 )); then
+    step_result_soft_fail "Nem todos os repositórios gerenciados puderam ser sincronizados."
+    return 0
+  fi
+
+  if (( changed_count > 0 )); then
+    step_result_success "Os repositórios gerenciados foram garantidos em Projects, Dots e EasyEffects-Preset."
+    return 0
+  fi
+
+  if (( skipped_count > 0 )); then
+    step_result_skipped "Os repositórios gerenciados já estavam alinhados ou foram mantidos como estão."
+    return 0
+  fi
+
+  step_result_skipped "Nenhum repositório gerenciado precisou de sincronização."
+}
+
 ensure_multilib_step() {
   step_result_reset
 

@@ -91,10 +91,12 @@ append_runtime_install_pipeline() {
   local origin_status=0
 
   append_registered_step "create_directories"
+  append_registered_step "relocate_home_repositories"
   append_registered_step "ensure_multilib"
   append_registered_step "update_system"
   append_registered_step "install_local_support_packages"
   append_runtime_component_steps "pre_package"
+  append_registered_step "sync_managed_repositories"
 
   if target_packages_have_official_entries "$package_array_name"; then
     append_registered_step "prepare_package_installation"
@@ -163,6 +165,8 @@ register_step_definition "runtime_validate_environment" "all" "Validando ambient
 register_step_definition "load_configuration" "all" "Carregando configuração..." "load_configuration_step"
 register_step_definition "check_only_verification" "check" "Executando verificação sem alterações..." "check_only_step"
 register_step_definition "create_directories" "install" "Criando diretórios..." "create_directories_step"
+register_step_definition "relocate_home_repositories" "install" "Reorganizando repositórios da home..." "relocate_home_repositories_step"
+register_step_definition "sync_managed_repositories" "install" "Sincronizando repositórios gerenciados..." "sync_managed_repositories_step"
 register_step_definition "ensure_multilib" "install" "Preparando repositório multilib..." "ensure_multilib_step"
 register_step_definition "update_system" "install" "Atualizando o sistema..." "update_system_step"
 register_step_definition "install_local_support_packages" "install" "Instalando ferramentas de suporte..." "install_local_support_packages_step"
