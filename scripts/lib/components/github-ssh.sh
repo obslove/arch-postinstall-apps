@@ -211,8 +211,11 @@ component_apply_github_ssh() {
     announce_warning "A chave SSH foi configurada, mas não foi possível ajustar o remoto do repositório para SSH."
   fi
   if [[ "$INSTALL_DIR" != "$SCRIPT_DIR" ]]; then
-    reconcile_managed_repo_origin_ssh "$INSTALL_DIR"
-    reconcile_status=$?
+    if reconcile_managed_repo_origin_ssh "$INSTALL_DIR"; then
+      reconcile_status=0
+    else
+      reconcile_status=$?
+    fi
     if [[ "$reconcile_status" == "1" ]]; then
       announce_warning "A chave SSH foi configurada, mas não foi possível ajustar o clone gerenciado para SSH."
     fi
@@ -220,8 +223,11 @@ component_apply_github_ssh() {
 
   mapfile -t managed_repo_dirs < <(managed_environment_repo_dirs)
   for repo_dir in "${managed_repo_dirs[@]}"; do
-    reconcile_managed_repo_origin_ssh "$repo_dir"
-    reconcile_status=$?
+    if reconcile_managed_repo_origin_ssh "$repo_dir"; then
+      reconcile_status=0
+    else
+      reconcile_status=$?
+    fi
     if [[ "$reconcile_status" == "1" ]]; then
       announce_warning "A chave SSH foi configurada, mas não foi possível ajustar o repositório gerenciado em $repo_dir para SSH."
     fi
