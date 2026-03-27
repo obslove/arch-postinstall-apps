@@ -2,7 +2,6 @@
 # shellcheck shell=bash
 # shellcheck disable=SC2034
 # shellcheck source-path=SCRIPTDIR
-# shellcheck source=scripts/lib/shellcheck-runtime.sh
 # shellcheck source=scripts/lib/ops.sh
 # shellcheck source=scripts/lib/status.sh
 # shellcheck source=scripts/lib/components.sh
@@ -11,18 +10,6 @@
 # shellcheck source=scripts/lib/components/github-ssh/auth.sh
 # shellcheck source=scripts/lib/components/github-ssh/key.sh
 # shellcheck source=scripts/lib/components/github-ssh/publish.sh
-
-if false; then
-  source "$SCRIPT_DIR/scripts/lib/shellcheck-runtime.sh"
-  source "$SCRIPT_DIR/scripts/lib/ops.sh"
-  source "$SCRIPT_DIR/scripts/lib/status.sh"
-  source "$SCRIPT_DIR/scripts/lib/components.sh"
-  source "$SCRIPT_DIR/scripts/lib/repo.sh"
-  source "$SCRIPT_DIR/scripts/lib/components/github-ssh/clipboard.sh"
-  source "$SCRIPT_DIR/scripts/lib/components/github-ssh/auth.sh"
-  source "$SCRIPT_DIR/scripts/lib/components/github-ssh/key.sh"
-  source "$SCRIPT_DIR/scripts/lib/components/github-ssh/publish.sh"
-fi
 
 GITHUB_SSH_COMPONENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)/github-ssh"
 # shellcheck source=github-ssh/clipboard.sh

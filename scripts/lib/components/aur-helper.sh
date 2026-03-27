@@ -2,15 +2,8 @@
 # shellcheck shell=bash
 # shellcheck disable=SC2034
 # shellcheck source-path=SCRIPTDIR
-# shellcheck source=scripts/lib/shellcheck-runtime.sh
 # shellcheck source=scripts/lib/ops.sh
 # shellcheck source=scripts/lib/components.sh
-
-if false; then
-  source "$SCRIPT_DIR/scripts/lib/shellcheck-runtime.sh"
-  source "$SCRIPT_DIR/scripts/lib/ops.sh"
-  source "$SCRIPT_DIR/scripts/lib/components.sh"
-fi
 
 detect_aur_helper() {
   if command -v yay >/dev/null 2>&1; then

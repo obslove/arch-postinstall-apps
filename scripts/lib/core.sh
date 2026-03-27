@@ -2,7 +2,6 @@
 # shellcheck shell=bash
 # shellcheck disable=SC2034
 # shellcheck source-path=SCRIPTDIR
-# shellcheck source=scripts/lib/shellcheck-runtime.sh
 # shellcheck source=scripts/lib/status.sh
 # shellcheck source=scripts/lib/runtime-config.sh
 # shellcheck source=scripts/lib/runtime-state.sh
@@ -12,19 +11,6 @@
 # shellcheck source=scripts/lib/process.sh
 # shellcheck source=scripts/lib/locking.sh
 # shellcheck source=scripts/lib/env.sh
-
-if false; then
-  source "$SCRIPT_DIR/scripts/lib/shellcheck-runtime.sh"
-  source "$SCRIPT_DIR/scripts/lib/status.sh"
-  source "$SCRIPT_DIR/scripts/lib/runtime-config.sh"
-  source "$SCRIPT_DIR/scripts/lib/runtime-state.sh"
-  source "$SCRIPT_DIR/scripts/lib/execution-report.sh"
-  source "$SCRIPT_DIR/scripts/lib/step-result.sh"
-  source "$SCRIPT_DIR/scripts/lib/ui.sh"
-  source "$SCRIPT_DIR/scripts/lib/process.sh"
-  source "$SCRIPT_DIR/scripts/lib/locking.sh"
-  source "$SCRIPT_DIR/scripts/lib/env.sh"
-fi
 
 SHARED_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 # shellcheck source=runtime-config.sh

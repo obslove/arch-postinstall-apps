@@ -186,7 +186,7 @@ bash scripts/check-repo.sh
 ```
 
 > [!TIP]
-> Esse check cobre geração do `dist/install.sh`, prelude do `shellcheck`, parser de CLI, README e consistência do bootstrap publicado.
+> Esse check cobre geração do `dist/install.sh`, lint dos entrypoints reais, parser de CLI, README e consistência do bootstrap publicado.
 
 ## Publicação do bootstrap
 

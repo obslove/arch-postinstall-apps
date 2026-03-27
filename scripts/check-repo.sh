@@ -118,8 +118,9 @@ build_check_file_lists() {
   append_check_file SYNTAX_FILES "$LOCAL_INSTALL_FILE"
   append_check_file SYNTAX_FILES "$PUBLIC_BOOTSTRAP_FILE"
   append_check_file SYNTAX_FILES "$REPO_DIR/scripts/build-bootstrap.sh"
-  append_check_file SYNTAX_FILES "$REPO_DIR/scripts/build-shellcheck-runtime.sh"
   append_check_file SYNTAX_FILES "$REPO_DIR/scripts/check-published-bootstrap.sh"
+  append_check_file SYNTAX_FILES "$REPO_DIR/scripts/lint/bootstrap.sh"
+  append_check_file SYNTAX_FILES "$REPO_DIR/scripts/lint/runtime.sh"
   append_manifest_files SYNTAX_FILES "${BOOTSTRAP_CHECK_FILES[@]}"
   append_check_file SYNTAX_FILES "$REPO_DIR/scripts/install/main.sh"
   append_manifest_files SYNTAX_FILES "${RUNTIME_CHECK_FILES[@]}"
@@ -130,11 +131,10 @@ build_check_file_lists() {
   append_check_file SHELLCHECK_FILES "$PUBLIC_BOOTSTRAP_FILE"
   append_check_file SHELLCHECK_FILES "$REPO_DIR/scripts/check-repo.sh"
   append_check_file SHELLCHECK_FILES "$REPO_DIR/scripts/build-bootstrap.sh"
-  append_check_file SHELLCHECK_FILES "$REPO_DIR/scripts/build-shellcheck-runtime.sh"
   append_check_file SHELLCHECK_FILES "$REPO_DIR/scripts/check-published-bootstrap.sh"
-  append_manifest_files SHELLCHECK_FILES "${BOOTSTRAP_CHECK_FILES[@]}"
+  append_check_file SHELLCHECK_FILES "$REPO_DIR/scripts/lint/bootstrap.sh"
+  append_check_file SHELLCHECK_FILES "$REPO_DIR/scripts/lint/runtime.sh"
   append_check_file SHELLCHECK_FILES "$REPO_DIR/scripts/install/main.sh"
-  append_manifest_files SHELLCHECK_FILES "${RUNTIME_CHECK_FILES[@]}"
   append_check_file SHELLCHECK_FILES "$REPO_DIR/scripts/update-readme-packages.sh"
   append_check_file SHELLCHECK_FILES "$REPO_DIR/config/components.sh"
 }
@@ -142,10 +142,9 @@ build_check_file_lists() {
 main() {
   build_check_file_lists
   bash "$REPO_DIR/scripts/build-bootstrap.sh" --check
-  bash "$REPO_DIR/scripts/build-shellcheck-runtime.sh" --check
   bash "$REPO_DIR/scripts/update-readme-packages.sh" --check
   bash -n "${SYNTAX_FILES[@]}"
-  shellcheck -x "${SHELLCHECK_FILES[@]}"
+  shellcheck -S warning -a -x "${SHELLCHECK_FILES[@]}"
   check_help_output
   check_cli_parser
   check_readme_commands

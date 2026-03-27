@@ -16,6 +16,7 @@ manifest_append_unique() {
   local array_name="$1"
   local module_path="$2"
   local existing
+  # shellcheck disable=SC2178
   declare -n target_array="$array_name"
 
   for existing in "${target_array[@]}"; do
@@ -132,7 +133,6 @@ register_module_file "scripts/lib/flow.sh" \
 
 register_module_file "scripts/lib/runtime-state.sh" runtime-check
 register_module_file "scripts/lib/status.sh" runtime-check
-register_module_file "scripts/lib/shellcheck-runtime.sh" runtime-check
 register_module_file "scripts/lib/components/github-ssh/clipboard.sh" runtime-check
 register_module_file "scripts/lib/components/github-ssh/auth.sh" runtime-check
 register_module_file "scripts/lib/components/github-ssh/key.sh" runtime-check

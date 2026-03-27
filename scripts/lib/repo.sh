@@ -1,13 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # shellcheck source-path=SCRIPTDIR
-# shellcheck source=scripts/lib/shellcheck-runtime.sh
 # shellcheck source=scripts/lib/ops.sh
-
-if false; then
-  source "$SCRIPT_DIR/scripts/lib/shellcheck-runtime.sh"
-  source "$SCRIPT_DIR/scripts/lib/ops.sh"
-fi
 
 ensure_repo_origin_remote() {
   local repo_dir="$1"

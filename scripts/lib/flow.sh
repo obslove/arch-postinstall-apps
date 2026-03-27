@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # shellcheck source-path=SCRIPTDIR
-# shellcheck source=scripts/lib/shellcheck-runtime.sh
 # shellcheck source=scripts/lib/ops.sh
 # shellcheck source=scripts/lib/status.sh
 # shellcheck source=scripts/lib/components.sh
@@ -9,17 +8,6 @@
 # shellcheck source=scripts/lib/summary.sh
 # shellcheck source=scripts/lib/pipeline.sh
 # shellcheck source=scripts/lib/step-manifest.sh
-
-if false; then
-  source "$SCRIPT_DIR/scripts/lib/shellcheck-runtime.sh"
-  source "$SCRIPT_DIR/scripts/lib/ops.sh"
-  source "$SCRIPT_DIR/scripts/lib/status.sh"
-  source "$SCRIPT_DIR/scripts/lib/components.sh"
-  source "$SCRIPT_DIR/scripts/lib/runtime-state.sh"
-  source "$SCRIPT_DIR/scripts/lib/summary.sh"
-  source "$SCRIPT_DIR/scripts/lib/pipeline.sh"
-  source "$SCRIPT_DIR/scripts/lib/step-manifest.sh"
-fi
 
 handle_runtime_step_result_or_exit() {
   case "${STEP_RESULT_STATUS:-}" in

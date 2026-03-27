@@ -1,44 +1,6 @@
 # shellcheck shell=bash
 # shellcheck disable=SC2034
 # shellcheck source-path=SCRIPTDIR
-# shellcheck source=scripts/lib/cli.sh
-# shellcheck source=scripts/lib/runtime-config.sh
-# shellcheck source=scripts/lib/invocation-context.sh
-# shellcheck source=scripts/lib/step-result.sh
-# shellcheck source=scripts/lib/ui.sh
-# shellcheck source=scripts/lib/pipeline.sh
-# shellcheck source=scripts/lib/step-manifest.sh
-# shellcheck source=scripts/lib/process.sh
-# shellcheck source=scripts/lib/locking.sh
-# shellcheck source=scripts/lib/env.sh
-# shellcheck source=scripts/lib/ops.sh
-# shellcheck source=scripts/lib/repo.sh
-# shellcheck source=scripts/bootstrap/repo-sync.sh
-# shellcheck source=scripts/bootstrap/config.sh
-# shellcheck source=scripts/bootstrap/steps/system.sh
-# shellcheck source=scripts/bootstrap/steps/packages.sh
-# shellcheck source=scripts/bootstrap/steps/repo.sh
-
-if false; then
-  source "$SCRIPT_DIR/scripts/lib/cli.sh"
-  source "$SCRIPT_DIR/scripts/lib/runtime-config.sh"
-  source "$SCRIPT_DIR/scripts/lib/invocation-context.sh"
-  source "$SCRIPT_DIR/scripts/lib/step-result.sh"
-  source "$SCRIPT_DIR/scripts/lib/ui.sh"
-  source "$SCRIPT_DIR/scripts/lib/pipeline.sh"
-  source "$SCRIPT_DIR/scripts/lib/step-manifest.sh"
-  source "$SCRIPT_DIR/scripts/lib/process.sh"
-  source "$SCRIPT_DIR/scripts/lib/locking.sh"
-  source "$SCRIPT_DIR/scripts/lib/env.sh"
-  source "$SCRIPT_DIR/scripts/lib/ops.sh"
-  source "$SCRIPT_DIR/scripts/lib/repo.sh"
-  source "$SCRIPT_DIR/scripts/bootstrap/repo-sync.sh"
-  source "$SCRIPT_DIR/scripts/bootstrap/config.sh"
-  source "$SCRIPT_DIR/scripts/bootstrap/steps/system.sh"
-  source "$SCRIPT_DIR/scripts/bootstrap/steps/packages.sh"
-  source "$SCRIPT_DIR/scripts/bootstrap/steps/repo.sh"
-fi
-
 SELF_PATH="${BASH_SOURCE[0]:-$0}"
 BOOTSTRAP_SCRIPT_DIR="$(cd "$(dirname "$SELF_PATH")" && pwd)"
 

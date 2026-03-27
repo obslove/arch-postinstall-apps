@@ -2,19 +2,10 @@
 # shellcheck shell=bash
 # shellcheck disable=SC2034
 # shellcheck source-path=SCRIPTDIR
-# shellcheck source=scripts/lib/shellcheck-runtime.sh
 # shellcheck source=scripts/lib/ops.sh
 # shellcheck source=scripts/lib/status.sh
 # shellcheck source=scripts/lib/components.sh
 # shellcheck source=scripts/lib/runtime-state.sh
-
-if false; then
-  source "$SCRIPT_DIR/scripts/lib/shellcheck-runtime.sh"
-  source "$SCRIPT_DIR/scripts/lib/ops.sh"
-  source "$SCRIPT_DIR/scripts/lib/status.sh"
-  source "$SCRIPT_DIR/scripts/lib/components.sh"
-  source "$SCRIPT_DIR/scripts/lib/runtime-state.sh"
-fi
 
 desktop_integration_ready() {
   local package_name

@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
 # shellcheck source-path=SCRIPTDIR
-# shellcheck source=scripts/lib/shellcheck-runtime.sh
 # shellcheck source=scripts/lib/ops.sh
 # shellcheck source=scripts/lib/runtime-state.sh
 # shellcheck source=scripts/lib/repo.sh
@@ -9,17 +8,6 @@
 # shellcheck source=scripts/lib/components/aur-helper.sh
 # shellcheck source=scripts/lib/components/codex.sh
 # shellcheck source=scripts/lib/components/desktop.sh
-
-if false; then
-  source "$SCRIPT_DIR/scripts/lib/shellcheck-runtime.sh"
-  source "$SCRIPT_DIR/scripts/lib/ops.sh"
-  source "$SCRIPT_DIR/scripts/lib/runtime-state.sh"
-  source "$SCRIPT_DIR/scripts/lib/repo.sh"
-  source "$SCRIPT_DIR/scripts/lib/package-repos.sh"
-  source "$SCRIPT_DIR/scripts/lib/components/aur-helper.sh"
-  source "$SCRIPT_DIR/scripts/lib/components/codex.sh"
-  source "$SCRIPT_DIR/scripts/lib/components/desktop.sh"
-fi
 
 attempt_final_repair_once() {
   local array_name="$1"

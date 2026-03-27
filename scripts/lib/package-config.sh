@@ -2,12 +2,6 @@
 # shellcheck shell=bash
 # shellcheck disable=SC2034
 # shellcheck source-path=SCRIPTDIR
-# shellcheck source=scripts/lib/shellcheck-runtime.sh
-
-if false; then
-  source "$SCRIPT_DIR/scripts/lib/shellcheck-runtime.sh"
-fi
-
 PACKAGE_CATEGORY_ORDER=()
 declare -Ag PACKAGE_CATEGORY_BY_PACKAGE=()
 
